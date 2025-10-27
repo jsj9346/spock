@@ -1,0 +1,134 @@
+# US Stock Market Holidays (NYSE, NASDAQ, AMEX)
+#
+# US stock markets (NYSE, NASDAQ, AMEX) are closed on federal holidays
+# and follow specific market closure rules.
+#
+# Trading Hours:
+# - Regular: 09:30-16:00 ET (Mon-Fri)
+# - Early Close: 13:00 ET (day before/after certain holidays)
+#
+# Data Source: NYSE Holiday Schedule
+# Reference: https://www.nyse.com/markets/hours-calendars
+
+market: US
+exchanges:
+  - NYSE
+  - NASDAQ
+  - AMEX
+timezone: America/New_York
+
+# 2025 Market Holidays
+holidays_2025:
+  - date: "2025-01-01"
+    name: "New Year's Day"
+    day_of_week: "Wednesday"
+
+  - date: "2025-01-20"
+    name: "Martin Luther King Jr. Day"
+    day_of_week: "Monday"
+
+  - date: "2025-02-17"
+    name: "Presidents' Day"
+    day_of_week: "Monday"
+
+  - date: "2025-04-18"
+    name: "Good Friday"
+    day_of_week: "Friday"
+
+  - date: "2025-05-26"
+    name: "Memorial Day"
+    day_of_week: "Monday"
+
+  - date: "2025-06-19"
+    name: "Juneteenth National Independence Day"
+    day_of_week: "Thursday"
+
+  - date: "2025-07-04"
+    name: "Independence Day"
+    day_of_week: "Friday"
+
+  - date: "2025-09-01"
+    name: "Labor Day"
+    day_of_week: "Monday"
+
+  - date: "2025-11-27"
+    name: "Thanksgiving Day"
+    day_of_week: "Thursday"
+
+  - date: "2025-12-25"
+    name: "Christmas Day"
+    day_of_week: "Thursday"
+
+# Early Close Days (13:00 ET close)
+early_close_2025:
+  - date: "2025-07-03"
+    name: "Day Before Independence Day"
+    close_time: "13:00"
+
+  - date: "2025-11-28"
+    name: "Day After Thanksgiving"
+    close_time: "13:00"
+
+  - date: "2025-12-24"
+    name: "Christmas Eve"
+    close_time: "13:00"
+
+# 2026 Market Holidays
+holidays_2026:
+  - date: "2026-01-01"
+    name: "New Year's Day"
+    day_of_week: "Thursday"
+
+  - date: "2026-01-19"
+    name: "Martin Luther King Jr. Day"
+    day_of_week: "Monday"
+
+  - date: "2026-02-16"
+    name: "Presidents' Day"
+    day_of_week: "Monday"
+
+  - date: "2026-04-03"
+    name: "Good Friday"
+    day_of_week: "Friday"
+
+  - date: "2026-05-25"
+    name: "Memorial Day"
+    day_of_week: "Monday"
+
+  - date: "2026-06-19"
+    name: "Juneteenth National Independence Day"
+    day_of_week: "Friday"
+
+  - date: "2026-07-03"
+    name: "Independence Day (Observed)"
+    day_of_week: "Friday"
+    note: "July 4th falls on Saturday, observed Friday"
+
+  - date: "2026-09-07"
+    name: "Labor Day"
+    day_of_week: "Monday"
+
+  - date: "2026-11-26"
+    name: "Thanksgiving Day"
+    day_of_week: "Thursday"
+
+  - date: "2026-12-25"
+    name: "Christmas Day"
+    day_of_week: "Friday"
+
+# Early Close Days (13:00 ET close)
+early_close_2026:
+  - date: "2026-11-27"
+    name: "Day After Thanksgiving"
+    close_time: "13:00"
+
+  - date: "2026-12-24"
+    name: "Christmas Eve"
+    close_time: "13:00"
+
+# Special Notes
+# - If a holiday falls on Saturday, markets usually closed Friday
+# - If a holiday falls on Sunday, markets usually closed Monday
+# - Good Friday is not a federal holiday but markets are closed
+# - Day after Thanksgiving has early close at 13:00 ET
+# - Christmas Eve and day before Independence Day may have early close

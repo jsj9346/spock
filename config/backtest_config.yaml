@@ -1,0 +1,276 @@
+# ============================================================================
+# Backtesting Configuration
+# ============================================================================
+# Purpose: Define default settings for backtesting strategies
+#
+# Usage:
+#   from modules.backtesting import BacktestEngine
+#   import yaml
+#
+#   with open('config/backtest_config.yaml') as f:
+#       config = yaml.safe_load(f)
+#
+#   engine = BacktestEngine(
+#       initial_capital=config['backtest_settings']['initial_capital'],
+#       commission_rate=config['backtest_settings']['commission_rate']
+#   )
+#
+# Author: Quant Platform Development Team
+# Last Updated: 2025-10-21
+# Version: 1.0.0
+# ============================================================================
+
+# ============================================================================
+# Backtest Settings (백테스트 설정)
+# ============================================================================
+backtest_settings:
+  # Date range (기간 설정)
+  default_start_date: "2018-01-01"  # 5년 히스토리컬 데이터
+  default_end_date: "2023-12-31"
+
+  # Initial capital (초기 자본)
+  initial_capital: 100000000        # 1억원 (100 million KRW)
+
+  # Commission and fees (수수료 및 비용)
+  commission_rate: 0.00015          # 0.015% (KIS standard)
+  tax_rate: 0.0                     # 0% (세금 별도 계산 가능)
+
+  # Slippage (슬리피지)
+  slippage_bps: 5                   # 5 basis points
+  slippage_model: "volume_based"    # fixed, volume_based, volatility_based
+
+  # Market impact (시장 충격)
+  market_impact_model: "volume_based"
+  market_impact_coefficient: 0.1
+
+  # Rebalancing frequency (리밸런싱 주기)
+  rebalancing_frequency: "monthly"  # daily, weekly, monthly, quarterly
+
+  # Position sizing (포지션 사이징)
+  position_sizing_method: "equal_weight"  # equal_weight, risk_parity, kelly, custom
+  max_positions: 20                 # 최대 동시 보유 종목 수
+
+# ============================================================================
+# Performance Metrics (성과 지표)
+# ============================================================================
+performance_metrics:
+  # Return metrics (수익률 지표)
+  - total_return                    # 총 수익률
+  - annualized_return               # 연간 수익률
+  - cumulative_return               # 누적 수익률
+  - monthly_returns                 # 월별 수익률
+  - yearly_returns                  # 연도별 수익률
+
+  # Risk-adjusted metrics (위험조정 지표)
+  - sharpe_ratio                    # Sharpe ratio (무위험수익률 대비)
+  - sortino_ratio                   # Sortino ratio (하방 편차 대비)
+  - calmar_ratio                    # Calmar ratio (최대 낙폭 대비)
+  - omega_ratio                     # Omega ratio (이득/손실 비율)
+  - information_ratio               # Information ratio (vs. benchmark)
+
+  # Risk metrics (리스크 지표)
+  - volatility                      # 변동성 (표준편차)
+  - max_drawdown                    # 최대 낙폭
+  - max_drawdown_duration           # 최대 낙폭 지속 기간
+  - downside_deviation              # 하방 편차
+  - var_95                          # 95% VaR
+  - cvar_95                         # 95% CVaR
+
+  # Trading metrics (거래 지표)
+  - win_rate                        # 승률
+  - avg_win                         # 평균 이득
+  - avg_loss                        # 평균 손실
+  - profit_factor                   # 이득 팩터 (총이득/총손실)
+  - num_trades                      # 총 거래 횟수
+  - turnover                        # 회전율
+
+  # Benchmark comparison (벤치마크 비교)
+  - alpha                           # 알파 (초과 수익률)
+  - beta                            # 베타 (시장 민감도)
+  - tracking_error                  # 추적 오차
+  - active_return                   # 액티브 수익률
+
+# ============================================================================
+# Benchmark Settings (벤치마크 설정)
+# ============================================================================
+benchmark:
+  # Default benchmarks by region (지역별 기본 벤치마크)
+  default_benchmarks:
+    KR: "KOSPI"                     # 한국: 코스피
+    US: "SPY"                       # 미국: S&P 500 ETF
+    CN: "000300.SS"                 # 중국: CSI 300
+    JP: "N225"                      # 일본: Nikkei 225
+    HK: "HSI"                       # 홍콩: Hang Seng
+    VN: "VNINDEX"                   # 베트남: VN-Index
+
+  # Risk-free rate (무위험수익률)
+  risk_free_rate: 0.035             # 3.5% (US 10-year Treasury)
+
+# ============================================================================
+# Walk-Forward Optimization (워크포워드 최적화)
+# ============================================================================
+walk_forward:
+  # Enable walk-forward optimization (워크포워드 최적화 활성화)
+  enabled: true
+
+  # Training and testing periods (학습 및 테스트 기간)
+  train_period_years: 3             # 3년 학습 기간
+  test_period_years: 1              # 1년 테스트 기간
+  step_size_years: 1                # 1년씩 이동
+
+  # Re-optimization frequency (재최적화 주기)
+  reoptimize_frequency: "annually"  # monthly, quarterly, annually
+
+  # Optimization metric (최적화 지표)
+  optimization_metric: "sharpe_ratio"  # sharpe_ratio, calmar_ratio, sortino_ratio
+
+# ============================================================================
+# Monte Carlo Simulation (몬테카를로 시뮬레이션)
+# ============================================================================
+monte_carlo:
+  # Enable Monte Carlo simulation (몬테카를로 시뮬레이션 활성화)
+  enabled: false
+
+  # Simulation parameters (시뮬레이션 파라미터)
+  n_simulations: 10000              # 시뮬레이션 횟수
+  random_seed: 42                   # 재현성을 위한 시드
+
+  # Bootstrap settings (부트스트랩 설정)
+  bootstrap_method: "block"         # random, block, stationary
+  block_size: 20                    # 블록 크기 (일 단위)
+
+  # Confidence intervals (신뢰구간)
+  confidence_levels:
+    - 0.05                          # 5% percentile
+    - 0.50                          # 50% percentile (median)
+    - 0.95                          # 95% percentile
+
+# ============================================================================
+# Data Settings (데이터 설정)
+# ============================================================================
+data_settings:
+  # Data source priority (데이터 소스 우선순위)
+  data_sources:
+    - "database"                    # PostgreSQL (primary)
+    - "cache"                       # In-memory cache
+    - "api"                         # API fallback
+
+  # Data frequency (데이터 주기)
+  data_frequency: "daily"           # daily, hourly, minute
+
+  # Adjustment method (조정 방법)
+  adjustment_method: "total_return" # total_return, price_only
+
+  # Missing data handling (결측 데이터 처리)
+  fill_method: "ffill"              # ffill, bfill, interpolate, drop
+
+  # Outlier detection (이상치 탐지)
+  outlier_detection:
+    enabled: true
+    method: "zscore"                # zscore, iqr, isolation_forest
+    threshold: 3.0                  # Z-score threshold
+
+# ============================================================================
+# Risk Management (리스크 관리)
+# ============================================================================
+risk_management:
+  # Stop-loss (손절매)
+  stop_loss:
+    enabled: true
+    type: "trailing"                # fixed, trailing, ATR-based
+    percent: 0.08                   # 8% 손절매
+
+  # Take-profit (익절매)
+  take_profit:
+    enabled: true
+    percent: 0.20                   # 20% 익절매
+
+  # Position size limits (포지션 크기 제한)
+  max_position_size: 0.15           # 최대 15%
+  min_position_size: 0.01           # 최소 1%
+
+  # Maximum drawdown trigger (최대 낙폭 트리거)
+  max_drawdown_trigger:
+    enabled: true
+    threshold: 0.20                 # 20% 낙폭 시 거래 중단
+
+# ============================================================================
+# Reporting (보고서)
+# ============================================================================
+reporting:
+  # Output format (출력 형식)
+  output_format: "html"             # html, pdf, json, excel
+
+  # Report sections (보고서 섹션)
+  include_sections:
+    - summary                       # 요약
+    - equity_curve                  # 자산 곡선
+    - returns_distribution          # 수익률 분포
+    - drawdown_chart                # 낙폭 차트
+    - monthly_returns_heatmap       # 월별 수익률 히트맵
+    - trade_analysis                # 거래 분석
+    - risk_metrics                  # 리스크 지표
+    - benchmark_comparison          # 벤치마크 비교
+
+  # Chart settings (차트 설정)
+  chart_width: 1200
+  chart_height: 600
+  theme: "plotly_white"             # plotly, plotly_white, plotly_dark
+
+# ============================================================================
+# Optimization Settings (최적화 설정)
+# ============================================================================
+optimization:
+  # Parameter optimization (파라미터 최적화)
+  method: "grid_search"             # grid_search, random_search, bayesian
+
+  # Grid search settings (그리드 탐색 설정)
+  grid_search:
+    n_jobs: -1                      # CPU 코어 수 (-1 = all)
+    verbose: 1
+
+  # Random search settings (랜덤 탐색 설정)
+  random_search:
+    n_iterations: 100
+    random_seed: 42
+
+  # Bayesian optimization settings (베이지안 최적화 설정)
+  bayesian:
+    n_iterations: 50
+    acquisition_function: "ei"      # ei, poi, ucb
+
+# ============================================================================
+# Advanced Settings (고급 설정)
+# ============================================================================
+advanced:
+  # Transaction cost analysis (거래비용 분석)
+  transaction_cost_analysis:
+    enabled: true
+    break_down_by_region: true
+    break_down_by_asset_class: true
+
+  # Scenario analysis (시나리오 분석)
+  scenario_analysis:
+    enabled: false
+    scenarios:
+      - "2008_crisis"
+      - "2020_covid"
+      - "2022_bear"
+
+  # Sensitivity analysis (민감도 분석)
+  sensitivity_analysis:
+    enabled: false
+    parameters:
+      - "commission_rate"
+      - "rebalancing_frequency"
+      - "position_size"
+
+  # Out-of-sample validation (표본 외 검증)
+  out_of_sample:
+    enabled: true
+    holdout_ratio: 0.2              # 20% 홀드아웃
+
+  # Multiple testing correction (다중 검정 보정)
+  multiple_testing:
+    enabled: true
+    method: "bonferroni"            # bonferroni, holm, fdr

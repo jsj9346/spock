@@ -1,0 +1,289 @@
+# Grafana Alert Rules for FX Collection Monitoring
+#
+# Purpose: Define critical alerts for FX data collection failures and anomalies
+# Integration: Works with Prometheus metrics from fx_collection_metrics.py
+#
+# Alert Severity Levels:
+# - critical: Immediate action required (page/SMS)
+# - warning: Review required within hours (email)
+# - info: Awareness only (dashboard notification)
+
+groups:
+  - name: fx_collection_alerts
+    interval: 1m
+    rules:
+
+      # ================================================================
+      # CRITICAL ALERTS - Immediate Action Required
+      # ================================================================
+
+      - alert: FXCollectionConsecutiveFailures
+        expr: fx_consecutive_failures_count >= 2
+        for: 5m
+        labels:
+          severity: critical
+          component: fx_collection
+        annotations:
+          summary: "FX collection failing for {{ $labels.currency }}"
+          description: |
+            FX data collection has failed {{ $value }} times consecutively for {{ $labels.currency }}.
+            This may indicate:
+            - BOK API outage or rate limiting
+            - Database connectivity issues
+            - Network problems
+
+            IMMEDIATE ACTION REQUIRED:
+            1. Check BOK API status: https://ecos.bok.or.kr
+            2. Verify PostgreSQL connection
+            3. Check logs: logs/fx_collection_*.log
+            4. Run manual collection: python3 scripts/collect_fx_data.py --currencies {{ $labels.currency }}
+
+      - alert: FXBOKAPIDown
+        expr: fx_bok_api_health == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: bok_api
+        annotations:
+          summary: "BOK API is DOWN"
+          description: |
+            Bank of Korea API health check is failing.
+            All FX data collection will fail until resolved.
+
+            IMMEDIATE ACTION:
+            1. Check BOK API status: https://ecos.bok.or.kr
+            2. Verify API key if configured
+            3. Check rate limiting (10 req/sec limit)
+            4. Review error logs for HTTP status codes
+
+      - alert: FXPostgreSQLDown
+        expr: fx_postgres_health == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "PostgreSQL database is DOWN"
+          description: |
+            PostgreSQL connection health check is failing.
+            FX data cannot be persisted.
+
+            IMMEDIATE ACTION:
+            1. Check PostgreSQL service status
+            2. Verify connection string in .env
+            3. Check database server resources
+            4. Review PostgreSQL logs
+
+      - alert: FXDataQualityCritical
+        expr: fx_data_quality_score < 0.5
+        for: 15m
+        labels:
+          severity: critical
+          component: data_quality
+        annotations:
+          summary: "Critical data quality issues for {{ $labels.currency }}"
+          description: |
+            FX data quality score is {{ $value }} (below 0.5 critical threshold).
+            This indicates:
+            - Missing USD/KRW rate for normalization
+            - Stale data (>48h old)
+            - Database corruption
+
+            IMMEDIATE ACTION:
+            1. Verify USD/KRW rate availability
+            2. Check BOK API responses
+            3. Run backfill: python3 scripts/backfill_fx_history.py --currencies {{ $labels.currency }} --years 1
+            4. Refresh materialized view
+
+      # ================================================================
+      # WARNING ALERTS - Review Required (Hours)
+      # ================================================================
+
+      - alert: FXCollectionSingleFailure
+        expr: fx_consecutive_failures_count == 1
+        for: 30m
+        labels:
+          severity: warning
+          component: fx_collection
+        annotations:
+          summary: "FX collection failure for {{ $labels.currency }}"
+          description: |
+            Single FX collection failure detected for {{ $labels.currency }}.
+            Monitoring for consecutive failures.
+
+            REVIEW REQUIRED:
+            1. Check recent logs for error details
+            2. Verify BOK API rate limiting
+            3. Monitor for pattern development
+
+      - alert: FXRateChangeSuspicious
+        expr: abs(fx_rate_change_daily_percent) > 5
+        for: 10m
+        labels:
+          severity: warning
+          component: data_validation
+        annotations:
+          summary: "Suspicious rate change for {{ $labels.currency }}"
+          description: |
+            {{ $labels.currency }} rate changed by {{ $value }}% (threshold: ±5%).
+            This may indicate:
+            - Major market event (verify news)
+            - Data quality issue
+            - BOK API error
+
+            REVIEW REQUIRED:
+            1. Verify against external sources (Bloomberg, Reuters)
+            2. Check BOK API data consistency
+            3. Review historical rate changes
+            4. Consider manual data verification
+
+      - alert: FXDataQualityDegraded
+        expr: fx_data_quality_score >= 0.5 and fx_data_quality_score < 0.8
+        for: 1h
+        labels:
+          severity: warning
+          component: data_quality
+        annotations:
+          summary: "Degraded data quality for {{ $labels.currency }}"
+          description: |
+            FX data quality score is {{ $value }} (below 0.8 warning threshold).
+            Data is usable but sub-optimal.
+
+            REVIEW REQUIRED:
+            1. Check for missing historical data
+            2. Verify USD normalization accuracy
+            3. Consider running backfill
+
+      - alert: FXMissingDaysWarning
+        expr: fx_missing_days_count >= 3 and fx_missing_days_count < 7
+        for: 1h
+        labels:
+          severity: warning
+          component: data_completeness
+        annotations:
+          summary: "{{ $value }} missing days for {{ $labels.currency }}"
+          description: |
+            {{ $labels.currency }} is missing {{ $value }} days of data in last 30 days.
+            This may impact analysis accuracy.
+
+            REVIEW REQUIRED:
+            1. Identify missing date ranges
+            2. Check BOK API availability for those dates
+            3. Run targeted backfill
+
+      - alert: FXCollectionSlowPerformance
+        expr: histogram_quantile(0.95, sum by (currency, le) (rate(fx_collection_duration_seconds_bucket[5m]))) > 10
+        for: 15m
+        labels:
+          severity: warning
+          component: performance
+        annotations:
+          summary: "Slow FX collection for {{ $labels.currency }}"
+          description: |
+            95th percentile collection duration is {{ $value }}s (threshold: 10s).
+            This may indicate:
+            - BOK API performance degradation
+            - Database slow queries
+            - Network latency
+
+            REVIEW REQUIRED:
+            1. Check BOK API response times
+            2. Review database query performance
+            3. Monitor system resources
+
+      - alert: FXCollectionSuccessRateLow
+        expr: |
+          100 * sum(rate(fx_collection_success_total[24h]))
+          / (sum(rate(fx_collection_success_total[24h])) + sum(rate(fx_collection_errors_total[24h]))) < 95
+        for: 1h
+        labels:
+          severity: warning
+          component: reliability
+        annotations:
+          summary: "Low FX collection success rate"
+          description: |
+            Overall success rate is {{ $value }}% (threshold: 95%).
+            Multiple currencies experiencing intermittent failures.
+
+            REVIEW REQUIRED:
+            1. Identify affected currencies
+            2. Check error types distribution
+            3. Review system health metrics
+            4. Consider infrastructure scaling
+
+      # ================================================================
+      # INFO ALERTS - Awareness Only
+      # ================================================================
+
+      - alert: FXMissingDaysInfo
+        expr: fx_missing_days_count >= 1 and fx_missing_days_count < 3
+        for: 6h
+        labels:
+          severity: info
+          component: data_completeness
+        annotations:
+          summary: "{{ $value }} missing day(s) for {{ $labels.currency }}"
+          description: |
+            Minor data gaps detected for {{ $labels.currency }}.
+            Impact on analysis is minimal but should be tracked.
+
+            NO IMMEDIATE ACTION REQUIRED.
+            Consider running backfill during maintenance window.
+
+      - alert: FXHighAPICallRate
+        expr: rate(fx_api_calls_total[5m]) > 8
+        for: 10m
+        labels:
+          severity: info
+          component: api_usage
+        annotations:
+          summary: "High BOK API call rate"
+          description: |
+            BOK API call rate is {{ $value }} req/sec (conservative limit: 10 req/sec).
+            Approaching rate limit threshold.
+
+            AWARENESS:
+            Monitor for potential rate limiting.
+            Consider implementing additional throttling if sustained.
+
+      - alert: FXBackfillInProgress
+        expr: fx_backfill_progress_percent > 0 and fx_backfill_progress_percent < 100
+        for: 5m
+        labels:
+          severity: info
+          component: backfill
+        annotations:
+          summary: "FX backfill in progress for {{ $labels.currency }}"
+          description: |
+            Historical backfill is {{ $value }}% complete for {{ $labels.currency }}.
+
+            INFORMATIONAL ONLY.
+            Monitor backfill completion.
+
+# ================================================================
+# Alert Rule Best Practices
+# ================================================================
+#
+# 1. Alert Fatigue Prevention:
+#    - Use appropriate 'for' durations to avoid transient alerts
+#    - Set thresholds based on actual impact
+#    - Group related alerts
+#
+# 2. Actionable Alerts:
+#    - Always include specific remediation steps
+#    - Provide relevant context (thresholds, expected values)
+#    - Link to documentation when applicable
+#
+# 3. Severity Guidelines:
+#    - critical: Data loss, complete outage, security breach
+#    - warning: Degraded performance, approaching limits
+#    - info: Awareness, trends, non-critical state changes
+#
+# 4. Alert Routing (configured in Alertmanager):
+#    - critical → Page/SMS + Email
+#    - warning → Email
+#    - info → Dashboard notification only
+#
+# 5. Testing Alert Rules:
+#    amtool check-config alert_rules.yaml
+#    promtool check rules alert_rules.yaml

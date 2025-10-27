@@ -1,0 +1,237 @@
+# Japan Stock Market (TSE) Trading Calendar
+# Reference: https://www.jpx.co.jp/english/corporate/about-jpx/calendar/
+#            Tokyo Stock Exchange Official Trading Calendar
+
+market: JP
+exchanges: [TSE]
+timezone: Asia/Tokyo  # JST (UTC+9)
+
+# Regular trading hours
+trading_hours:
+  pre_market: null  # No pre-market
+  regular:
+    morning:
+      open: "09:00"
+      close: "11:30"
+    afternoon:
+      open: "12:30"
+      close: "15:00"
+  post_market: null  # No after-hours trading
+  note: "Trading hours with 1-hour lunch break (11:30-12:30)"
+
+# TSE holidays for 2025
+# Source: Japan Exchange Group official calendar
+holidays_2025:
+  # New Year Holiday (Dec 31 - Jan 3)
+  - date: "2025-01-01"
+    name: "New Year's Day"
+    type: "public_holiday"
+    note: "Market closed Dec 31 - Jan 3"
+
+  - date: "2025-01-02"
+    name: "New Year Holiday"
+    type: "public_holiday"
+
+  - date: "2025-01-03"
+    name: "New Year Holiday"
+    type: "public_holiday"
+
+  - date: "2025-01-13"
+    name: "Coming of Age Day"
+    type: "public_holiday"
+    note: "Second Monday of January"
+
+  - date: "2025-02-11"
+    name: "National Foundation Day"
+    type: "public_holiday"
+
+  - date: "2025-02-23"
+    name: "Emperor's Birthday"
+    type: "public_holiday"
+
+  - date: "2025-03-20"
+    name: "Vernal Equinox Day"
+    type: "public_holiday"
+    note: "Spring Equinox"
+
+  # Golden Week (April 29 - May 5)
+  - date: "2025-04-29"
+    name: "Showa Day"
+    type: "public_holiday"
+    note: "Start of Golden Week"
+
+  - date: "2025-05-03"
+    name: "Constitution Memorial Day"
+    type: "public_holiday"
+
+  - date: "2025-05-04"
+    name: "Greenery Day"
+    type: "public_holiday"
+
+  - date: "2025-05-05"
+    name: "Children's Day"
+    type: "public_holiday"
+    note: "End of Golden Week"
+
+  - date: "2025-07-21"
+    name: "Marine Day"
+    type: "public_holiday"
+    note: "Third Monday of July"
+
+  - date: "2025-08-11"
+    name: "Mountain Day"
+    type: "public_holiday"
+
+  - date: "2025-09-15"
+    name: "Respect for the Aged Day"
+    type: "public_holiday"
+    note: "Third Monday of September"
+
+  - date: "2025-09-23"
+    name: "Autumnal Equinox Day"
+    type: "public_holiday"
+    note: "Fall Equinox"
+
+  - date: "2025-10-13"
+    name: "Sports Day"
+    type: "public_holiday"
+    note: "Second Monday of October (formerly Health-Sports Day)"
+
+  - date: "2025-11-03"
+    name: "Culture Day"
+    type: "public_holiday"
+
+  - date: "2025-11-23"
+    name: "Labor Thanksgiving Day"
+    type: "public_holiday"
+
+  - date: "2025-12-31"
+    name: "Year-End Holiday"
+    type: "market_holiday"
+    note: "Market closes early at 12:30 or full day closure"
+
+# TSE holidays for 2026
+holidays_2026:
+  # New Year Holiday
+  - date: "2026-01-01"
+    name: "New Year's Day"
+    type: "public_holiday"
+
+  - date: "2026-01-02"
+    name: "New Year Holiday"
+    type: "public_holiday"
+
+  - date: "2026-01-03"
+    name: "New Year Holiday"
+    type: "public_holiday"
+
+  - date: "2026-01-12"
+    name: "Coming of Age Day"
+    type: "public_holiday"
+    note: "Second Monday of January"
+
+  - date: "2026-02-11"
+    name: "National Foundation Day"
+    type: "public_holiday"
+
+  - date: "2026-02-23"
+    name: "Emperor's Birthday"
+    type: "public_holiday"
+
+  - date: "2026-03-20"
+    name: "Vernal Equinox Day"
+    type: "public_holiday"
+
+  # Golden Week
+  - date: "2026-04-29"
+    name: "Showa Day"
+    type: "public_holiday"
+
+  - date: "2026-05-03"
+    name: "Constitution Memorial Day"
+    type: "public_holiday"
+
+  - date: "2026-05-04"
+    name: "Greenery Day"
+    type: "public_holiday"
+
+  - date: "2026-05-05"
+    name: "Children's Day"
+    type: "public_holiday"
+
+  - date: "2026-05-06"
+    name: "Golden Week Substitute Holiday"
+    type: "public_holiday"
+    note: "May 3 falls on Sunday, substitute on Monday"
+
+  - date: "2026-07-20"
+    name: "Marine Day"
+    type: "public_holiday"
+
+  - date: "2026-08-11"
+    name: "Mountain Day"
+    type: "public_holiday"
+
+  - date: "2026-09-21"
+    name: "Respect for the Aged Day"
+    type: "public_holiday"
+
+  - date: "2026-09-22"
+    name: "Autumnal Equinox Day"
+    type: "public_holiday"
+
+  - date: "2026-10-12"
+    name: "Sports Day"
+    type: "public_holiday"
+
+  - date: "2026-11-03"
+    name: "Culture Day"
+    type: "public_holiday"
+
+  - date: "2026-11-23"
+    name: "Labor Thanksgiving Day"
+    type: "public_holiday"
+
+  - date: "2026-12-31"
+    name: "Year-End Holiday"
+    type: "market_holiday"
+
+# Special notes
+special_notes:
+  golden_week:
+    description: "Golden Week (late April - early May) is Japan's longest holiday period"
+    dates: "April 29 - May 5 (varies by year)"
+    market_impact: "High volatility before/after due to extended closure"
+
+  year_end:
+    description: "Year-end trading closure"
+    dates: "December 31 - January 3"
+    market_impact: "Low liquidity in late December"
+
+  substitute_holidays:
+    description: "When a national holiday falls on Sunday, the following Monday becomes a substitute holiday"
+    rule: "Furikae Kyujitsu (振替休日)"
+
+  obon:
+    description: "Obon (mid-August) is not an official holiday but many businesses close"
+    dates: "August 13-16 (approximate)"
+    market_impact: "Lower trading volume, but market remains open"
+
+  trading_days_per_year:
+    average: "~245 trading days (vs ~252 in US)"
+    note: "Japan has more public holidays than most markets"
+
+# Market characteristics
+market_info:
+  exchange_name: "Tokyo Stock Exchange (TSE)"
+  market_segments:
+    - "Prime Market (formerly TSE 1st Section)"
+    - "Standard Market (formerly TSE 2nd Section)"
+    - "Growth Market (formerly JASDAQ/Mothers)"
+  trading_system: "Arrowhead (ultra-fast trading system)"
+  settlement: "T+2 (trade date + 2 business days)"
+  circuit_breakers:
+    - "±10% daily price limit for most stocks"
+    - "Market-wide circuit breaker on significant index declines"
+  lunch_break: "11:30-12:30 (1 hour)"
+  market_makers: "Securities companies provide liquidity"

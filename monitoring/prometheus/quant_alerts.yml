@@ -1,0 +1,399 @@
+# Prometheus Alert Rules for Quant Platform
+# Application-Level Monitoring: Backtesting, Factor Analysis, Portfolio Optimization
+
+groups:
+  # ========================================
+  # Backtest Performance Alerts
+  # ========================================
+  - name: backtest_performance
+    interval: 30s
+    rules:
+      # Slow backtest execution (P95 > 60 seconds)
+      - alert: SlowBacktestExecution
+        expr: |
+          histogram_quantile(0.95,
+            rate(backtest_duration_seconds_bucket[5m])
+          ) > 60
+        for: 10m
+        labels:
+          severity: warning
+          category: backtest_performance
+        annotations:
+          summary: "Slow backtest execution for strategy {{ $labels.strategy_name }}"
+          description: "95th percentile backtest duration is {{ $value }}s for strategy {{ $labels.strategy_name }} (threshold: 60s)"
+
+      # High backtest failure rate (> 20%)
+      - alert: HighBacktestFailureRate
+        expr: |
+          (
+            sum(rate(backtest_executions_total{status="failed"}[5m])) by (strategy_name, engine)
+            /
+            sum(rate(backtest_executions_total[5m])) by (strategy_name, engine)
+          ) > 0.20
+        for: 10m
+        labels:
+          severity: warning
+          category: backtest_performance
+        annotations:
+          summary: "High backtest failure rate for {{ $labels.strategy_name }}"
+          description: "Backtest failure rate is {{ $value | humanizePercentage }} for {{ $labels.strategy_name }} (threshold: 20%)"
+
+      # Critical backtest failure rate (> 50%)
+      - alert: CriticalBacktestFailureRate
+        expr: |
+          (
+            sum(rate(backtest_executions_total{status="failed"}[5m])) by (strategy_name, engine)
+            /
+            sum(rate(backtest_executions_total[5m])) by (strategy_name, engine)
+          ) > 0.50
+        for: 5m
+        labels:
+          severity: critical
+          category: backtest_performance
+        annotations:
+          summary: "CRITICAL: Backtest failure rate for {{ $labels.strategy_name }}"
+          description: "Backtest failure rate is {{ $value | humanizePercentage }} for {{ $labels.strategy_name }} (threshold: 50%)"
+
+      # Backtest timeout rate high (> 10%)
+      - alert: HighBacktestTimeoutRate
+        expr: |
+          (
+            sum(rate(backtest_executions_total{status="timeout"}[5m])) by (strategy_name)
+            /
+            sum(rate(backtest_executions_total[5m])) by (strategy_name)
+          ) > 0.10
+        for: 10m
+        labels:
+          severity: warning
+          category: backtest_performance
+        annotations:
+          summary: "High backtest timeout rate for {{ $labels.strategy_name }}"
+          description: "Backtest timeout rate is {{ $value | humanizePercentage }} for {{ $labels.strategy_name }} (threshold: 10%)"
+
+  # ========================================
+  # Backtest Result Quality Alerts
+  # ========================================
+  - name: backtest_quality
+    interval: 60s
+    rules:
+      # Low Sharpe ratio warning (< 0.5)
+      - alert: LowSharpeRatio
+        expr: backtest_sharpe_ratio < 0.5
+        for: 1m
+        labels:
+          severity: info
+          category: backtest_quality
+        annotations:
+          summary: "Low Sharpe ratio for strategy {{ $labels.strategy_name }}"
+          description: "Sharpe ratio is {{ $value }} for {{ $labels.strategy_name }} (threshold: 0.5)"
+
+      # Negative Sharpe ratio (losing strategy)
+      - alert: NegativeSharpeRatio
+        expr: backtest_sharpe_ratio < 0
+        for: 1m
+        labels:
+          severity: warning
+          category: backtest_quality
+        annotations:
+          summary: "Negative Sharpe ratio for strategy {{ $labels.strategy_name }}"
+          description: "Sharpe ratio is {{ $value }} for {{ $labels.strategy_name }} (losing strategy)"
+
+      # Extreme drawdown (> 25%)
+      - alert: HighMaxDrawdown
+        expr: backtest_max_drawdown_percent > 25
+        for: 1m
+        labels:
+          severity: warning
+          category: backtest_quality
+        annotations:
+          summary: "High maximum drawdown for {{ $labels.strategy_name }}"
+          description: "Max drawdown is {{ $value }}% for {{ $labels.strategy_name }} (threshold: 25%)"
+
+      # Critical drawdown (> 40%)
+      - alert: CriticalMaxDrawdown
+        expr: backtest_max_drawdown_percent > 40
+        for: 1m
+        labels:
+          severity: critical
+          category: backtest_quality
+        annotations:
+          summary: "CRITICAL: Extreme drawdown for {{ $labels.strategy_name }}"
+          description: "Max drawdown is {{ $value }}% for {{ $labels.strategy_name }} (threshold: 40%)"
+
+      # Low win rate (< 40%)
+      - alert: LowWinRate
+        expr: backtest_win_rate_percent < 40
+        for: 1m
+        labels:
+          severity: info
+          category: backtest_quality
+        annotations:
+          summary: "Low win rate for strategy {{ $labels.strategy_name }}"
+          description: "Win rate is {{ $value }}% for {{ $labels.strategy_name }} (threshold: 40%)"
+
+  # ========================================
+  # Factor Calculation Alerts
+  # ========================================
+  - name: factor_calculation
+    interval: 30s
+    rules:
+      # Factor calculation failure rate high (> 10%)
+      - alert: HighFactorCalculationFailureRate
+        expr: |
+          (
+            sum(rate(factor_calculations_total{status="failed"}[5m])) by (factor_name)
+            /
+            sum(rate(factor_calculations_total[5m])) by (factor_name)
+          ) > 0.10
+        for: 10m
+        labels:
+          severity: warning
+          category: factor_calculation
+        annotations:
+          summary: "High factor calculation failure rate for {{ $labels.factor_name }}"
+          description: "Factor calculation failure rate is {{ $value | humanizePercentage }} for {{ $labels.factor_name }} (threshold: 10%)"
+
+      # Slow factor calculation (P95 > 30 seconds)
+      - alert: SlowFactorCalculation
+        expr: |
+          histogram_quantile(0.95,
+            rate(factor_calculation_duration_seconds_bucket[5m])
+          ) > 30
+        for: 10m
+        labels:
+          severity: warning
+          category: factor_calculation
+        annotations:
+          summary: "Slow factor calculation for {{ $labels.factor_name }}"
+          description: "95th percentile factor calculation duration is {{ $value }}s for {{ $labels.factor_name }} (threshold: 30s)"
+
+      # Factor score abnormal (mean > 90 or < 10)
+      - alert: AbnormalFactorScore
+        expr: factor_score_mean > 90 or factor_score_mean < 10
+        for: 5m
+        labels:
+          severity: info
+          category: factor_calculation
+        annotations:
+          summary: "Abnormal factor score for {{ $labels.factor_name }}"
+          description: "Factor score mean is {{ $value }} for {{ $labels.factor_name }} (expected: 10-90)"
+
+      # Factor score high variance (stddev > 35)
+      - alert: HighFactorScoreVariance
+        expr: factor_score_stddev > 35
+        for: 5m
+        labels:
+          severity: info
+          category: factor_calculation
+        annotations:
+          summary: "High factor score variance for {{ $labels.factor_name }}"
+          description: "Factor score stddev is {{ $value }} for {{ $labels.factor_name }} (threshold: 35)"
+
+  # ========================================
+  # Portfolio Optimization Alerts
+  # ========================================
+  - name: portfolio_optimization
+    interval: 30s
+    rules:
+      # High optimization failure rate (> 20%)
+      - alert: HighOptimizationFailureRate
+        expr: |
+          (
+            sum(rate(optimization_executions_total{status=~"failed|no_solution|timeout"}[5m])) by (method)
+            /
+            sum(rate(optimization_executions_total[5m])) by (method)
+          ) > 0.20
+        for: 10m
+        labels:
+          severity: warning
+          category: portfolio_optimization
+        annotations:
+          summary: "High optimization failure rate for {{ $labels.method }}"
+          description: "Optimization failure rate is {{ $value | humanizePercentage }} for {{ $labels.method }} (threshold: 20%)"
+
+      # Critical optimization failure rate (> 50%)
+      - alert: CriticalOptimizationFailureRate
+        expr: |
+          (
+            sum(rate(optimization_executions_total{status=~"failed|no_solution|timeout"}[5m])) by (method)
+            /
+            sum(rate(optimization_executions_total[5m])) by (method)
+          ) > 0.50
+        for: 5m
+        labels:
+          severity: critical
+          category: portfolio_optimization
+        annotations:
+          summary: "CRITICAL: Optimization failure rate for {{ $labels.method }}"
+          description: "Optimization failure rate is {{ $value | humanizePercentage }} for {{ $labels.method }} (threshold: 50%)"
+
+      # Slow optimization (P95 > 120 seconds)
+      - alert: SlowOptimization
+        expr: |
+          histogram_quantile(0.95,
+            rate(optimization_duration_seconds_bucket[5m])
+          ) > 120
+        for: 10m
+        labels:
+          severity: warning
+          category: portfolio_optimization
+        annotations:
+          summary: "Slow optimization for method {{ $labels.method }}"
+          description: "95th percentile optimization duration is {{ $value }}s for {{ $labels.method }} (threshold: 120s)"
+
+      # Optimization no solution rate high (> 15%)
+      - alert: HighOptimizationNoSolutionRate
+        expr: |
+          (
+            sum(rate(optimization_executions_total{status="no_solution"}[5m])) by (method)
+            /
+            sum(rate(optimization_executions_total[5m])) by (method)
+          ) > 0.15
+        for: 10m
+        labels:
+          severity: warning
+          category: portfolio_optimization
+        annotations:
+          summary: "High optimization no-solution rate for {{ $labels.method }}"
+          description: "Optimization no-solution rate is {{ $value | humanizePercentage }} for {{ $labels.method }} (threshold: 15%)"
+
+      # Constraint violations increasing
+      - alert: IncreasingConstraintViolations
+        expr: |
+          rate(optimization_constraint_violations_total[5m]) > 1
+        for: 10m
+        labels:
+          severity: info
+          category: portfolio_optimization
+        annotations:
+          summary: "Increasing constraint violations for {{ $labels.constraint_type }}"
+          description: "Constraint violation rate is {{ $value }}/min for {{ $labels.constraint_type }}"
+
+  # ========================================
+  # API Performance Alerts
+  # ========================================
+  - name: quant_api_performance
+    interval: 30s
+    rules:
+      # High API error rate (> 5%)
+      - alert: HighQuandAPIErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="quant-platform-api",status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="quant-platform-api"}[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          category: api_performance
+        annotations:
+          summary: "High API error rate for Quant Platform"
+          description: "API error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+      # Critical API error rate (> 20%)
+      - alert: CriticalQuantAPIErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="quant-platform-api",status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="quant-platform-api"}[5m]))
+          ) > 0.20
+        for: 2m
+        labels:
+          severity: critical
+          category: api_performance
+        annotations:
+          summary: "CRITICAL: API error rate for Quant Platform"
+          description: "API error rate is {{ $value | humanizePercentage }} (threshold: 20%)"
+
+      # High API latency (P95 > 2 seconds)
+      - alert: HighQuantAPILatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket{job="quant-platform-api"}[5m])
+          ) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+          category: api_performance
+        annotations:
+          summary: "High API latency for Quant Platform"
+          description: "95th percentile API latency is {{ $value }}s (threshold: 2s)"
+
+      # Quant Platform API down
+      - alert: QuantPlatformAPIDown
+        expr: up{job="quant-platform-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: api_performance
+        annotations:
+          summary: "Quant Platform API is down"
+          description: "Quant Platform API has been down for more than 1 minute"
+
+  # ========================================
+  # Database Connection Pool Alerts
+  # ========================================
+  - name: database_connection_pool
+    interval: 30s
+    rules:
+      # Database connection pool near exhaustion (> 85%)
+      - alert: DatabasePoolNearExhaustion
+        expr: db_pool_utilization_percent{database="quant_platform"} > 85
+        for: 5m
+        labels:
+          severity: warning
+          category: database_performance
+        annotations:
+          summary: "Database connection pool near exhaustion"
+          description: "Connection pool utilization is {{ $value }}% for {{ $labels.database }} (threshold: 85%)"
+
+      # Database connection pool exhausted (> 95%)
+      - alert: DatabasePoolExhausted
+        expr: db_pool_utilization_percent{database="quant_platform"} > 95
+        for: 2m
+        labels:
+          severity: critical
+          category: database_performance
+        annotations:
+          summary: "CRITICAL: Database connection pool exhausted"
+          description: "Connection pool utilization is {{ $value }}% for {{ $labels.database }} (threshold: 95%)"
+
+      # High connection wait time (P95 > 100ms)
+      - alert: HighDatabaseConnectionWaitTime
+        expr: |
+          histogram_quantile(0.95,
+            rate(db_connection_wait_seconds_bucket{database="quant_platform"}[5m])
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          category: database_performance
+        annotations:
+          summary: "High database connection wait time"
+          description: "95th percentile connection wait time is {{ $value }}s for {{ $labels.database }} (threshold: 100ms)"
+
+      # Database connection errors increasing
+      - alert: IncreasingDatabaseConnectionErrors
+        expr: |
+          rate(db_connection_errors_total{database="quant_platform"}[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+          category: database_performance
+        annotations:
+          summary: "Increasing database connection errors"
+          description: "Database connection error rate is {{ $value }}/min for {{ $labels.database }}"
+
+      # Database pool exhaustion events
+      - alert: DatabasePoolExhaustionEvents
+        expr: |
+          rate(db_pool_exhausted_total{database="quant_platform"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          category: database_performance
+        annotations:
+          summary: "Database pool exhaustion events detected"
+          description: "Pool exhaustion rate is {{ $value }}/min for {{ $labels.database }}"

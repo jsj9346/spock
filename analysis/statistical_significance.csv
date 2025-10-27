@@ -1,0 +1,4 @@
+Percentile,Mean Return Diff (ann. %),t-statistic,p-value,Significant (α=0.05),Winner
+60th,-144.77,-0.3,0.7642,No,Equal-Weighted
+70th,-42.42,-0.072,0.9423,No,Equal-Weighted
+80th,1909.54,1.494,0.1359,No,IC-Weighted

@@ -1,0 +1,112 @@
+[
+  {
+    "date": "2024-10-10",
+    "region": "KR",
+    "correlation_matrix": {
+      "12M_Momentum": {
+        "12M_Momentum": 1.0,
+        "1M_Momentum": 0.07168757554978501,
+        "Current_Ratio": 0.09813973521001577,
+        "Debt_Ratio": -0.01464315981191345,
+        "Operating_Profit_Margin": 0.4204003946000959,
+        "PB_Ratio": -0.35588746123307663,
+        "PE_Ratio": -0.12125758903072163,
+        "ROE_Proxy": 0.4413787355071066,
+        "RSI_Momentum": 0.07168757554978501
+      },
+      "1M_Momentum": {
+        "12M_Momentum": 0.07168757554978501,
+        "1M_Momentum": 1.0,
+        "Current_Ratio": 0.07963323145318144,
+        "Debt_Ratio": -0.04617949430397333,
+        "Operating_Profit_Margin": 0.1233676021116977,
+        "PB_Ratio": -0.21668333922535224,
+        "PE_Ratio": -0.1314253959433176,
+        "ROE_Proxy": 0.14970825229230342,
+        "RSI_Momentum": 1.0
+      },
+      "Current_Ratio": {
+        "12M_Momentum": 0.09813973521001577,
+        "1M_Momentum": 0.07963323145318144,
+        "Current_Ratio": 1.0,
+        "Debt_Ratio": 0.6718532925812726,
+        "Operating_Profit_Margin": 0.04367879966657405,
+        "PB_Ratio": -0.18300544654246856,
+        "PE_Ratio": -0.24612392331203112,
+        "ROE_Proxy": -0.04973603778827452,
+        "RSI_Momentum": 0.07963323145318144
+      },
+      "Debt_Ratio": {
+        "12M_Momentum": -0.01464315981191345,
+        "1M_Momentum": -0.04617949430397333,
+        "Current_Ratio": 0.6718532925812726,
+        "Debt_Ratio": 1.0,
+        "Operating_Profit_Margin": 0.05929424840233398,
+        "PB_Ratio": 0.22507502535590576,
+        "PE_Ratio": -0.03845512642400667,
+        "ROE_Proxy": -0.33414837454848567,
+        "RSI_Momentum": -0.04617949430397333
+      },
+      "Operating_Profit_Margin": {
+        "12M_Momentum": 0.4204003946000959,
+        "1M_Momentum": 0.1233676021116977,
+        "Current_Ratio": 0.04367879966657405,
+        "Debt_Ratio": 0.05929424840233398,
+        "Operating_Profit_Margin": 1.0,
+        "PB_Ratio": -0.10308991902103833,
+        "PE_Ratio": 0.09408168935815504,
+        "ROE_Proxy": 0.7039177549319255,
+        "RSI_Momentum": 0.1233676021116977
+      },
+      "PB_Ratio": {
+        "12M_Momentum": -0.35588746123307663,
+        "1M_Momentum": -0.21668333922535224,
+        "Current_Ratio": -0.18300544654246856,
+        "Debt_Ratio": 0.22507502535590576,
+        "Operating_Profit_Margin": -0.10308991902103833,
+        "PB_Ratio": 1.0,
+        "PE_Ratio": 0.6782816504861309,
+        "ROE_Proxy": -0.3110759146739957,
+        "RSI_Momentum": -0.21668333922535224
+      },
+      "PE_Ratio": {
+        "12M_Momentum": -0.12125758903072163,
+        "1M_Momentum": -0.1314253959433176,
+        "Current_Ratio": -0.24612392331203112,
+        "Debt_Ratio": -0.03845512642400667,
+        "Operating_Profit_Margin": 0.09408168935815504,
+        "PB_Ratio": 0.6782816504861309,
+        "PE_Ratio": 1.0,
+        "ROE_Proxy": -0.008002222839677688,
+        "RSI_Momentum": -0.1314253959433176
+      },
+      "ROE_Proxy": {
+        "12M_Momentum": 0.4413787355071066,
+        "1M_Momentum": 0.14970825229230342,
+        "Current_Ratio": -0.04973603778827452,
+        "Debt_Ratio": -0.33414837454848567,
+        "Operating_Profit_Margin": 0.7039177549319255,
+        "PB_Ratio": -0.3110759146739957,
+        "PE_Ratio": -0.008002222839677688,
+        "ROE_Proxy": 1.0,
+        "RSI_Momentum": 0.14970825229230342
+      },
+      "RSI_Momentum": {
+        "12M_Momentum": 0.07168757554978501,
+        "1M_Momentum": 1.0,
+        "Current_Ratio": 0.07963323145318144,
+        "Debt_Ratio": -0.04617949430397333,
+        "Operating_Profit_Margin": 0.1233676021116977,
+        "PB_Ratio": -0.21668333922535224,
+        "PE_Ratio": -0.1314253959433176,
+        "ROE_Proxy": 0.14970825229230342,
+        "RSI_Momentum": 1.0
+      }
+    },
+    "redundant_pairs": [
+      {
+        "factor1": "1M_Momentum",
+        "factor2": "RSI_Momentum",
+        "correlation": 1.0,
+        "p_value": 0.0,
+        "is_significant": 

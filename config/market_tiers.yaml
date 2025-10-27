@@ -1,0 +1,267 @@
+# Market Tiers Configuration
+# NXT (Next Exchange) 및 기타 시장 계층 설정 파일
+#
+# Purpose:
+#   - KIS API 파라미터 매핑
+#   - 시장 계층 메타데이터 관리
+#   - 데이터 수집 로직 참조용
+#
+# Usage:
+#   from modules.stock_utils import load_market_tiers
+#   market_config = load_market_tiers()
+#   kis_code = market_config['korea']['exchanges']['KOSPI']['tiers']['NXT']['kis_api_code']
+
+# ========================================
+# 한국 시장 (Korea)
+# ========================================
+korea:
+  region_code: "KR"
+  currency: "KRW"
+
+  exchanges:
+    # ===== KOSPI (Korea Stock Exchange) =====
+    KOSPI:
+      name: "Korea Stock Exchange"
+      name_kr: "한국거래소 코스피시장"
+      official_name: "Korea Composite Stock Price Index Market"
+
+      tiers:
+        MAIN:
+          description: "Main market for large-cap stocks"
+          description_kr: "대형주 중심 주시장"
+          kis_api_code: "STK"          # KIS API mkt_id parameter
+          krx_api_code: "KOSPI"        # KRX Data API market code
+          ticker_prefix: null          # No specific prefix for main market
+          launched: "1956-03-03"
+
+        NXT:
+          description: "Next Exchange for growth companies"
+          description_kr: "성장기업 중심 신시장"
+          kis_api_code: "NXT"          # KIS API mkt_id parameter (통합 코드)
+          krx_api_code: "KOSPI_NXT"    # KRX Data API market code (추정)
+          ticker_prefix: null          # Ticker prefix pattern (to be verified)
+          launched: "2024-01-XX"       # 실제 출범일로 업데이트 필요
+
+          features:
+            - "Simplified listing requirements"
+            - "Support for pre-IPO companies"
+            - "Focus on tech and innovation sectors"
+
+          limitations:
+            - "Higher volatility expected"
+            - "Lower liquidity compared to main market"
+            - "Different tick size rules may apply"
+
+    # ===== KOSDAQ (Korea Securities Dealers Association) =====
+    KOSDAQ:
+      name: "KOSDAQ"
+      name_kr: "코스닥시장"
+      official_name: "Korea Securities Dealers Automated Quotation"
+
+      tiers:
+        MAIN:
+          description: "Main market for SMEs and venture companies"
+          description_kr: "중소·벤처기업 중심 주시장"
+          kis_api_code: "SQ"           # KIS API mkt_id parameter (SQ = Securities Quotation)
+          krx_api_code: "KOSDAQ"
+          ticker_prefix: null
+          launched: "1996-07-01"
+
+        NXT:
+          description: "Next Exchange for KOSDAQ"
+          description_kr: "코스닥 신시장"
+          kis_api_code: "NXT"          # KIS API mkt_id parameter (통합 코드)
+          krx_api_code: "KOSDAQ_NXT"   # KRX Data API market code (추정)
+          ticker_prefix: null
+          launched: "2024-01-XX"
+
+          features:
+            - "Similar to KOSPI NXT but for KOSDAQ-sized companies"
+            - "Innovation-focused listing criteria"
+
+        KOSDAQ_GLOBAL:
+          description: "Global market for foreign companies"
+          description_kr: "외국기업 전용 시장"
+          kis_api_code: null           # KIS API support TBD
+          krx_api_code: "KOSDAQ_GLOBAL"
+          ticker_prefix: null
+          launched: "2013-03-04"
+          enabled: false               # 향후 지원 계획
+
+    # ===== KONEX (Korea New Exchange) =====
+    KONEX:
+      name: "KONEX"
+      name_kr: "코넥스시장"
+      official_name: "Korea New Exchange"
+
+      tiers:
+        MAIN:
+          description: "SME market for pre-KOSDAQ companies"
+          description_kr: "초기 중소기업 전용 시장"
+          kis_api_code: "KONEX"        # KIS API mkt_id parameter
+          krx_api_code: "KONEX"
+          ticker_prefix: null
+          launched: "2013-07-01"
+
+          features:
+            - "Stepping stone to KOSDAQ"
+            - "Lower listing requirements"
+            - "Higher risk, lower liquidity"
+
+# ========================================
+# 미국 시장 (United States)
+# ========================================
+united_states:
+  region_code: "US"
+  currency: "USD"
+
+  exchanges:
+    NASDAQ:
+      name: "NASDAQ"
+      name_kr: "나스닥"
+      official_name: "National Association of Securities Dealers Automated Quotations"
+
+      tiers:
+        MAIN:
+          description: "Main NASDAQ market"
+          kis_api_code: "NASD"         # KIS API excd parameter
+          ticker_prefix: null
+
+          # NASDAQ has internal tiers but treated as single exchange in our DB
+          notes:
+            - "NASDAQ Global Select Market (largest companies)"
+            - "NASDAQ Global Market (mid-cap)"
+            - "NASDAQ Capital Market (small-cap)"
+
+    NYSE:
+      name: "New York Stock Exchange"
+      name_kr: "뉴욕증권거래소"
+      official_name: "New York Stock Exchange"
+
+      tiers:
+        MAIN:
+          description: "Main NYSE market"
+          kis_api_code: "NYSE"
+          ticker_prefix: null
+
+    AMEX:
+      name: "NYSE American"
+      name_kr: "NYSE 아메리칸"
+      official_name: "NYSE American (formerly American Stock Exchange)"
+
+      tiers:
+        MAIN:
+          description: "NYSE American market for small-cap stocks"
+          kis_api_code: "AMEX"
+          ticker_prefix: null
+
+# ========================================
+# 중국/홍콩 시장 (China/Hong Kong)
+# ========================================
+china:
+  region_code: "CN"
+  currency: "CNY"
+
+  exchanges:
+    SHANGHAI:
+      name: "Shanghai Stock Exchange"
+      name_kr: "상하이증권거래소"
+
+      tiers:
+        MAIN:
+          description: "Shanghai A-shares"
+          kis_api_code: "SHAA"         # KIS API excd parameter
+          ticker_prefix: "6"           # Tickers start with 6
+
+    SHENZHEN:
+      name: "Shenzhen Stock Exchange"
+      name_kr: "선전증권거래소"
+
+      tiers:
+        MAIN:
+          description: "Shenzhen A-shares"
+          kis_api_code: "SZAA"
+          ticker_prefix: ["0", "3"]    # Main board: 0, ChiNext: 3
+
+hong_kong:
+  region_code: "HK"
+  currency: "HKD"
+
+  exchanges:
+    HKEX:
+      name: "Hong Kong Stock Exchange"
+      name_kr: "홍콩증권거래소"
+
+      tiers:
+        MAIN:
+          description: "Main board"
+          kis_api_code: "SEHK"         # Stock Exchange of Hong Kong
+          ticker_prefix: null
+
+# ========================================
+# 일본 시장 (Japan)
+# ========================================
+japan:
+  region_code: "JP"
+  currency: "JPY"
+
+  exchanges:
+    TSE:
+      name: "Tokyo Stock Exchange"
+      name_kr: "도쿄증권거래소"
+
+      tiers:
+        MAIN:
+          description: "Tokyo Stock Exchange"
+          kis_api_code: "TSE"
+          ticker_prefix: null
+
+# ========================================
+# 베트남 시장 (Vietnam)
+# ========================================
+vietnam:
+  region_code: "VN"
+  currency: "VND"
+
+  exchanges:
+    HOSE:
+      name: "Ho Chi Minh Stock Exchange"
+      name_kr: "호치민증권거래소"
+
+      tiers:
+        MAIN:
+          description: "Main exchange in Ho Chi Minh City"
+          kis_api_code: "HOSE"
+          ticker_prefix: null
+
+    HNX:
+      name: "Hanoi Stock Exchange"
+      name_kr: "하노이증권거래소"
+
+      tiers:
+        MAIN:
+          description: "Main exchange in Hanoi"
+          kis_api_code: "HNX"
+          ticker_prefix: null
+
+# ========================================
+# 전역 설정 (Global Settings)
+# ========================================
+global:
+  default_market_tier: "MAIN"
+
+  market_tier_priority:
+    - "MAIN"
+    - "NXT"
+    - "KONEX"
+    - "KOSDAQ_GLOBAL"
+
+  kis_api_rate_limits:
+    requests_per_second: 20
+    requests_per_minute: 1000
+
+  notes:
+    - "NXT는 2024년 출범한 한국의 제2 거래소"
+    - "KIS API는 KOSPI NXT와 KOSDAQ NXT를 'NXT' 단일 코드로 제공"
+    - "KRX Data API로 KOSPI NXT vs KOSDAQ NXT 구분 필요"
+    - "미국/중국 시장은 향후 자체 시장 계층 추가 가능성 있음"

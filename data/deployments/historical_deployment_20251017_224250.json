@@ -1,0 +1,92 @@
+{
+  "timestamp": "2025-10-17T22:42:50.399627",
+  "parameters": {
+    "tickers_count": 10,
+    "start_year": 2020,
+    "end_year": 2024,
+    "force_refresh": false
+  },
+  "statistics": {
+    "total_data_points": 50,
+    "successful_data_points": 50,
+    "failed_data_points": 0,
+    "success_rate": 100.0,
+    "successful_tickers": 10,
+    "partial_tickers": 0,
+    "failed_tickers": 0,
+    "deployment_time_seconds": 1044.215089,
+    "deployment_time_minutes": 17.40358481666667
+  },
+  "results": {
+    "005930": {
+      "2020": true,
+      "2021": true,
+      "2022": true,
+      "2023": true,
+      "2024": true
+    },
+    "000660": {
+      "2020": true,
+      "2021": true,
+      "2022": true,
+      "2023": true,
+      "2024": true
+    },
+    "035420": {
+      "2020": true,
+      "2021": true,
+      "2022": true,
+      "2023": true,
+      "2024": true
+    },
+    "051910": {
+      "2020": true,
+      "2021": true,
+      "2022": true,
+      "2023": true,
+      "2024": true
+    },
+    "035720": {
+      "2020": true,
+      "2021": true,
+      "2022": true,
+      "2023": true,
+      "2024": true
+    },
+    "006400": {
+      "2020": true,
+      "2021": true,
+      "2022": true,
+      "2023": true,
+      "2024": true
+    },
+    "005380": {
+      "2020": true,
+      "2021": true,
+      "2022": true,
+      "2023": true,
+      "2024": true
+    },
+    "000270": {
+      "2020": true,
+      "2021": true,
+      "2022": true,
+      "2023": true,
+      "2024": true
+    },
+    "068270": {
+      "2020": true,
+      "2021": true,
+      "2022": true,
+      "2023": true,
+      "2024": true
+    },
+    "207940": {
+      "2020": true,
+      "2021": true,
+      "2022": true,
+      "2023": true,
+      "2024": true
+    }
+  }
+}

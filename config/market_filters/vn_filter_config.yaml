@@ -1,0 +1,335 @@
+# ===================================
+# Vietnam Market Filter Configuration
+# ===================================
+# Market: HOSE/HNX (Ho Chi Minh Stock Exchange / Hanoi Stock Exchange)
+# Currency: VND (Vietnamese Dong)
+# Updated: 2025-10-16
+
+region: VN
+market_name: "Vietnam (HOSE/HNX)"
+currency: VND
+
+# Exchange Rate Configuration
+# VND to KRW conversion (dynamic, updated hourly)
+exchange_rate:
+  source: "kis_api"
+  default_rate: 0.055         # Fallback: ₫1 = ₩0.055
+  update_frequency_minutes: 60
+
+# ===================================
+# STAGE 0 FILTERS (Basic Market Filter)
+# ===================================
+stage0_filters:
+  # Market Capitalization (시가총액)
+  # Threshold: ₩1,000억원 → ₫1.82T (at 0.055 rate)
+  min_market_cap_local: 1820000000000 # ₫1.82T
+  min_market_cap_krw: 100000000000    # ₩1,000억원
+
+  # Daily Trading Value (일 거래대금)
+  # Threshold: ₩100억원/일 → ₫182B/day (at 0.055 rate)
+  min_trading_value_local: 182000000000  # ₫182B/day
+  min_trading_value_krw: 10000000000     # ₩100억원/일
+
+  # Price Range (가격 범위)
+  # Min: ₫10,000, Max: None
+  price_range_min_local: 10000  # ₫10,000 minimum
+  price_range_max_local: 0      # No maximum
+  price_range_min_krw: 550      # ₩550 (at 0.055 rate)
+  price_range_max_krw: 0
+
+  # ===================================
+  # Market-Specific Exclusion Rules
+  # ===================================
+
+  # ETF/ETN 제외
+  exclude_etf: true
+  exclude_etn: true
+
+  # 상장폐지 예정 제외
+  exclude_delisting: true
+
+  # VN30 Index 우선 선택
+  # Focus on VN30 Index constituents (top 30 companies)
+  focus_vn30_index: true
+
+  # Exchange Priority
+  # HOSE (Ho Chi Minh): Larger companies, higher liquidity
+  # HNX (Hanoi): Smaller companies, lower liquidity
+  preferred_exchanges:
+    - "HOSE"   # Preferred
+    - "HNX"    # Acceptable
+  exclude_exchanges:
+    - "UPCOM"  # Unlisted Public Company Market (low liquidity)
+
+  # 최소 상장 기간
+  min_listing_months: 13
+
+# ===================================
+# API CONFIGURATION
+# ===================================
+api:
+  data_source: "KIS_OVERSEAS_API"
+  endpoint_pattern: "/uapi/overseas-stock/v1/quotations/price"
+  tr_id: "HHDFS00000300"
+
+  rate_limit_per_sec: 20
+  rate_limit_per_min: 1000
+
+  timeout_sec: 10
+  max_retries: 3
+  retry_delay_sec: 1
+
+# ===================================
+# CACHE SETTINGS
+# ===================================
+cache:
+  ttl_market_hours: 3600
+  ttl_after_hours: 86400
+  table_name: "filter_cache_stage0"
+  strategy: "write-through"
+  cleanup_older_than_days: 7
+
+# ===================================
+# TRADING HOURS (Indochina Time → KST)
+# ===================================
+trading_hours:
+  timezone: "Asia/Ho_Chi_Minh"
+
+  # Regular Trading Session (ICT = KST - 2h)
+  # Morning: 09:00-11:30 ICT = 11:00-13:30 KST
+  # Afternoon: 13:00-15:00 ICT = 15:00-17:00 KST
+  regular_session:
+    start: "11:00"  # KST
+    end: "17:00"    # KST
+
+  # Lunch Break (mandatory)
+  has_lunch_break: true
+  lunch_break:
+    start: "13:30"  # KST
+    end: "15:00"    # KST
+
+  # No Pre/Post Market
+  pre_market: null
+  post_market: null
+
+  # Market Holidays
+  holiday_calendar: "config/vn_holidays.yaml"
+
+# ===================================
+# TICK SIZE RULES
+# ===================================
+# Vietnam uses variable tick sizes based on price
+tick_size_rules:
+  - price_min: 0
+    price_max: 10000
+    tick_size: 10        # ₫10
+    description: "Under ₫10,000"
+
+  - price_min: 10000
+    price_max: 50000
+    tick_size: 50        # ₫50
+    description: "₫10,000 ~ ₫50,000"
+
+  - price_min: 50000
+    price_max: 100000
+    tick_size: 100       # ₫100
+    description: "₫50,000 ~ ₫100,000"
+
+  - price_min: 100000
+    price_max: null
+    tick_size: 100       # ₫100
+    description: "₫100,000 and above"
+
+# ===================================
+# PRICE LIMIT RULES (Circuit Breakers)
+# ===================================
+# Vietnam has strict daily price limits
+price_limits:
+  # HOSE (Ho Chi Minh Stock Exchange)
+  hose:
+    daily_limit: 0.07      # ±7% from reference price
+    description: "Reference price ±7%"
+
+  # HNX (Hanoi Stock Exchange)
+  hnx:
+    daily_limit: 0.10      # ±10% from reference price
+    description: "Reference price ±10%"
+
+  # UPCOM (Unlisted Public Company Market)
+  upcom:
+    daily_limit: 0.15      # ±15% from reference price
+    description: "Reference price ±15%"
+
+# ===================================
+# TRANSACTION COSTS (for Korean investors)
+# ===================================
+transaction_costs:
+  # Trading Fee
+  trading_fee_rate: 0.0030  # 0.30% (higher than other markets)
+
+  # Vietnam Securities Transaction Tax
+  # Only on SELL side
+  securities_tax_rate: 0.001  # 0.1% (sell only)
+
+  # Capital Gains Tax
+  # Korean residents: 22% on profits > ₩2.5M/year
+  capital_gains_tax_rate: 0.22
+
+  # Settlement Period
+  settlement_days: 2  # T+2
+
+# ===================================
+# DATA QUALITY VALIDATION
+# ===================================
+data_validation:
+  required_fields:
+    - ticker
+    - name
+    - market_cap
+    - trading_value
+    - current_price
+
+  max_market_cap_vnd: 1000000000000000  # ₫1,000T
+  max_trading_value_vnd: 50000000000000 # ₫50T/day
+  max_price_vnd: 1000000                # ₫1M
+
+  max_data_age_hours: 24
+
+# ===================================
+# LOGGING & MONITORING
+# ===================================
+logging:
+  log_level: "INFO"
+  log_passed_tickers: true
+  log_filtered_tickers: true
+  log_filter_reasons: true
+  log_execution_time: true
+  log_api_calls: true
+  log_cache_hits: true
+
+# ===================================
+# PERFORMANCE EXPECTATIONS
+# ===================================
+performance:
+  expected_input_count: 1500
+  expected_output_count: 200
+  expected_reduction_rate: 0.87
+
+  target_execution_time_sec: 45
+  target_api_calls: 1500
+  target_cache_hit_rate: 0.80
+
+# ===================================
+# STAGE 1 FILTERS (Technical Pre-screen)
+# ===================================
+stage1_filters:
+  data_completeness:
+    min_ohlcv_days: 250
+    max_gap_days: 60
+    required_continuity: false
+
+  ma_alignment:
+    enabled: true
+    required_alignment: "5>20>60"
+    full_alignment: "5>20>60>120>200"
+    min_score: 75
+
+  rsi_min: 30
+  rsi_max: 70
+  rsi_ideal: 50
+
+  macd:
+    enabled: true
+    require_bullish: true
+    allow_neutral: false
+
+  volume_spike:
+    enabled: true
+    spike_ratio: 1.5
+    lookback_days: 20
+
+  price_position:
+    enabled: true
+    min_position: "above_ma20"
+    ideal_position: "above_ma60"
+
+  scoring_weights:
+    ma_alignment: 0.30
+    rsi: 0.25
+    macd: 0.20
+    volume: 0.15
+    price_position: 0.10
+
+  min_stage1_score: 65
+
+# ===================================
+# VN30 INDEX (Top 30 Vietnamese Stocks)
+# ===================================
+vn30_constituents:
+  # Banking
+  - VCB  # Vietcombank
+  - TCB  # Techcombank
+  - MBB  # Military Bank
+  - BID  # BIDV
+  - CTG  # VietinBank
+  - ACB  # Asia Commercial Bank
+
+  # Real Estate
+  - VHM  # Vinhomes
+  - VIC  # Vingroup
+  - NVL  # Novaland
+
+  # Technology
+  - FPT  # FPT Corporation
+
+  # Consumer
+  - VNM  # Vinamilk
+  - MSN  # Masan Group
+
+  # Industrial
+  - HPG  # Hoa Phat Group
+  - GVR  # Petrovietnam Gas
+
+  # Others (top 30)
+  # ... (additional 16 constituents)
+
+# ===================================
+# NOTES & DOCUMENTATION
+# ===================================
+notes: |
+  Vietnam Market Filter Configuration
+
+  STAGE 0 - Basic Market Filter:
+  - Market cap: ₫1.82T (₩1,000억원 equivalent)
+  - Trading value: ₫182B/day (₩100억원 equivalent)
+  - Price: ≥₫10,000
+  - Focus: VN30 Index constituents preferred
+  - Exchanges: HOSE preferred, HNX acceptable, UPCOM excluded
+  - Expected: 1,500 → 200 stocks (87% reduction)
+
+  STAGE 1 - Technical Pre-screen:
+  - Expected: 200 → 80 stocks (60% reduction)
+
+  Trading Hours (KST):
+  - Morning: 11:00-13:30
+  - Lunch: 13:30-15:00
+  - Afternoon: 15:00-17:00
+
+  Market Characteristics:
+  - Emerging market with high growth potential
+  - Strict daily price limits (HOSE: ±7%, HNX: ±10%)
+  - Higher transaction costs (0.3% trading fee)
+  - T+2 settlement
+  - VN30 Index: Top 30 blue-chip stocks
+
+  Price Limits (Circuit Breakers):
+  - HOSE: ±7% from reference price
+  - HNX: ±10% from reference price
+  - Trading halted when limits reached
+
+  Special Notes:
+  - Variable tick sizes (4 tiers)
+  - Mandatory lunch break (13:30-15:00 KST)
+  - Securities tax on SELL only (0.1%)
+  - Foreign ownership limits may apply to some stocks
+  - Currency: 1,000 VND ≈ 55 KRW (very small denomination)

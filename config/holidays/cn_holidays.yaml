@@ -1,0 +1,265 @@
+# China Stock Market (SSE & SZSE) Trading Calendar
+# Reference: http://www.sse.com.cn (Shanghai Stock Exchange)
+#            http://www.szse.cn (Shenzhen Stock Exchange)
+
+market: CN
+exchanges: [SSE, SZSE]
+timezone: Asia/Shanghai  # CST (UTC+8)
+
+# Regular trading hours
+trading_hours:
+  pre_market: null  # No pre-market
+  regular:
+    morning:
+      open: "09:30"
+      close: "11:30"
+    afternoon:
+      open: "13:00"
+      close: "15:00"
+  post_market: null  # No post-market
+  note: "Trading hours with 1.5-hour lunch break"
+
+# SSE/SZSE holidays for 2025
+# Source: China Securities Regulatory Commission (CSRC) official calendar
+holidays_2025:
+  - date: "2025-01-01"
+    name: "New Year's Day"
+    type: "public_holiday"
+
+  - date: "2025-01-28"
+    name: "Spring Festival (Chinese New Year) Eve"
+    type: "public_holiday"
+
+  - date: "2025-01-29"
+    name: "Spring Festival (Day 1)"
+    type: "public_holiday"
+
+  - date: "2025-01-30"
+    name: "Spring Festival (Day 2)"
+    type: "public_holiday"
+
+  - date: "2025-01-31"
+    name: "Spring Festival (Day 3)"
+    type: "public_holiday"
+
+  - date: "2025-02-03"
+    name: "Spring Festival (Day 4)"
+    type: "public_holiday"
+
+  - date: "2025-02-04"
+    name: "Spring Festival (Day 5)"
+    type: "public_holiday"
+
+  - date: "2025-02-05"
+    name: "Spring Festival (Day 6)"
+    type: "public_holiday"
+
+  - date: "2025-02-06"
+    name: "Spring Festival (Day 7)"
+    type: "public_holiday"
+
+  - date: "2025-04-04"
+    name: "Qingming Festival (Tomb Sweeping Day)"
+    type: "public_holiday"
+
+  - date: "2025-04-05"
+    name: "Qingming Festival"
+    type: "public_holiday"
+
+  - date: "2025-04-06"
+    name: "Qingming Festival"
+    type: "public_holiday"
+
+  - date: "2025-05-01"
+    name: "Labour Day"
+    type: "public_holiday"
+
+  - date: "2025-05-02"
+    name: "Labour Day"
+    type: "public_holiday"
+
+  - date: "2025-05-03"
+    name: "Labour Day"
+    type: "public_holiday"
+
+  - date: "2025-05-31"
+    name: "Dragon Boat Festival"
+    type: "public_holiday"
+
+  - date: "2025-06-02"
+    name: "Dragon Boat Festival"
+    type: "public_holiday"
+
+  - date: "2025-10-01"
+    name: "National Day (Golden Week)"
+    type: "public_holiday"
+
+  - date: "2025-10-02"
+    name: "National Day"
+    type: "public_holiday"
+
+  - date: "2025-10-03"
+    name: "National Day"
+    type: "public_holiday"
+
+  - date: "2025-10-04"
+    name: "National Day"
+    type: "public_holiday"
+
+  - date: "2025-10-05"
+    name: "National Day"
+    type: "public_holiday"
+
+  - date: "2025-10-06"
+    name: "National Day"
+    type: "public_holiday"
+
+  - date: "2025-10-07"
+    name: "National Day"
+    type: "public_holiday"
+
+  - date: "2025-10-08"
+    name: "Mid-Autumn Festival (replacement)"
+    type: "public_holiday"
+
+# SSE/SZSE holidays for 2026
+holidays_2026:
+  - date: "2026-01-01"
+    name: "New Year's Day"
+    type: "public_holiday"
+
+  - date: "2026-02-16"
+    name: "Spring Festival Eve"
+    type: "public_holiday"
+
+  - date: "2026-02-17"
+    name: "Spring Festival (Day 1)"
+    type: "public_holiday"
+
+  - date: "2026-02-18"
+    name: "Spring Festival (Day 2)"
+    type: "public_holiday"
+
+  - date: "2026-02-19"
+    name: "Spring Festival (Day 3)"
+    type: "public_holiday"
+
+  - date: "2026-02-20"
+    name: "Spring Festival (Day 4)"
+    type: "public_holiday"
+
+  - date: "2026-02-23"
+    name: "Spring Festival (Day 5)"
+    type: "public_holiday"
+
+  - date: "2026-02-24"
+    name: "Spring Festival (Day 6)"
+    type: "public_holiday"
+
+  - date: "2026-04-05"
+    name: "Qingming Festival"
+    type: "public_holiday"
+
+  - date: "2026-04-06"
+    name: "Qingming Festival"
+    type: "public_holiday"
+
+  - date: "2026-05-01"
+    name: "Labour Day"
+    type: "public_holiday"
+
+  - date: "2026-05-04"
+    name: "Labour Day"
+    type: "public_holiday"
+
+  - date: "2026-05-05"
+    name: "Labour Day"
+    type: "public_holiday"
+
+  - date: "2026-06-19"
+    name: "Dragon Boat Festival"
+    type: "public_holiday"
+
+  - date: "2026-06-22"
+    name: "Dragon Boat Festival"
+    type: "public_holiday"
+
+  - date: "2026-10-01"
+    name: "National Day & Mid-Autumn Festival"
+    type: "public_holiday"
+
+  - date: "2026-10-02"
+    name: "National Day"
+    type: "public_holiday"
+
+  - date: "2026-10-05"
+    name: "National Day"
+    type: "public_holiday"
+
+  - date: "2026-10-06"
+    name: "National Day"
+    type: "public_holiday"
+
+  - date: "2026-10-07"
+    name: "National Day"
+    type: "public_holiday"
+
+  - date: "2026-10-08"
+    name: "National Day"
+    type: "public_holiday"
+
+# Compensatory trading days (make-up days for long holidays)
+# Chinese holidays often include weekend trading to compensate for mid-week closures
+compensatory_trading_2025:
+  - date: "2025-01-26"
+    name: "Compensatory trading (Sunday before Spring Festival)"
+    note: "Trading on Sunday to compensate for Spring Festival"
+
+  - date: "2025-02-08"
+    name: "Compensatory trading (Saturday after Spring Festival)"
+    note: "Trading on Saturday to compensate for Spring Festival"
+
+  - date: "2025-04-27"
+    name: "Compensatory trading (Sunday before Labour Day)"
+    note: "Trading on Sunday to compensate for Labour Day"
+
+  - date: "2025-09-28"
+    name: "Compensatory trading (Sunday before National Day)"
+    note: "Trading on Sunday to compensate for National Day"
+
+  - date: "2025-10-11"
+    name: "Compensatory trading (Saturday after National Day)"
+    note: "Trading on Saturday to compensate for National Day"
+
+compensatory_trading_2026:
+  - date: "2026-02-15"
+    name: "Compensatory trading (Sunday before Spring Festival)"
+    note: "Trading on Sunday to compensate for Spring Festival"
+
+  - date: "2026-02-28"
+    name: "Compensatory trading (Saturday after Spring Festival)"
+    note: "Trading on Saturday to compensate for Spring Festival"
+
+  - date: "2026-04-26"
+    name: "Compensatory trading (Sunday before Labour Day)"
+    note: "Trading on Sunday to compensate for Labour Day"
+
+  - date: "2026-09-27"
+    name: "Compensatory trading (Sunday before National Day)"
+    note: "Trading on Sunday to compensate for National Day"
+
+  - date: "2026-10-10"
+    name: "Compensatory trading (Saturday after National Day)"
+    note: "Trading on Saturday to compensate for National Day"
+
+# Notes
+notes:
+  - "SSE and SZSE share the same trading calendar"
+  - "Trading hours: 09:30-11:30, 13:00-15:00 CST (1.5-hour lunch break)"
+  - "No pre-market or post-market trading"
+  - "Major holidays: Spring Festival (7 days), National Day (7 days), Labour Day (3 days)"
+  - "Compensatory trading on weekends before/after long holidays"
+  - "Qingming Festival (Tomb Sweeping Day) and Dragon Boat Festival: 3 days each"
+  - "Trading suspended during typhoons or severe weather (rare)"
+  - "For official calendar updates: http://www.csrc.gov.cn"
+  - "Golden Week: Spring Festival (Jan/Feb) and National Day (Oct 1-7)"

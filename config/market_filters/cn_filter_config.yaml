@@ -1,0 +1,311 @@
+# ===================================
+# China Market Filter Configuration
+# ===================================
+# Market: SSE/SZSE via Stock Connect (沪深港通)
+# Currency: CNY (Chinese Yuan Renminbi)
+# Updated: 2025-10-16
+
+region: CN
+market_name: "China (SSE/SZSE via Stock Connect)"
+currency: CNY
+
+# Exchange Rate Configuration
+# CNY to KRW conversion (dynamic, updated hourly)
+exchange_rate:
+  source: "kis_api"
+  default_rate: 180.0         # Fallback: ¥1 = ₩180
+  update_frequency_minutes: 60
+
+# ===================================
+# STAGE 0 FILTERS (Basic Market Filter)
+# ===================================
+stage0_filters:
+  # Market Capitalization (시가총액)
+  # Threshold: ₩1,000억원 → ¥556M (at 180 rate)
+  min_market_cap_local: 556000000     # ¥556M
+  min_market_cap_krw: 100000000000    # ₩1,000억원
+
+  # Daily Trading Value (일 거래대금)
+  # Threshold: ₩100억원/일 → ¥56M/day (at 180 rate)
+  min_trading_value_local: 56000000   # ¥56M/day
+  min_trading_value_krw: 10000000000  # ₩100억원/일
+
+  # Price Range (가격 범위)
+  # Min: ¥5, Max: None
+  price_range_min_local: 5.0    # ¥5 minimum
+  price_range_max_local: 0      # No maximum
+  price_range_min_krw: 900      # ₩900 (at 180 rate)
+  price_range_max_krw: 0
+
+  # ===================================
+  # Market-Specific Exclusion Rules (중요!)
+  # ===================================
+
+  # ⚠️ Stock Connect ONLY (매우 중요!)
+  # Korean investors can ONLY trade Stock Connect eligible stocks
+  # 선강통(Shanghai Connect) / 후강통(Shenzhen Connect)
+  stock_connect_only: true
+
+  # ST Stocks 제외 (Special Treatment)
+  # *ST, ST prefix = 상장폐지 위험 (delisting risk)
+  exclude_st_stocks: true
+
+  # PT Stocks 제외 (Particular Transfer)
+  # PT prefix = 특별전환 (extreme delisting risk)
+  exclude_pt_stocks: true
+
+  # ETF/ETN 제외
+  exclude_etf: true
+  exclude_etn: true
+
+  # 상장폐지 예정 제외
+  exclude_delisting: true
+
+  # A-Share Priority (vs B-Share)
+  # A-shares: CNY denomination (preferred for Stock Connect)
+  # B-shares: USD/HKD denomination (less liquid)
+  prefer_a_shares: true
+
+  # 최소 상장 기간
+  min_listing_months: 13
+
+# ===================================
+# API CONFIGURATION
+# ===================================
+api:
+  data_source: "KIS_OVERSEAS_API"
+  endpoint_pattern: "/uapi/overseas-stock/v1/quotations/price"
+  tr_id: "HHDFS00000300"
+
+  rate_limit_per_sec: 20
+  rate_limit_per_min: 1000
+
+  timeout_sec: 10
+  max_retries: 3
+  retry_delay_sec: 1
+
+# ===================================
+# CACHE SETTINGS
+# ===================================
+cache:
+  ttl_market_hours: 3600
+  ttl_after_hours: 86400
+  table_name: "filter_cache_stage0"
+  strategy: "write-through"
+  cleanup_older_than_days: 7
+
+# ===================================
+# TRADING HOURS (China Standard Time → KST)
+# ===================================
+trading_hours:
+  timezone: "Asia/Shanghai"
+
+  # Regular Trading Session (CST = KST - 1h)
+  # Morning: 09:30-11:30 CST = 10:30-12:30 KST
+  # Afternoon: 13:00-15:00 CST = 14:00-16:00 KST
+  regular_session:
+    start: "10:30"  # KST
+    end: "16:00"    # KST
+
+  # Lunch Break (mandatory)
+  has_lunch_break: true
+  lunch_break:
+    start: "12:30"  # KST
+    end: "14:00"    # KST
+
+  # No Pre/Post Market
+  pre_market: null
+  post_market: null
+
+  # Market Holidays
+  holiday_calendar: "config/cn_holidays.yaml"
+
+# ===================================
+# TICK SIZE RULES
+# ===================================
+# China uses fixed tick size of ¥0.01
+tick_size_rules:
+  - price_min: 0
+    price_max: null
+    tick_size: 0.01      # ¥0.01 (fixed for all prices)
+    description: "All prices (fixed ¥0.01)"
+
+# ===================================
+# TRANSACTION COSTS (for Korean investors via Stock Connect)
+# ===================================
+transaction_costs:
+  # Trading Fee (KIS 수수료)
+  trading_fee_rate: 0.0025  # 0.25%
+
+  # China Securities Transaction Tax (印花税)
+  # Only on SELL side
+  stamp_duty_rate: 0.001    # 0.1% (sell only)
+
+  # Stock Connect Fee
+  # Shanghai Connect: 0.004% ~ 0.008%
+  # Shenzhen Connect: 0.004% ~ 0.008%
+  stock_connect_fee_rate: 0.00006  # ~0.006%
+
+  # Capital Gains Tax
+  # Korean residents: 22% on profits > ₩2.5M/year
+  capital_gains_tax_rate: 0.22
+
+  # Settlement Period
+  settlement_days: 0  # T+0 (same day settlement)
+
+# ===================================
+# DATA QUALITY VALIDATION
+# ===================================
+data_validation:
+  required_fields:
+    - ticker
+    - name
+    - market_cap
+    - trading_value
+    - current_price
+    - is_stock_connect  # ⚠️ CRITICAL: Must be true
+
+  max_market_cap_cny: 20000000000000   # ¥20T
+  max_trading_value_cny: 500000000000  # ¥500B/day
+  max_price_cny: 10000                 # ¥10K
+
+  max_data_age_hours: 24
+
+  # Additional validation for Stock Connect
+  validate_stock_connect: true
+
+# ===================================
+# LOGGING & MONITORING
+# ===================================
+logging:
+  log_level: "INFO"
+  log_passed_tickers: true
+  log_filtered_tickers: true
+  log_filter_reasons: true
+  log_execution_time: true
+  log_api_calls: true
+  log_cache_hits: true
+
+  # Log Stock Connect validation
+  log_stock_connect_validation: true
+
+# ===================================
+# PERFORMANCE EXPECTATIONS
+# ===================================
+performance:
+  # Stock Connect eligible stocks only (~2,000 out of ~5,000)
+  expected_input_count: 2000
+  expected_output_count: 300
+  expected_reduction_rate: 0.85
+
+  target_execution_time_sec: 60
+  target_api_calls: 2000
+  target_cache_hit_rate: 0.80
+
+# ===================================
+# STAGE 1 FILTERS (Technical Pre-screen)
+# ===================================
+stage1_filters:
+  data_completeness:
+    min_ohlcv_days: 250
+    max_gap_days: 60
+    required_continuity: false
+
+  ma_alignment:
+    enabled: true
+    required_alignment: "5>20>60"
+    full_alignment: "5>20>60>120>200"
+    min_score: 75
+
+  rsi_min: 30
+  rsi_max: 70
+  rsi_ideal: 50
+
+  macd:
+    enabled: true
+    require_bullish: true
+    allow_neutral: false
+
+  volume_spike:
+    enabled: true
+    spike_ratio: 1.5
+    lookback_days: 20
+
+  price_position:
+    enabled: true
+    min_position: "above_ma20"
+    ideal_position: "above_ma60"
+
+  scoring_weights:
+    ma_alignment: 0.30
+    rsi: 0.25
+    macd: 0.20
+    volume: 0.15
+    price_position: 0.10
+
+  min_stage1_score: 65
+
+# ===================================
+# STOCK CONNECT SPECIFIC
+# ===================================
+stock_connect:
+  # Eligible Exchanges
+  eligible_exchanges:
+    - "SSE"   # Shanghai Stock Exchange (沪市)
+    - "SZSE"  # Shenzhen Stock Exchange (深市)
+
+  # Eligible Stock Types
+  eligible_stock_types:
+    - "A-Share"  # A股 (CNY denomination)
+
+  # Exclude Types
+  exclude_types:
+    - "B-Share"  # B股 (USD/HKD)
+    - "H-Share"  # H股 (Hong Kong listed)
+
+  # Index Constituents (preferred)
+  preferred_indexes:
+    - "CSI 300"      # 沪深300 (top 300 A-shares)
+    - "SSE 180"      # 上证180
+    - "SZSE 100"     # 深证100
+
+# ===================================
+# NOTES & DOCUMENTATION
+# ===================================
+notes: |
+  China Market Filter Configuration (Stock Connect Only)
+
+  ⚠️ CRITICAL RESTRICTION:
+  - Korean investors can ONLY trade Stock Connect eligible stocks
+  - Shanghai Connect (沪股通): SSE A-shares
+  - Shenzhen Connect (深股通): SZSE A-shares
+  - ~2,000 out of ~5,000 total A-shares are eligible
+
+  STAGE 0 - Basic Market Filter:
+  - Market cap: ¥556M (₩1,000억원 equivalent)
+  - Trading value: ¥56M/day (₩100억원 equivalent)
+  - Price: ≥¥5
+  - Stock Connect: MANDATORY
+  - Exclude: ST/PT stocks (delisting risk)
+  - Expected: 2,000 → 300 stocks (85% reduction)
+
+  STAGE 1 - Technical Pre-screen:
+  - Expected: 300 → 120 stocks (60% reduction)
+
+  Trading Hours (KST):
+  - Morning: 10:30-12:30
+  - Lunch: 12:30-14:00
+  - Afternoon: 14:00-16:00
+
+  Special Notes:
+  - T+0 settlement (same day)
+  - Stamp duty on SELL only (0.1%)
+  - Fixed tick size: ¥0.01
+  - No pre/post market trading
+  - Stock Connect fee: ~0.006%
+
+  Stock Name Prefixes:
+  - *ST: Special Treatment (serious problems)
+  - ST: Special Treatment (delisting warning)
+  - PT: Particular Transfer (extreme risk)
+  - N: Newly listed (< 1 month)

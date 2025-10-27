@@ -1,0 +1,205 @@
+{
+  "timestamp": "2025-10-17T11:36:10.503082",
+  "uptime_seconds": 9e-06,
+  "api": {
+    "total_requests": 0,
+    "successful_requests": null,
+    "failed_requests": null,
+    "error_rate": 0.0,
+    "avg_latency_ms": null,
+    "p95_latency_ms": 0.0,
+    "rate_limit_usage_pct": 0.0,
+    "requests_by_region": {}
+  },
+  "database": {
+    "total_rows": 721781,
+    "rows_by_region": {
+      "CN": 30,
+      "HK": 30,
+      "JP": 30,
+      "KR": 721631,
+      "US": 30,
+      "VN": 30
+    },
+    "database_size_mb": 243.02734375,
+    "avg_row_size_bytes": 353,
+    "query_performance": {
+      "region_select": {
+        "latency_ms": 4.94,
+        "status": "healthy"
+      },
+      "ticker_select": {
+        "latency_ms": 2.4,
+        "status": "healthy"
+      },
+      "aggregation": {
+        "latency_ms": 316.69,
+        "status": "healthy"
+      }
+    },
+    "storage_growth": {
+      "2025-10-16": 154,
+      "2025-10-15": 30118,
+      "2025-10-10": 2754
+    }
+  },
+  "data_quality": {
+    "null_rates": {
+      "ticker": {
+        "null_count": 0,
+        "null_pct": 0.0,
+        "status": "healthy"
+      },
+      "region": {
+        "null_count": 0,
+        "null_pct": 0.0,
+        "status": "healthy"
+      },
+      "date": {
+        "null_count": 0,
+        "null_pct": 0.0,
+        "status": "healthy"
+      },
+      "open": {
+        "null_count": 0,
+        "null_pct": 0.0,
+        "status": "healthy"
+      },
+      "high": {
+        "null_count": 0,
+        "null_pct": 0.0,
+        "status": "healthy"
+      },
+      "low": {
+        "null_count": 0,
+        "null_pct": 0.0,
+        "status": "healthy"
+      },
+      "close": {
+        "null_count": 0,
+        "null_pct": 0.0,
+        "status": "healthy"
+      },
+      "volume": {
+        "null_count": 0,
+        "null_pct": 0.0,
+        "status": "healthy"
+      }
+    },
+    "integrity_violations": {
+      "high_low": 0,
+      "close_range": 0,
+      "negative_volume": 0,
+      "total": 0,
+      "status": "healthy"
+    },
+    "contamination": {
+      "KR": {
+        "violations": 0,
+        "status": "healthy"
+      },
+      "US": {
+        "violations": 0,
+        "status": "healthy"
+      },
+      "HK": {
+        "violations": 0,
+        "status": "healthy"
+      },
+      "CN": {
+        "violations": 0,
+        "status": "healthy"
+      },
+      "JP": {
+        "violations": 0,
+        "status": "healthy"
+      },
+      "VN": {
+        "violations": 0,
+        "status": "healthy"
+      }
+    },
+    "completeness": {
+      "KR": {
+        "recent_tickers": 1,
+        "total_tickers": 3745,
+        "completeness_pct": 0.03,
+        "status": "critical"
+      },
+      "US": {
+        "recent_tickers": 1,
+        "total_tickers": 1,
+        "completeness_pct": 100.0,
+        "status": "healthy"
+      },
+      "HK": {
+        "recent_tickers": 1,
+        "total_tickers": 1,
+        "completeness_pct": 100.0,
+        "status": "healthy"
+      },
+      "CN": {
+        "recent_tickers": 1,
+        "total_tickers": 1,
+        "completeness_pct": 100.0,
+        "status": "healthy"
+      },
+      "JP": {
+        "recent_tickers": 1,
+        "total_tickers": 1,
+        "completeness_pct": 100.0,
+        "status": "healthy"
+      },
+      "VN": {
+        "recent_tickers": 1,
+        "total_tickers": 1,
+        "completeness_pct": 100.0,
+        "status": "healthy"
+      }
+    }
+  },
+  "system": {
+    "cpu": {
+      "usage_pct": 16.6,
+      "count": 8,
+      "status": "healthy"
+    },
+    "memory": {
+      "total_mb": 16384.0,
+      "used_mb": 7130.2,
+      "available_mb": 5066.19,
+      "usage_pct": 69.1,
+      "status": "healthy"
+    },
+    "disk": {
+      "total_gb": 228.27,
+      "used_gb": 199.89,
+      "free_gb": 28.38,
+      "usage_pct": 87.6,
+      "status": "warning"
+    }
+  },
+  "collectors": {
+    "collection_rates": {
+      "overall": {
+        "total": 0,
+        "successful": null,
+        "success_rate": 0.0,
+        "status": "critical"
+      }
+    },
+    "error_rates": {
+      "overall": {
+        "error_rate": 100.0,
+        "status": "critical"
+      }
+    },
+    "processing_time": {
+      "overall": {
+        "avg_ms": 0.0,
+        "max_ms": 0.0,
+        "status": "healthy"
+      }
+    }
+  }
+}

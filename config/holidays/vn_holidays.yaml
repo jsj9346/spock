@@ -1,0 +1,284 @@
+# Vietnam Stock Exchange Trading Calendar
+# Markets: HOSE (Ho Chi Minh Stock Exchange), HNX (Hanoi Stock Exchange)
+# Timezone: Asia/Ho_Chi_Minh (ICT, GMT+7, no DST)
+#
+# Trading Hours:
+#   HOSE: 09:15-11:30, 13:00-14:30 (Morning + Afternoon sessions)
+#   HNX:  09:00-11:30, 13:00-14:30 (Morning + Afternoon sessions)
+#
+# Annual Trading Days: ~245 days/year
+#
+# Major Holidays:
+#   - Lunar New Year (Tet): 7-9 days (late January - early February)
+#   - Hung Kings Commemoration Day: 10th day of 3rd lunar month
+#   - Reunification Day + International Workers' Day: Apr 30 - May 1
+#   - National Day: Sep 2 (up to 4 days with weekend)
+#
+# Updated: 2025-10-14
+
+market: VN
+exchanges:
+  - HOSE  # Ho Chi Minh Stock Exchange
+  - HNX   # Hanoi Stock Exchange
+
+timezone: Asia/Ho_Chi_Minh  # ICT (GMT+7)
+
+trading_hours:
+  hose:
+    morning:
+      open: "09:15"
+      close: "11:30"
+    afternoon:
+      open: "13:00"
+      close: "14:30"
+  hnx:
+    morning:
+      open: "09:00"
+      close: "11:30"
+    afternoon:
+      open: "13:00"
+      close: "14:30"
+  notes:
+    - "Both exchanges have 1.5-hour lunch break"
+    - "ATO (At The Opening) session: 09:00-09:15 (HOSE)"
+    - "ATC (At The Close) session: 14:30-14:45 (HOSE)"
+
+# 2025 Holidays
+holidays_2025:
+  # Lunar New Year (Tet) 2025 - Year of the Snake
+  - date: "2025-01-28"  # Tuesday (Tet Eve)
+    name: "Lunar New Year Eve"
+    name_vn: "Tết Nguyên Đán - Giao thừa"
+    type: public_holiday
+    notes: "Last trading day before Tet"
+
+  - date: "2025-01-29"  # Wednesday (1st day of Tet)
+    name: "Lunar New Year Day 1"
+    name_vn: "Tết Nguyên Đán - Mùng 1"
+    type: public_holiday
+    market_closed: true
+
+  - date: "2025-01-30"  # Thursday (2nd day of Tet)
+    name: "Lunar New Year Day 2"
+    name_vn: "Tết Nguyên Đán - Mùng 2"
+    type: public_holiday
+    market_closed: true
+
+  - date: "2025-01-31"  # Friday (3rd day of Tet)
+    name: "Lunar New Year Day 3"
+    name_vn: "Tết Nguyên Đán - Mùng 3"
+    type: public_holiday
+    market_closed: true
+
+  - date: "2025-02-01"  # Saturday
+    name: "Lunar New Year Day 4"
+    name_vn: "Tết Nguyên Đán - Mùng 4"
+    type: weekend
+    market_closed: true
+
+  - date: "2025-02-02"  # Sunday
+    name: "Lunar New Year Day 5"
+    name_vn: "Tết Nguyên Đán - Mùng 5"
+    type: weekend
+    market_closed: true
+
+  - date: "2025-02-03"  # Monday (Make-up day)
+    name: "Lunar New Year Make-up Day"
+    name_vn: "Nghỉ bù Tết"
+    type: make_up_holiday
+    market_closed: true
+    notes: "Make-up for Saturday Jan 1"
+
+  # Hung Kings Commemoration Day
+  - date: "2025-04-07"  # Monday (10th day of 3rd lunar month)
+    name: "Hung Kings Commemoration Day"
+    name_vn: "Giỗ Tổ Hùng Vương"
+    type: public_holiday
+    market_closed: true
+
+  # Reunification Day
+  - date: "2025-04-30"  # Wednesday
+    name: "Reunification Day"
+    name_vn: "Ngày Giải phóng miền Nam"
+    type: public_holiday
+    market_closed: true
+
+  # International Workers' Day
+  - date: "2025-05-01"  # Thursday
+    name: "International Workers' Day"
+    name_vn: "Ngày Quốc tế Lao động"
+    type: public_holiday
+    market_closed: true
+
+  - date: "2025-05-02"  # Friday (Make-up day)
+    name: "Workers' Day Make-up"
+    name_vn: "Nghỉ bù 30/4 - 01/5"
+    type: make_up_holiday
+    market_closed: true
+
+  # National Day Holiday (September 2)
+  - date: "2025-08-30"  # Saturday (Extended holiday start)
+    name: "National Day Holiday (Pre)"
+    name_vn: "Nghỉ Quốc Khánh (Trước)"
+    type: weekend
+    market_closed: true
+
+  - date: "2025-08-31"  # Sunday
+    name: "National Day Holiday (Pre)"
+    name_vn: "Nghỉ Quốc Khánh (Trước)"
+    type: weekend
+    market_closed: true
+
+  - date: "2025-09-01"  # Monday (Make-up for weekend)
+    name: "National Day Holiday"
+    name_vn: "Nghỉ Quốc Khánh"
+    type: make_up_holiday
+    market_closed: true
+
+  - date: "2025-09-02"  # Tuesday (National Day)
+    name: "National Day"
+    name_vn: "Quốc Khánh"
+    type: public_holiday
+    market_closed: true
+
+# 2026 Holidays (Preliminary)
+holidays_2026:
+  # Lunar New Year (Tet) 2026 - Year of the Horse
+  - date: "2026-02-16"  # Monday (Tet Eve)
+    name: "Lunar New Year Eve"
+    name_vn: "Tết Nguyên Đán - Giao thừa"
+    type: public_holiday
+    notes: "Last trading day before Tet"
+
+  - date: "2026-02-17"  # Tuesday (1st day of Tet)
+    name: "Lunar New Year Day 1"
+    name_vn: "Tết Nguyên Đán - Mùng 1"
+    type: public_holiday
+    market_closed: true
+
+  - date: "2026-02-18"  # Wednesday (2nd day of Tet)
+    name: "Lunar New Year Day 2"
+    name_vn: "Tết Nguyên Đán - Mùng 2"
+    type: public_holiday
+    market_closed: true
+
+  - date: "2026-02-19"  # Thursday (3rd day of Tet)
+    name: "Lunar New Year Day 3"
+    name_vn: "Tết Nguyên Đán - Mùng 3"
+    type: public_holiday
+    market_closed: true
+
+  - date: "2026-02-20"  # Friday (4th day of Tet)
+    name: "Lunar New Year Day 4"
+    name_vn: "Tết Nguyên Đán - Mùng 4"
+    type: public_holiday
+    market_closed: true
+
+  - date: "2026-02-21"  # Saturday
+    name: "Lunar New Year Day 5"
+    name_vn: "Tết Nguyên Đán - Mùng 5"
+    type: weekend
+    market_closed: true
+
+  - date: "2026-02-22"  # Sunday
+    name: "Lunar New Year Day 6"
+    name_vn: "Tết Nguyên Đán - Mùng 6"
+    type: weekend
+    market_closed: true
+
+  - date: "2026-02-23"  # Monday (Make-up day)
+    name: "Lunar New Year Make-up Day"
+    name_vn: "Nghỉ bù Tết"
+    type: make_up_holiday
+    market_closed: true
+
+  # Hung Kings Commemoration Day
+  - date: "2026-03-26"  # Thursday (10th day of 3rd lunar month)
+    name: "Hung Kings Commemoration Day"
+    name_vn: "Giỗ Tổ Hùng Vương"
+    type: public_holiday
+    market_closed: true
+
+  - date: "2026-03-27"  # Friday (Make-up day)
+    name: "Hung Kings Make-up Day"
+    name_vn: "Nghỉ bù Giỗ Tổ Hùng Vương"
+    type: make_up_holiday
+    market_closed: true
+
+  # Reunification Day
+  - date: "2026-04-30"  # Thursday
+    name: "Reunification Day"
+    name_vn: "Ngày Giải phóng miền Nam"
+    type: public_holiday
+    market_closed: true
+
+  # International Workers' Day
+  - date: "2026-05-01"  # Friday
+    name: "International Workers' Day"
+    name_vn: "Ngày Quốc tế Lao động"
+    type: public_holiday
+    market_closed: true
+
+  - date: "2026-05-02"  # Saturday
+    name: "Workers' Day Extended"
+    name_vn: "Nghỉ 30/4 - 01/5"
+    type: weekend
+    market_closed: true
+
+  - date: "2026-05-03"  # Sunday
+    name: "Workers' Day Extended"
+    name_vn: "Nghỉ 30/4 - 01/5"
+    type: weekend
+    market_closed: true
+
+  - date: "2026-05-04"  # Monday (Make-up)
+    name: "Workers' Day Make-up"
+    name_vn: "Nghỉ bù 30/4 - 01/5"
+    type: make_up_holiday
+    market_closed: true
+
+  # National Day
+  - date: "2026-09-02"  # Wednesday
+    name: "National Day"
+    name_vn: "Quốc Khánh"
+    type: public_holiday
+    market_closed: true
+
+  - date: "2026-09-03"  # Thursday (Make-up)
+    name: "National Day Make-up"
+    name_vn: "Nghỉ bù Quốc Khánh"
+    type: make_up_holiday
+    market_closed: true
+
+notes:
+  general:
+    - "Weekend closures: All Saturdays and Sundays"
+    - "Make-up holidays (nghỉ bù): Compensatory days off when public holidays fall on weekends"
+    - "Lunar calendar dates vary each year - check official SSC announcements"
+    - "Government may adjust holiday schedules - monitor State Securities Commission (SSC) notices"
+
+  tet_period:
+    - "Tet is the most important Vietnamese holiday (7-9 days)"
+    - "Extended closure period: typically 7-9 consecutive days in late Jan/early Feb"
+    - "Trading volume significantly lower 1-2 weeks before and after Tet"
+    - "Many companies release annual reports after Tet holiday"
+
+  market_specifics:
+    - "State Securities Commission (SSC) governs trading calendar"
+    - "Special trading sessions: extraordinary general meetings (EGM)"
+    - "Circuit breakers: ±7% daily price limit for most stocks"
+    - "Foreign ownership limits: vary by stock (20-100%)"
+
+  data_sources:
+    - "Official: State Securities Commission of Vietnam (SSC)"
+    - "HOSE: http://www.hsx.vn"
+    - "HNX: http://www.hnx.vn"
+    - "Lunar calendar conversions: Vietnamese lunar calendar"
+
+annual_statistics:
+  trading_days_per_year: 245
+  weekends_per_year: 104
+  public_holidays: 11-12
+  average_tet_closure: 7-9
+  average_daily_volume_hose: "~500M shares"
+  total_market_cap: "~$209B USD (2024)"

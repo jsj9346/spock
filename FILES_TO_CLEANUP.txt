@@ -1,0 +1,238 @@
+SPOCK PROJECT CLEANUP CHECKLIST
+Generated: October 26, 2025
+Priority: P1 (This Week) to P3 (This Month)
+
+================================================================================
+PRIORITY P0: VERIFY QUANT PLATFORM INTEGRITY (Before any cleanup)
+================================================================================
+- Run: pytest tests/backtesting/
+- Run: pytest tests/test_*_factor*.py
+- Run: pytest tests/test_*_optimization*.py
+- Verify: modules/db_manager_postgres.py (83K)
+- Verify: quant_platform.py (5.4K)
+
+================================================================================
+PRIORITY P1: DELETE IMMEDIATELY (This Week) - 226M
+================================================================================
+
+1. ONE-TIME USE LOG (192M - Safe)
+   /migration_ohlcv.log
+
+2. BACKUP FILES (88K - Safe)
+   /modules/kis_data_collector.py.backup_20251019_223148 (54K)
+   /CLAUDE_backup.md (34K)
+
+3. SINGLE TEST FILE (Safe)
+   /test_cli_login.py (2.8K)
+
+Total P1 Cleanup: ~192.1M space recovered
+
+================================================================================
+PRIORITY P2: ARCHIVE TO /archive/spock_legacy/ (Week 1-2)
+================================================================================
+
+CORE TRADING SYSTEM (166K)
+   /spock.py (36K)
+   /modules/kis_trading_engine.py (57K)
+   /spock_PRD.md (33K)
+   /init_db.py (75K)
+
+TRADING-SPECIFIC TEST FILES (6 files)
+   /tests/test_kis_trading_engine.py
+   /tests/test_kis_authentication_day1.py
+   /tests/test_kis_price_and_buy_day2.py
+   /tests/test_kis_sell_and_integration_day3.py
+   /tests/test_trading_engine_blacklist.py
+   /tests/test_phase5_task4_integration.py
+
+Total P2 Archival: ~166K code + 6 test files
+
+================================================================================
+PRIORITY P2: ARCHIVE TO /archive/documentation_legacy/ (Week 1-2)
+================================================================================
+
+TRADING DOCUMENTATION (186K)
+   /spock.md (7.9K)
+   /SPOCK_FUNCTIONAL_COMPLETENESS_ANALYSIS.md (33K)
+   /PHASE5_IMPLEMENTATION_PLAN.md (36K)
+   /PHASE5_TASK1_COMPLETION_REPORT.md (14K)
+   /PHASE5_TASK1_COMPLETION_STATUS.md (8.8K)
+   /PHASE5_TRADING_EXECUTION_DESIGN.md (26K)
+   /docs/KIS_TRADING_ENGINE_DESIGN.md (13K)
+   /docs/KIS_TRADING_ENGINE_DAY1_3_IMPLEMENTATION_DESIGN.md (29K)
+   /docs/KIS_TRADING_ENGINE_DAY2_3_COMPLETION_SUMMARY.md (8.6K)
+   /docs/KIS_TRADING_ENGINE_QUICK_START.md (7.4K)
+   /docs/PORTFOLIO_ALLOCATION_SYSTEM.md (29K)
+   /docs/BLACKLIST_INTEGRATION_GUIDE.md (19K)
+   /docs/BLACKLIST_INTEGRATION_TODO_PHASES_5_8.md (13K)
+
+LEGACY DOCUMENTATION (Patterns)
+   /docs/PHASE5_*.md (multiple)
+   /docs/MAKENAIDE_GPT_ANALYZER_CODE_REVIEW.md (25K)
+   /docs/ETF_*.md (10 files, ~180K)
+   /docs/MASTER_FILE_*.md (8 files, ~120K)
+   /docs/*COMPLETION_REPORT*.md (30+ files, ~800K)
+
+Total P2 Documentation: ~4.2M
+
+================================================================================
+PRIORITY P3: ARCHIVE TO /archive/analysis_legacy/ (Week 2-3)
+================================================================================
+
+OLD ANALYSIS REPORTS (Keep 3 most recent, archive rest) - 8.3M
+   /analysis/*_20251023_*.md (multiple)
+   /analysis/*_20251022_*.md (multiple)
+   /analysis/IC_*.md
+   /analysis/MONTH_*.md
+   (Keep: walk_forward_validation_success_report_20251026.md,
+           phase3_equal_weighted_validation_results_20251026.md,
+           comprehensive_optimization_report_20251024.md)
+
+Total P3 Analysis Archival: ~8.3M (keep 3 recent files)
+
+================================================================================
+PRIORITY P3: CLEANUP INFRASTRUCTURE (Week 3)
+================================================================================
+
+LOGS (Automate - keep last 30 days)
+   /logs/*.log files >30 days old (467M total, archive/delete old)
+
+BACKUPS (Keep 3 most recent)
+   /backups/ - Delete all but 3 most recent (186M potential savings)
+
+OLD TEST REPORTS (Archive)
+   /test_reports/phase3_20251014/
+   /test_reports/phase5_task*/ (keep only latest)
+
+Total P3 Infrastructure: ~186M (if backups cleaned)
+
+================================================================================
+KEEP - DO NOT DELETE
+================================================================================
+
+QUANT PLATFORM (Active)
+   /quant_platform.py
+   /modules/backtesting/
+   /modules/factors/
+   /modules/optimization/
+   /modules/risk/
+   /modules/strategies/
+   /modules/db_manager_postgres.py
+
+REUSABLE COMPONENTS (70% Code Reuse)
+   /modules/api_clients/
+   /modules/market_adapters/
+   /modules/parsers/
+   /modules/kelly_calculator.py
+   /modules/fundamental_data_collector.py
+   /modules/fx_data_collector.py
+
+CURRENT DOCUMENTATION
+   /CLAUDE.md (Oct 26 - ACTIVE)
+   /docs/PHASE1_BACKTEST_ENGINE_EXECUTION_PLAN.md
+   /docs/PHASE1_DETAILED_TASKS.md
+   /docs/IMPLEMENTATION_ROADMAP.md
+   /docs/QUANT_BACKTESTING_ENGINES.md
+   /docs/QUANT_DATABASE_SCHEMA.md
+
+CONFIGURATION
+   /config/ (all files - essential)
+
+INFRASTRUCTURE
+   /monitoring/ (Prometheus/Grafana)
+   /data/ (OHLCV research data)
+   /api/ (FastAPI)
+   /cli/ (CLI utilities)
+
+TEST INFRASTRUCTURE
+   /tests/backtesting/
+   /tests/test_*_adapter.py
+   /tests/test_*_parser.py
+   /tests/test_*_factor*.py
+   /tests/test_*_optimization*.py
+   /tests/test_*_integration*.py (quant-related)
+   /tests/test_e2e_all_markets.py
+
+================================================================================
+STORAGE RECOVERY SUMMARY
+================================================================================
+
+P1 (This Week): 192.1M
+   - migration_ohlcv.log: 192M
+   - Backup files: 88K
+   - Test file: 2.8K
+
+P2 (Week 1-2): 186K code + 4.2M docs
+   - Legacy trading files: 166K
+   - Trading documentation: 4.2M
+
+P3 (Week 2-3): 8.3M + 186M
+   - Analysis reports: 8.3M
+   - Backups cleanup: 186M (optional)
+   - Logs cleanup: 467M (automatic 30-day rotation)
+
+TOTAL POTENTIAL RECOVERY: ~853M (19% of 4.4G project)
+
+IMMEDIATE SAFE RECOVERY: ~192.1M (this week, zero risk)
+
+================================================================================
+VERIFICATION CHECKLIST
+================================================================================
+
+Before cleanup:
+  [ ] Run all quant platform tests (pytest)
+  [ ] Verify db_manager_postgres.py works
+  [ ] Confirm quant_platform.py is functional
+  [ ] Check all market adapters are intact
+  [ ] Verify API routes operational
+
+During cleanup:
+  [ ] Create git tag: v1_spock_legacy_20251026
+  [ ] Create archive directories
+  [ ] Archive files (not delete)
+  [ ] Verify test suite still passes
+  [ ] Check project integrity
+
+After cleanup:
+  [ ] Update CLAUDE.md with new structure
+  [ ] Create PROJECT_STRUCTURE.md
+  [ ] Add deprecation notices to archived files
+  [ ] Commit changes to git
+  [ ] Document cleanup in CHANGELOG
+
+================================================================================
+GIT COMMANDS FOR CLEANUP
+================================================================================
+
+# 1. Tag current state BEFORE any cleanup
+git tag -a v1_spock_legacy_20251026 -m "Spock trading system final state"
+git push origin v1_spock_legacy_20251026
+
+# 2. Create archive directories
+mkdir -p /archive/{spock_legacy,documentation_legacy,analysis_legacy,test_backups}
+
+# 3. Move files to archive (preserve git history)
+git mv /spock.py /archive/spock_legacy/
+git mv /modules/kis_trading_engine.py /archive/spock_legacy/
+# ... (repeat for all files to archive)
+
+# 4. Delete one-time files (safe)
+git rm /migration_ohlcv.log
+git rm /CLAUDE_backup.md
+# ... (repeat for other deletions)
+
+# 5. Verify state
+git status
+git log --oneline -10
+
+# 6. Commit
+git commit -m "Spock Legacy: Archive trading system, pivot to quant platform
+
+- Archive 12-15 legacy trading files to /archive/spock_legacy/
+- Archive 6 trading-specific test files
+- Delete 192M migration log and backup files
+- Preserve 70% of code (market adapters, APIs, data collection)
+- Verify quant platform integrity
+
+Total cleanup: ~192M immediate recovery, ~853M total potential"
+

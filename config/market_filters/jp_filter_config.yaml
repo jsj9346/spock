@@ -1,0 +1,345 @@
+# ===================================
+# Japan Market Filter Configuration
+# ===================================
+# Market: TSE (Tokyo Stock Exchange)
+# Currency: JPY (Japanese Yen)
+# Updated: 2025-10-16
+
+region: JP
+market_name: "Japan (TSE - Tokyo Stock Exchange)"
+currency: JPY
+
+# Exchange Rate Configuration
+# JPY to KRW conversion (dynamic, updated hourly)
+exchange_rate:
+  source: "kis_api"
+  default_rate: 10.0          # Fallback: ¥1 = ₩10
+  update_frequency_minutes: 60
+
+# ===================================
+# STAGE 0 FILTERS (Basic Market Filter)
+# ===================================
+stage0_filters:
+  # Market Capitalization (시가총액)
+  # Threshold: ₩1,000억원 → ¥10B (at 10 rate)
+  min_market_cap_local: 10000000000   # ¥10B
+  min_market_cap_krw: 100000000000    # ₩1,000억원
+
+  # Daily Trading Value (일 거래대금)
+  # Threshold: ₩100억원/일 → ¥1B/day (at 10 rate)
+  min_trading_value_local: 1000000000 # ¥1B/day
+  min_trading_value_krw: 10000000000  # ₩100억원/일
+
+  # Price Range (가격 범위)
+  # Min: ¥500, Max: None
+  price_range_min_local: 500    # ¥500 minimum
+  price_range_max_local: 0      # No maximum
+  price_range_min_krw: 5000     # ₩5,000 (at 10 rate)
+  price_range_max_krw: 0
+
+  # ===================================
+  # Market-Specific Exclusion Rules
+  # ===================================
+
+  # ETF/ETN 제외
+  exclude_etf: true
+  exclude_etn: true
+
+  # REIT 제외 (Real Estate Investment Trust)
+  exclude_reit: true
+
+  # 상장폐지 예정 제외
+  exclude_delisting: true
+
+  # TOPIX 500 우선 선택
+  # Focus on TOPIX 500 constituents (top 500 companies)
+  focus_topix_500: true
+
+  # TSE Market Segments (2022 restructuring)
+  # Prime Market (프라임 시장): 대형주 중심
+  # Standard Market (스탠다드 시장): 중형주
+  # Growth Market (그로스 시장): 신흥기업
+  preferred_segments:
+    - "Prime"      # Preferred
+    - "Standard"   # Acceptable
+  exclude_segments:
+    - "Growth"     # High risk, exclude
+
+  # 최소 상장 기간
+  min_listing_months: 13
+
+# ===================================
+# API CONFIGURATION
+# ===================================
+api:
+  data_source: "KIS_OVERSEAS_API"
+  endpoint_pattern: "/uapi/overseas-stock/v1/quotations/price"
+  tr_id: "HHDFS00000300"
+
+  rate_limit_per_sec: 20
+  rate_limit_per_min: 1000
+
+  timeout_sec: 10
+  max_retries: 3
+  retry_delay_sec: 1
+
+# ===================================
+# CACHE SETTINGS
+# ===================================
+cache:
+  ttl_market_hours: 3600
+  ttl_after_hours: 86400
+  table_name: "filter_cache_stage0"
+  strategy: "write-through"
+  cleanup_older_than_days: 7
+
+# ===================================
+# TRADING HOURS (Japan Standard Time → KST)
+# ===================================
+trading_hours:
+  timezone: "Asia/Tokyo"
+
+  # Regular Trading Session (JST = KST, same timezone)
+  # Morning: 09:00-11:30 JST = 09:00-11:30 KST
+  # Afternoon: 12:30-15:00 JST = 12:30-15:00 KST
+  regular_session:
+    start: "09:00"  # KST
+    end: "15:00"    # KST
+
+  # Lunch Break (mandatory)
+  has_lunch_break: true
+  lunch_break:
+    start: "11:30"  # KST
+    end: "12:30"    # KST
+
+  # ToSTNeT (After-Hours Trading)
+  # ToSTNeT-1: 08:20-08:45, 11:30-12:30, 15:00-15:30
+  # ToSTNeT-2: 08:45-09:00, 11:30-12:30, 15:30-16:00
+  # ToSTNeT-3: 08:00-15:30
+  post_market:
+    start: "15:00"
+    end: "16:00"
+
+  # Market Holidays
+  holiday_calendar: "config/jp_holidays.yaml"
+
+# ===================================
+# TICK SIZE RULES
+# ===================================
+# Japan uses variable tick sizes based on price
+tick_size_rules:
+  - price_min: 0
+    price_max: 1000
+    tick_size: 1         # ¥1
+    description: "Under ¥1,000"
+
+  - price_min: 1000
+    price_max: 3000
+    tick_size: 1         # ¥1
+    description: "¥1,000 ~ ¥3,000"
+
+  - price_min: 3000
+    price_max: 5000
+    tick_size: 5         # ¥5
+    description: "¥3,000 ~ ¥5,000"
+
+  - price_min: 5000
+    price_max: 10000
+    tick_size: 10        # ¥10
+    description: "¥5,000 ~ ¥10,000"
+
+  - price_min: 10000
+    price_max: 30000
+    tick_size: 10        # ¥10
+    description: "¥10,000 ~ ¥30,000"
+
+  - price_min: 30000
+    price_max: 50000
+    tick_size: 50        # ¥50
+    description: "¥30,000 ~ ¥50,000"
+
+  - price_min: 50000
+    price_max: 100000
+    tick_size: 100       # ¥100
+    description: "¥50,000 ~ ¥100,000"
+
+  - price_min: 100000
+    price_max: 300000
+    tick_size: 100       # ¥100
+    description: "¥100,000 ~ ¥300,000"
+
+  - price_min: 300000
+    price_max: 500000
+    tick_size: 500       # ¥500
+    description: "¥300,000 ~ ¥500,000"
+
+  - price_min: 500000
+    price_max: 1000000
+    tick_size: 1000      # ¥1,000
+    description: "¥500,000 ~ ¥1,000,000"
+
+  - price_min: 1000000
+    price_max: null
+    tick_size: 1000      # ¥1,000
+    description: "¥1,000,000 and above"
+
+# ===================================
+# TRANSACTION COSTS (for Korean investors)
+# ===================================
+transaction_costs:
+  # Trading Fee
+  trading_fee_rate: 0.0025  # 0.25%
+
+  # Japan Consumption Tax (消費税)
+  # Applied to trading fees
+  consumption_tax_rate: 0.10  # 10%
+
+  # Capital Gains Tax
+  # Korean residents: 22% on profits > ₩2.5M/year
+  capital_gains_tax_rate: 0.22
+
+  # Settlement Period
+  settlement_days: 2  # T+2
+
+# ===================================
+# DATA QUALITY VALIDATION
+# ===================================
+data_validation:
+  required_fields:
+    - ticker
+    - name
+    - market_cap
+    - trading_value
+    - current_price
+
+  max_market_cap_jpy: 100000000000000  # ¥100T
+  max_trading_value_jpy: 5000000000000 # ¥5T/day
+  max_price_jpy: 100000                # ¥100K
+
+  max_data_age_hours: 24
+
+# ===================================
+# LOGGING & MONITORING
+# ===================================
+logging:
+  log_level: "INFO"
+  log_passed_tickers: true
+  log_filtered_tickers: true
+  log_filter_reasons: true
+  log_execution_time: true
+  log_api_calls: true
+  log_cache_hits: true
+
+# ===================================
+# PERFORMANCE EXPECTATIONS
+# ===================================
+performance:
+  expected_input_count: 3800
+  expected_output_count: 600
+  expected_reduction_rate: 0.84
+
+  target_execution_time_sec: 90
+  target_api_calls: 3800
+  target_cache_hit_rate: 0.80
+
+# ===================================
+# STAGE 1 FILTERS (Technical Pre-screen)
+# ===================================
+stage1_filters:
+  data_completeness:
+    min_ohlcv_days: 250
+    max_gap_days: 60
+    required_continuity: false
+
+  ma_alignment:
+    enabled: true
+    required_alignment: "5>20>60"
+    full_alignment: "5>20>60>120>200"
+    min_score: 75
+
+  rsi_min: 30
+  rsi_max: 70
+  rsi_ideal: 50
+
+  macd:
+    enabled: true
+    require_bullish: true
+    allow_neutral: false
+
+  volume_spike:
+    enabled: true
+    spike_ratio: 1.5
+    lookback_days: 20
+
+  price_position:
+    enabled: true
+    min_position: "above_ma20"
+    ideal_position: "above_ma60"
+
+  scoring_weights:
+    ma_alignment: 0.30
+    rsi: 0.25
+    macd: 0.20
+    volume: 0.15
+    price_position: 0.10
+
+  min_stage1_score: 65
+
+# ===================================
+# TSE MARKET SEGMENTS (2022 Restructuring)
+# ===================================
+market_segments:
+  # Prime Market (プライム市場)
+  # Requirements: High liquidity, market cap ≥¥10B
+  prime:
+    min_market_cap: 10000000000  # ¥10B
+    min_free_float: 0.35         # 35%
+    min_shareholders: 800
+
+  # Standard Market (スタンダード市場)
+  # Requirements: Medium liquidity
+  standard:
+    min_market_cap: 1000000000   # ¥1B
+    min_free_float: 0.25         # 25%
+    min_shareholders: 400
+
+  # Growth Market (グロース市場)
+  # Requirements: Growth companies
+  growth:
+    min_market_cap: 0            # No requirement
+    min_free_float: 0.25         # 25%
+    min_shareholders: 150
+
+# ===================================
+# NOTES & DOCUMENTATION
+# ===================================
+notes: |
+  Japan Market Filter Configuration (TSE)
+
+  STAGE 0 - Basic Market Filter:
+  - Market cap: ¥10B (₩1,000억원 equivalent)
+  - Trading value: ¥1B/day (₩100억원 equivalent)
+  - Price: ≥¥500
+  - Focus: TOPIX 500 constituents preferred
+  - Segments: Prime/Standard only (exclude Growth)
+  - Expected: 3,800 → 600 stocks (84% reduction)
+
+  STAGE 1 - Technical Pre-screen:
+  - Expected: 600 → 240 stocks (60% reduction)
+
+  Trading Hours (KST = JST):
+  - Morning: 09:00-11:30
+  - Lunch: 11:30-12:30
+  - Afternoon: 12:30-15:00
+  - ToSTNeT (after-hours): 15:00-16:00
+
+  Market Structure (2022 Restructuring):
+  - Prime Market: Large-cap (≥¥10B, 800+ shareholders)
+  - Standard Market: Mid-cap (≥¥1B, 400+ shareholders)
+  - Growth Market: Small-cap/startups (EXCLUDED)
+
+  Special Notes:
+  - Variable tick sizes (11 tiers)
+  - Mandatory lunch break
+  - Consumption tax (10%) on trading fees
+  - ToSTNeT after-hours trading system

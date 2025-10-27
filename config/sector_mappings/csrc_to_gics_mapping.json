@@ -1,0 +1,336 @@
+{
+  "version": "1.0",
+  "description": "CSRC Industry to GICS Sector Mapping for Chinese Stock Market",
+  "source": "CSRC (China Securities Regulatory Commission) classification mapped to GICS 11 sectors",
+  "last_updated": "2025-10-13",
+  "note": "CSRC uses industry-based classification. This mapping converts to GICS standard sectors",
+
+  "gics_sectors": {
+    "10": "Energy",
+    "15": "Materials",
+    "20": "Industrials",
+    "25": "Consumer Discretionary",
+    "30": "Consumer Staples",
+    "35": "Health Care",
+    "40": "Financials",
+    "45": "Information Technology",
+    "50": "Communication Services",
+    "55": "Utilities",
+    "60": "Real Estate"
+  },
+
+  "csrc_to_gics_mapping": {
+    "农林牧渔": {
+      "sector": "Consumer Staples",
+      "sector_code": "30",
+      "description": "Agriculture, Forestry, Animal Husbandry, Fishery"
+    },
+    "采矿业": {
+      "sector": "Energy",
+      "sector_code": "10",
+      "description": "Mining Industry"
+    },
+    "煤炭开采": {
+      "sector": "Energy",
+      "sector_code": "10",
+      "description": "Coal Mining"
+    },
+    "石油开采": {
+      "sector": "Energy",
+      "sector_code": "10",
+      "description": "Oil Extraction"
+    },
+    "有色金属": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "description": "Non-ferrous Metals"
+    },
+    "钢铁": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "description": "Steel"
+    },
+    "化工": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "description": "Chemicals"
+    },
+    "石化": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "description": "Petrochemicals"
+    },
+    "建材": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "description": "Building Materials"
+    },
+    "机械": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "description": "Machinery"
+    },
+    "机械设备": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "description": "Machinery Equipment"
+    },
+    "电气设备": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "description": "Electrical Equipment"
+    },
+    "国防军工": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "description": "Defense & Military"
+    },
+    "航空航天": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "description": "Aerospace"
+    },
+    "汽车": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "description": "Automobile"
+    },
+    "汽车制造": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "description": "Auto Manufacturing"
+    },
+    "新能源汽车": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "description": "New Energy Vehicles"
+    },
+    "家电": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "description": "Home Appliances"
+    },
+    "轻工制造": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "description": "Light Manufacturing"
+    },
+    "纺织服装": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "description": "Textile & Apparel"
+    },
+    "商贸零售": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "description": "Commerce & Retail"
+    },
+    "食品饮料": {
+      "sector": "Consumer Staples",
+      "sector_code": "30",
+      "description": "Food & Beverage"
+    },
+    "白酒": {
+      "sector": "Consumer Staples",
+      "sector_code": "30",
+      "description": "Baijiu (Chinese Spirits)"
+    },
+    "医药": {
+      "sector": "Health Care",
+      "sector_code": "35",
+      "description": "Pharmaceuticals"
+    },
+    "医药生物": {
+      "sector": "Health Care",
+      "sector_code": "35",
+      "description": "Pharmaceutical & Biotech"
+    },
+    "生物制药": {
+      "sector": "Health Care",
+      "sector_code": "35",
+      "description": "Biopharmaceuticals"
+    },
+    "医疗器械": {
+      "sector": "Health Care",
+      "sector_code": "35",
+      "description": "Medical Devices"
+    },
+    "银行": {
+      "sector": "Financials",
+      "sector_code": "40",
+      "description": "Banking"
+    },
+    "保险": {
+      "sector": "Financials",
+      "sector_code": "40",
+      "description": "Insurance"
+    },
+    "证券": {
+      "sector": "Financials",
+      "sector_code": "40",
+      "description": "Securities"
+    },
+    "非银金融": {
+      "sector": "Financials",
+      "sector_code": "40",
+      "description": "Non-bank Finance"
+    },
+    "计算机": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "description": "Computer"
+    },
+    "电子": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "description": "Electronics"
+    },
+    "半导体": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "description": "Semiconductors"
+    },
+    "软件": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "description": "Software"
+    },
+    "通信": {
+      "sector": "Communication Services",
+      "sector_code": "50",
+      "description": "Telecommunications"
+    },
+    "传媒": {
+      "sector": "Communication Services",
+      "sector_code": "50",
+      "description": "Media"
+    },
+    "互联网": {
+      "sector": "Communication Services",
+      "sector_code": "50",
+      "description": "Internet"
+    },
+    "电力": {
+      "sector": "Utilities",
+      "sector_code": "55",
+      "description": "Electric Power"
+    },
+    "公用事业": {
+      "sector": "Utilities",
+      "sector_code": "55",
+      "description": "Utilities"
+    },
+    "环保": {
+      "sector": "Utilities",
+      "sector_code": "55",
+      "description": "Environmental Protection"
+    },
+    "房地产": {
+      "sector": "Real Estate",
+      "sector_code": "60",
+      "description": "Real Estate"
+    },
+    "建筑": {
+      "sector": "Real Estate",
+      "sector_code": "60",
+      "description": "Construction"
+    },
+    "建筑装饰": {
+      "sector": "Real Estate",
+      "sector_code": "60",
+      "description": "Construction & Decoration"
+    },
+    "交通运输": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "description": "Transportation"
+    },
+    "物流": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "description": "Logistics"
+    },
+    "航运": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "description": "Shipping"
+    },
+    "旅游": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "description": "Tourism"
+    },
+    "餐饮": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "description": "Food Services"
+    },
+    "教育": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "description": "Education"
+    },
+    "文化": {
+      "sector": "Communication Services",
+      "sector_code": "50",
+      "description": "Culture"
+    },
+    "娱乐": {
+      "sector": "Communication Services",
+      "sector_code": "50",
+      "description": "Entertainment"
+    },
+    "综合": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "description": "Conglomerate"
+    }
+  },
+
+  "fuzzy_keywords": {
+    "能源": "Energy",
+    "石油": "Energy",
+    "煤炭": "Energy",
+    "天然气": "Energy",
+    "原材料": "Materials",
+    "金属": "Materials",
+    "化学": "Materials",
+    "工业": "Industrials",
+    "制造": "Industrials",
+    "设备": "Industrials",
+    "汽车": "Consumer Discretionary",
+    "零售": "Consumer Discretionary",
+    "消费": "Consumer Discretionary",
+    "食品": "Consumer Staples",
+    "饮料": "Consumer Staples",
+    "农业": "Consumer Staples",
+    "医药": "Health Care",
+    "医疗": "Health Care",
+    "生物": "Health Care",
+    "银行": "Financials",
+    "金融": "Financials",
+    "保险": "Financials",
+    "证券": "Financials",
+    "科技": "Information Technology",
+    "电子": "Information Technology",
+    "计算机": "Information Technology",
+    "软件": "Information Technology",
+    "通信": "Communication Services",
+    "传媒": "Communication Services",
+    "互联网": "Communication Services",
+    "电力": "Utilities",
+    "公用": "Utilities",
+    "环保": "Utilities",
+    "房地产": "Real Estate",
+    "建筑": "Real Estate"
+  },
+
+  "notes": [
+    "CSRC classification is more granular than GICS (100+ industries vs 11 sectors)",
+    "Some Chinese industries don't have direct GICS equivalents",
+    "Fuzzy keyword matching used for industries not in exact mapping",
+    "New energy vehicles classified as Consumer Discretionary (not separate category)",
+    "Environmental protection grouped under Utilities",
+    "Conglomerates default to Industrials"
+  ]
+}

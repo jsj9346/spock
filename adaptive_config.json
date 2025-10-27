@@ -1,0 +1,23 @@
+{
+  "base_pass_threshold": 60.0,
+  "base_buy_threshold": 80.0,
+  "base_strong_buy_threshold": 90.0,
+  "market_adjustments": {
+    "bull": -5.0,
+    "bear": 10.0,
+    "sideways": 0.0,
+    "volatile": 5.0
+  },
+  "profile_adjustments": {
+    "conservative": 10.0,
+    "moderate": 0.0,
+    "aggressive": -10.0
+  },
+  "dynamic_weights": {
+    "stage_weight": 0.25,
+    "ma_weight": 0.2,
+    "rs_weight": 0.25,
+    "volume_weight": 0.15,
+    "momentum_weight": 0.15
+  }
+}

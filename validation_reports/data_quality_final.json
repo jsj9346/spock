@@ -1,0 +1,160 @@
+{
+  "timestamp": "2025-10-16T15:41:54.636781",
+  "validations": {
+    "null_values": {
+      "critical_nulls": {
+        "ticker": 0,
+        "region": 0,
+        "date": 0,
+        "open": 0,
+        "high": 0,
+        "low": 0,
+        "close": 0,
+        "volume": 0
+      },
+      "optional_nulls": {
+        "ma5": 50747,
+        "ma20": 92072,
+        "ma60": 202272,
+        "ma120": 367572,
+        "ma200": 587972,
+        "rsi_14": 42477,
+        "macd": 108602,
+        "macd_signal": 130642,
+        "volume_ma20": 92072,
+        "atr": 75542,
+        "atr_14": 721662,
+        "bb_upper": 92072,
+        "bb_middle": 92072,
+        "bb_lower": 92072
+      },
+      "total_rows": 721781,
+      "passed": true
+    },
+    "ohlcv_integrity": {
+      "violations": {
+        "high_less_than_low": 0,
+        "close_out_of_range": 0,
+        "open_out_of_range": 0,
+        "negative_volume": 0,
+        "non_positive_prices": 0
+      },
+      "total_rows": 721781,
+      "passed": true
+    },
+    "technical_indicators": {
+      "violations": {
+        "rsi_out_of_range": 0,
+        "ma5_non_positive": 0,
+        "ma20_non_positive": 0,
+        "ma60_non_positive": 0,
+        "ma120_non_positive": 0,
+        "ma200_non_positive": 0,
+        "atr_non_positive": 0,
+        "bb_band_order": 0,
+        "volume_ratio_negative": 0
+      },
+      "warnings": {},
+      "passed": true
+    },
+    "duplicates": {
+      "duplicates": [],
+      "duplicate_count": 0,
+      "passed": true
+    },
+    "date_ranges": {
+      "regions": {
+        "KR": {
+          "earliest": "2024-10-22",
+          "latest": "2025-10-16",
+          "total_rows": 721631
+        },
+        "US": {
+          "earliest": "2025-09-05",
+          "latest": "2025-10-16",
+          "total_rows": 30
+        },
+        "HK": {
+          "earliest": "2025-09-05",
+          "latest": "2025-10-16",
+          "total_rows": 30
+        },
+        "CN": {
+          "earliest": "2025-09-05",
+          "latest": "2025-10-16",
+          "total_rows": 30
+        },
+        "JP": {
+          "earliest": "2025-09-05",
+          "latest": "2025-10-16",
+          "total_rows": 30
+        },
+        "VN": {
+          "earliest": "2025-09-05",
+          "latest": "2025-10-16",
+          "total_rows": 30
+        }
+      },
+      "retention_violations": [
+        {
+          "region": "KR",
+          "earliest": "2024-10-22",
+          "threshold": "2025-02-08"
+        }
+      ],
+      "future_dates": 0,
+      "passed": true
+    },
+    "cross_region_contamination": {
+      "contamination": [
+        {
+          "region": "KR",
+          "ticker": "33626L",
+          "row_count": 254,
+          "expected_pattern": "^(\\d{6}|\\d{4}[A-Z]\\d|\\d{5}K)$"
+        },
+        {
+          "region": "KR",
+          "ticker": "33637L",
+          "row_count": 254,
+          "expected_pattern": "^(\\d{6}|\\d{4}[A-Z]\\d|\\d{5}K)$"
+        },
+        {
+          "region": "KR",
+          "ticker": "37550L",
+          "row_count": 254,
+          "expected_pattern": "^(\\d{6}|\\d{4}[A-Z]\\d|\\d{5}K)$"
+        }
+      ],
+      "contamination_count": 3,
+      "passed": false
+    },
+    "data_completeness": {
+      "gaps": {
+        "KR": [
+          {
+            "ticker": "487950",
+            "gaps": 1
+          },
+          {
+            "ticker": "316300",
+            "gaps": 1
+          }
+        ],
+        "US": [],
+        "HK": [],
+        "CN": [],
+        "JP": [],
+        "VN": []
+      },
+      "total_gaps": 2,
+      "passed": true
+    }
+  },
+  "summary": {
+    "total_checks": 7,
+    "passed": 6,
+    "failed": 1,
+    "warnings": 0
+  }
+}

@@ -1,0 +1,47 @@
+============================================================
+Phase 2 Validation Report
+============================================================
+Timestamp: 20251016_150926
+Validation Mode: --quick
+Project Root: /Users/13ruce/spock
+
+Environment:
+Python 3.12.11
+
+Phase 2 Scripts:
+-rwxr-xr-x@ 1 13ruce  staff   7.2K 10 16 14:38 /Users/13ruce/spock/scripts/collect_cn_stocks.py
+-rwxr-xr-x@ 1 13ruce  staff   7.7K 10  3 21:50 /Users/13ruce/spock/scripts/collect_etf_ohlcv.py
+-rwxr-xr-x@ 1 13ruce  staff   7.0K 10 16 14:38 /Users/13ruce/spock/scripts/collect_hk_stocks.py
+-rwxr-xr-x@ 1 13ruce  staff   6.9K 10 16 14:39 /Users/13ruce/spock/scripts/collect_jp_stocks.py
+-rwxr-xr-x@ 1 13ruce  staff   6.9K 10 16 14:37 /Users/13ruce/spock/scripts/collect_us_stocks.py
+-rwxr-xr-x@ 1 13ruce  staff   7.0K 10 16 14:40 /Users/13ruce/spock/scripts/collect_vn_stocks.py
+
+Database:
+258M	/Users/13ruce/spock/data/spock_local.db
+721627
+
+Test Results:
+collecting ... collected 16 items
+
+tests/test_phase2_integration.py::TestPhase2Integration::test_01_kis_collector_initialization PASSED [  6%]
+tests/test_phase2_integration.py::TestPhase2Integration::test_02_kis_collector_multi_region PASSED [ 12%]
+tests/test_phase2_integration.py::TestPhase2Integration::test_03_collect_with_filtering_method PASSED [ 18%]
+tests/test_phase2_integration.py::TestPhase2Integration::test_04_stage0_filter_integration PASSED [ 25%]
+tests/test_phase2_integration.py::TestPhase2Integration::test_05_market_scripts_exist PASSED [ 31%]
+tests/test_phase2_integration.py::TestPhase2Integration::test_06_market_scripts_cli_interface PASSED [ 37%]
+tests/test_phase2_integration.py::TestPhase2Integration::test_07_database_schema_tables PASSED [ 43%]
+tests/test_phase2_integration.py::TestPhase2Integration::test_08_database_schema_columns PASSED [ 50%]
+tests/test_phase2_integration.py::TestPhase2Integration::test_09_database_schema_indexes PASSED [ 56%]
+tests/test_phase2_integration.py::TestPhase2Integration::test_10_validation_script_executable PASSED [ 62%]
+tests/test_phase2_integration.py::TestPhase2Integration::test_11_multi_region_data_isolation PASSED [ 68%]
+tests/test_phase2_integration.py::TestPhase2Integration::test_12_cross_region_contamination PASSED [ 75%]
+tests/test_phase2_integration.py::TestPhase2Integration::test_13_exchange_rate_integration PASSED [ 81%]
+tests/test_phase2_integration.py::TestPhase2Integration::test_14_filter_cache_consistency PASSED [ 87%]
+tests/test_phase2_integration.py::TestPhase2Integration::test_15_database_query_performance PASSED [ 93%]
+tests/test_phase2_integration.py::TestPhase2Integration::test_16_collector_initialization_performance PASSED [100%]
+
+============================== 16 passed in 4.09s ==============================
+
+============================================================
+Validation Complete
+============================================================

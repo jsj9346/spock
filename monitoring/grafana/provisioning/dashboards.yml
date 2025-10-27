@@ -1,0 +1,15 @@
+# Grafana Dashboard Provisioning
+# Automatically load dashboards from directory
+
+apiVersion: 1
+
+providers:
+  - name: 'Spock Trading Dashboards'
+    orgId: 1
+    folder: 'Spock Trading System'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

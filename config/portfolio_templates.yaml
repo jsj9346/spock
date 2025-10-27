@@ -1,0 +1,375 @@
+# ========================================
+# Portfolio Allocation Templates
+# ========================================
+# Purpose: Define asset allocation strategies with automatic rebalancing
+#
+# Usage:
+#   from modules.portfolio_allocator import PortfolioAllocator
+#   allocator = PortfolioAllocator(template_name='balanced')
+#   allocator.check_rebalancing_needed()
+#
+# Last Updated: 2025-10-15
+# Version: 1.0
+
+# ========================================
+# Template Definitions
+# ========================================
+templates:
+  # ==========================================
+  # Conservative Portfolio (안정형)
+  # ==========================================
+  conservative:
+    name: "Conservative Portfolio"
+    name_kr: "안정형 포트폴리오"
+    description: "Low-risk portfolio focused on capital preservation with stable income"
+    risk_level: "conservative"
+
+    # Asset Allocation Targets (must sum to 100%)
+    allocation:
+      bonds_etf:           40.0    # 채권 ETF (국채, 회사채)
+      commodities_etf:     20.0    # 원자재 ETF (금, 은, 원유 등)
+      dividend_stocks:     20.0    # 배당주 (고배당, 우선주)
+      individual_stocks:   10.0    # 성장주 (개별 종목)
+      cash:                10.0    # 현금 (유동성 버퍼)
+
+    # Rebalancing Strategy
+    rebalancing:
+      method: "threshold"           # threshold, periodic, hybrid
+      drift_threshold_percent: 5.0  # 5% 이탈 시 리밸런싱
+      min_rebalance_interval_days: 30  # 최소 30일 간격
+      max_trade_size_percent: 10.0  # 한 번에 최대 10% 거래
+
+    # Position Limits (overrides default)
+    limits:
+      max_single_position_percent: 10.0   # 개별 종목 최대 10%
+      max_sector_exposure_percent: 30.0   # 섹터 최대 30%
+      min_cash_reserve_percent: 10.0      # 최소 현금 10%
+      max_concurrent_positions: 12        # 최대 12개 종목
+
+    # Asset Class Details
+    asset_classes:
+      bonds_etf:
+        category: "Fixed Income"
+        tickers:
+          KR: ["KBSTAR국고채10년", "KOSEF국고채3년", "TIGER미국채10년"]
+          US: ["AGG", "BND", "TLT"]
+        min_allocation_percent: 30.0
+        max_allocation_percent: 50.0
+
+      commodities_etf:
+        category: "Commodities"
+        tickers:
+          KR: ["KODEX골드선물", "TIGER원유선물", "ACE은선물"]
+          US: ["GLD", "USO", "SLV"]
+        min_allocation_percent: 10.0
+        max_allocation_percent: 30.0
+
+      dividend_stocks:
+        category: "Dividend Stocks"
+        filters:
+          - "dividend_yield >= 4.0"
+          - "payout_ratio <= 60.0"
+          - "consecutive_dividend_years >= 5"
+        sectors:
+          - "Utilities"
+          - "Real Estate"
+          - "Financials"
+        min_allocation_percent: 10.0
+        max_allocation_percent: 30.0
+
+      individual_stocks:
+        category: "Growth Stocks"
+        strategy: "Stage 2 Breakout + VCP"
+        scoring_threshold: 75  # Conservative: min 75 points
+        max_stocks: 5
+        min_allocation_percent: 5.0
+        max_allocation_percent: 20.0
+
+  # ==========================================
+  # Balanced Portfolio (균형형)
+  # ==========================================
+  balanced:
+    name: "Balanced Portfolio"
+    name_kr: "균형형 포트폴리오"
+    description: "Moderate-risk portfolio balancing growth and stability"
+    risk_level: "moderate"
+
+    allocation:
+      bonds_etf:           20.0
+      commodities_etf:     20.0
+      dividend_stocks:     20.0
+      individual_stocks:   30.0
+      cash:                10.0
+
+    rebalancing:
+      method: "hybrid"              # Combines threshold and periodic
+      drift_threshold_percent: 7.0
+      periodic_interval_days: 60    # Quarterly rebalancing
+      min_rebalance_interval_days: 30
+      max_trade_size_percent: 15.0
+
+    limits:
+      max_single_position_percent: 15.0
+      max_sector_exposure_percent: 40.0
+      min_cash_reserve_percent: 10.0
+      max_concurrent_positions: 10
+
+    asset_classes:
+      bonds_etf:
+        category: "Fixed Income"
+        tickers:
+          KR: ["KBSTAR국고채10년", "TIGER미국채10년"]
+          US: ["AGG", "BND"]
+        min_allocation_percent: 10.0
+        max_allocation_percent: 30.0
+
+      commodities_etf:
+        category: "Commodities"
+        tickers:
+          KR: ["KODEX골드선물", "TIGER원유선물"]
+          US: ["GLD", "USO"]
+        min_allocation_percent: 10.0
+        max_allocation_percent: 30.0
+
+      dividend_stocks:
+        category: "Dividend Stocks"
+        filters:
+          - "dividend_yield >= 3.0"
+          - "payout_ratio <= 70.0"
+        sectors:
+          - "Utilities"
+          - "Real Estate"
+          - "Consumer Staples"
+        min_allocation_percent: 10.0
+        max_allocation_percent: 30.0
+
+      individual_stocks:
+        category: "Growth Stocks"
+        strategy: "Stage 2 Breakout + VCP"
+        scoring_threshold: 70  # Moderate: min 70 points
+        max_stocks: 8
+        min_allocation_percent: 20.0
+        max_allocation_percent: 40.0
+
+  # ==========================================
+  # Aggressive Portfolio (공격형)
+  # ==========================================
+  aggressive:
+    name: "Aggressive Portfolio"
+    name_kr: "공격형 포트폴리오"
+    description: "High-risk portfolio focused on capital growth"
+    risk_level: "aggressive"
+
+    allocation:
+      bonds_etf:           10.0
+      commodities_etf:     10.0
+      dividend_stocks:     15.0
+      individual_stocks:   55.0    # Aggressive: 55% in growth stocks
+      cash:                10.0
+
+    rebalancing:
+      method: "threshold"
+      drift_threshold_percent: 10.0  # Higher tolerance for aggressive
+      min_rebalance_interval_days: 30
+      max_trade_size_percent: 20.0
+
+    limits:
+      max_single_position_percent: 20.0
+      max_sector_exposure_percent: 50.0
+      min_cash_reserve_percent: 10.0
+      max_concurrent_positions: 8
+
+    asset_classes:
+      bonds_etf:
+        category: "Fixed Income"
+        tickers:
+          KR: ["TIGER미국채10년"]
+          US: ["AGG"]
+        min_allocation_percent: 5.0
+        max_allocation_percent: 20.0
+
+      commodities_etf:
+        category: "Commodities"
+        tickers:
+          KR: ["KODEX골드선물"]
+          US: ["GLD"]
+        min_allocation_percent: 5.0
+        max_allocation_percent: 20.0
+
+      dividend_stocks:
+        category: "Dividend Stocks"
+        filters:
+          - "dividend_yield >= 2.5"
+        sectors:
+          - "Financials"
+          - "Energy"
+        min_allocation_percent: 10.0
+        max_allocation_percent: 25.0
+
+      individual_stocks:
+        category: "Growth Stocks"
+        strategy: "Stage 2 Breakout + VCP"
+        scoring_threshold: 65  # Aggressive: min 65 points
+        max_stocks: 10
+        min_allocation_percent: 40.0
+        max_allocation_percent: 65.0
+
+  # ==========================================
+  # Custom Template (사용자 정의)
+  # ==========================================
+  custom:
+    name: "Custom Portfolio"
+    name_kr: "사용자 정의 포트폴리오"
+    description: "User-defined allocation strategy"
+    risk_level: "moderate"
+
+    allocation:
+      bonds_etf:           25.0
+      commodities_etf:     15.0
+      dividend_stocks:     20.0
+      individual_stocks:   30.0
+      cash:                10.0
+
+    rebalancing:
+      method: "periodic"
+      periodic_interval_days: 90  # Quarterly
+      min_rebalance_interval_days: 30
+      max_trade_size_percent: 15.0
+
+    limits:
+      max_single_position_percent: 15.0
+      max_sector_exposure_percent: 40.0
+      min_cash_reserve_percent: 10.0
+      max_concurrent_positions: 10
+
+    asset_classes:
+      bonds_etf:
+        category: "Fixed Income"
+        tickers:
+          KR: []  # User-defined
+          US: []
+        min_allocation_percent: 15.0
+        max_allocation_percent: 35.0
+
+      commodities_etf:
+        category: "Commodities"
+        tickers:
+          KR: []
+          US: []
+        min_allocation_percent: 10.0
+        max_allocation_percent: 25.0
+
+      dividend_stocks:
+        category: "Dividend Stocks"
+        filters: []
+        sectors: []
+        min_allocation_percent: 10.0
+        max_allocation_percent: 30.0
+
+      individual_stocks:
+        category: "Growth Stocks"
+        strategy: "Stage 2 Breakout + VCP"
+        scoring_threshold: 70
+        max_stocks: 8
+        min_allocation_percent: 20.0
+        max_allocation_percent: 40.0
+
+# ========================================
+# Rebalancing Methods Explained
+# ========================================
+rebalancing_methods:
+  threshold:
+    description: "Rebalance when any asset class deviates from target by threshold"
+    formula: "abs(current_allocation - target_allocation) > drift_threshold"
+    pros:
+      - "Responsive to market movements"
+      - "Automatic buy-low-sell-high behavior"
+      - "No fixed schedule needed"
+    cons:
+      - "May trigger frequent trades in volatile markets"
+      - "Transaction costs can accumulate"
+
+  periodic:
+    description: "Rebalance on fixed schedule (monthly, quarterly, etc.)"
+    formula: "days_since_last_rebalance >= periodic_interval_days"
+    pros:
+      - "Predictable execution schedule"
+      - "Lower transaction costs"
+      - "Simpler to manage"
+    cons:
+      - "May miss significant drift between rebalancing dates"
+      - "Less responsive to market changes"
+
+  hybrid:
+    description: "Combines threshold and periodic methods"
+    formula: "threshold_breach OR periodic_interval_reached"
+    pros:
+      - "Responsive to large drifts"
+      - "Regular rebalancing fallback"
+      - "Best of both approaches"
+    cons:
+      - "More complex logic"
+      - "Requires careful parameter tuning"
+
+# ========================================
+# Global Settings
+# ========================================
+global:
+  default_template: "balanced"
+
+  # Rebalancing Constraints
+  min_trade_amount_krw: 50000        # Minimum 50K KRW per trade
+  max_trades_per_rebalance: 10       # Max 10 trades per rebalancing
+
+  # Transaction Costs (used in rebalancing calculations)
+  trading_fees:
+    buy_commission_percent: 0.015    # 0.015% per trade
+    sell_commission_percent: 0.015
+    securities_tax_percent: 0.23     # 0.23% on KOSPI sells only
+
+  # Drift Tolerance Bands
+  yellow_zone_drift: 3.0             # 3% drift: yellow alert
+  red_zone_drift: 5.0                # 5% drift: red alert (rebalance needed)
+
+  # Safety Checks
+  max_single_rebalance_percent: 50.0  # Never rebalance >50% of portfolio at once
+  require_approval_above_krw: 5000000 # Require manual approval >5M KRW trades
+
+# ========================================
+# Asset Class Definitions
+# ========================================
+asset_class_categories:
+  bonds_etf:
+    type: "ETF"
+    risk_level: "low"
+    expected_return: 0.04      # 4% annual return
+    expected_volatility: 0.06  # 6% volatility
+    correlation_with_stocks: -0.2
+
+  commodities_etf:
+    type: "ETF"
+    risk_level: "medium"
+    expected_return: 0.06
+    expected_volatility: 0.15
+    correlation_with_stocks: 0.1
+
+  dividend_stocks:
+    type: "Stock"
+    risk_level: "medium"
+    expected_return: 0.08
+    expected_volatility: 0.12
+    correlation_with_stocks: 0.7
+
+  individual_stocks:
+    type: "Stock"
+    risk_level: "high"
+    expected_return: 0.15
+    expected_volatility: 0.25
+    correlation_with_stocks: 1.0
+
+  cash:
+    type: "Cash"
+    risk_level: "none"
+    expected_return: 0.02
+    expected_volatility: 0.0
+    correlation_with_stocks: 0.0

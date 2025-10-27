@@ -1,0 +1,314 @@
+# ===================================
+# Hong Kong Market Filter Configuration
+# ===================================
+# Market: HKEX (Hong Kong Stock Exchange)
+# Currency: HKD (Hong Kong Dollar)
+# Updated: 2025-10-16
+
+region: HK
+market_name: "Hong Kong (HKEX)"
+currency: HKD
+
+# Exchange Rate Configuration
+# HKD to KRW conversion (dynamic, updated hourly)
+exchange_rate:
+  source: "kis_api"           # KIS API real-time rate (primary)
+  default_rate: 170.0         # Fallback: HK$1 = ₩170
+  update_frequency_minutes: 60
+
+# ===================================
+# STAGE 0 FILTERS (Basic Market Filter)
+# ===================================
+stage0_filters:
+  # Market Capitalization (시가총액)
+  # Threshold: ₩1,000억원 → HK$588M (at 170 rate)
+  min_market_cap_local: 588000000     # HK$588M
+  min_market_cap_krw: 100000000000    # ₩1,000억원
+
+  # Daily Trading Value (일 거래대금)
+  # Threshold: ₩100억원/일 → HK$59M/day (at 170 rate)
+  min_trading_value_local: 59000000   # HK$59M/day
+  min_trading_value_krw: 10000000000  # ₩100억원/일
+
+  # Price Range (가격 범위)
+  # Min: HK$1, Max: None
+  price_range_min_local: 1.0    # HK$1 minimum
+  price_range_max_local: 0      # No maximum
+  price_range_min_krw: 170      # ₩170 (at 170 rate)
+  price_range_max_krw: 0
+
+  # ===================================
+  # Market-Specific Exclusion Rules
+  # ===================================
+
+  # OTC Markets 제외
+  exclude_otc: true
+
+  # ETF/ETN 제외
+  exclude_etf: true
+  exclude_etn: true
+
+  # SPAC 제외
+  exclude_spac: true
+
+  # 상장폐지 예정 제외
+  exclude_delisting: true
+
+  # Hang Seng Index 우선 선택
+  # Focus on HSI constituent stocks (better liquidity)
+  focus_hang_seng_index: true
+
+  # 최소 상장 기간 (optional)
+  # Exclude newly listed stocks (< 13 months)
+  min_listing_months: 13
+
+# ===================================
+# API CONFIGURATION
+# ===================================
+api:
+  # Data Source
+  data_source: "KIS_OVERSEAS_API"
+
+  # KIS API Endpoint for HK Stock Price
+  endpoint_pattern: "/uapi/overseas-stock/v1/quotations/price"
+
+  # Transaction ID for HK Stock
+  tr_id: "HHDFS00000300"  # 해외주식 현재가 시세
+
+  # Rate Limiting
+  rate_limit_per_sec: 20
+  rate_limit_per_min: 1000
+
+  # Timeout Settings
+  timeout_sec: 10
+  max_retries: 3
+  retry_delay_sec: 1
+
+# ===================================
+# CACHE SETTINGS
+# ===================================
+cache:
+  ttl_market_hours: 3600
+  ttl_after_hours: 86400
+  table_name: "filter_cache_stage0"
+  strategy: "write-through"
+  cleanup_older_than_days: 7
+
+# ===================================
+# TRADING HOURS (Hong Kong Time → KST)
+# ===================================
+trading_hours:
+  timezone: "Asia/Hong_Kong"
+
+  # Regular Trading Session (HKT = KST + 1h)
+  # Morning: 09:30-12:00 HKT = 10:30-13:00 KST
+  # Afternoon: 13:00-16:00 HKT = 14:00-17:00 KST
+  regular_session:
+    start: "10:30"  # KST
+    end: "17:00"    # KST
+
+  # Lunch Break (mandatory)
+  has_lunch_break: true
+  lunch_break:
+    start: "13:00"  # KST
+    end: "14:00"    # KST
+
+  # Pre-Market Session
+  pre_market:
+    start: "10:15"  # 09:15 HKT = 10:15 KST
+    end: "10:30"
+
+  # Post-Market Session
+  post_market: null  # No post-market trading
+
+  # Market Holidays
+  holiday_calendar: "config/hk_holidays.yaml"
+
+# ===================================
+# TICK SIZE RULES
+# ===================================
+# Hong Kong uses variable tick sizes based on price
+tick_size_rules:
+  - price_min: 0
+    price_max: 0.25
+    tick_size: 0.001     # HK$0.001
+    description: "Under HK$0.25"
+
+  - price_min: 0.25
+    price_max: 0.50
+    tick_size: 0.005     # HK$0.005
+    description: "HK$0.25 ~ HK$0.50"
+
+  - price_min: 0.50
+    price_max: 10.0
+    tick_size: 0.01      # HK$0.01
+    description: "HK$0.50 ~ HK$10"
+
+  - price_min: 10.0
+    price_max: 20.0
+    tick_size: 0.02      # HK$0.02
+    description: "HK$10 ~ HK$20"
+
+  - price_min: 20.0
+    price_max: 100.0
+    tick_size: 0.05      # HK$0.05
+    description: "HK$20 ~ HK$100"
+
+  - price_min: 100.0
+    price_max: 200.0
+    tick_size: 0.10      # HK$0.10
+    description: "HK$100 ~ HK$200"
+
+  - price_min: 200.0
+    price_max: 500.0
+    tick_size: 0.20      # HK$0.20
+    description: "HK$200 ~ HK$500"
+
+  - price_min: 500.0
+    price_max: 1000.0
+    tick_size: 0.50      # HK$0.50
+    description: "HK$500 ~ HK$1,000"
+
+  - price_min: 1000.0
+    price_max: 2000.0
+    tick_size: 1.00      # HK$1.00
+    description: "HK$1,000 ~ HK$2,000"
+
+  - price_min: 2000.0
+    price_max: null
+    tick_size: 2.00      # HK$2.00
+    description: "HK$2,000 and above"
+
+# ===================================
+# TRANSACTION COSTS (for Korean investors)
+# ===================================
+transaction_costs:
+  # Trading Fee
+  trading_fee_rate: 0.0025  # 0.25%
+
+  # Hong Kong Stamp Duty
+  stamp_duty_rate: 0.0013   # 0.13% (buy and sell)
+
+  # HKEX Trading Fee
+  hkex_trading_fee_rate: 0.00005  # 0.005%
+
+  # SFC Transaction Levy
+  sfc_levy_rate: 0.000027   # 0.0027%
+
+  # Capital Gains Tax
+  # Korean residents: 22% on profits > ₩2.5M/year
+  capital_gains_tax_rate: 0.22
+
+  # Settlement Period
+  settlement_days: 2  # T+2
+
+# ===================================
+# DATA QUALITY VALIDATION
+# ===================================
+data_validation:
+  required_fields:
+    - ticker
+    - name
+    - market_cap
+    - trading_value
+    - current_price
+
+  max_market_cap_hkd: 10000000000000   # HK$10T
+  max_trading_value_hkd: 100000000000  # HK$100B/day
+  max_price_hkd: 10000                 # HK$10K
+
+  max_data_age_hours: 24
+
+# ===================================
+# LOGGING & MONITORING
+# ===================================
+logging:
+  log_level: "INFO"
+  log_passed_tickers: true
+  log_filtered_tickers: true
+  log_filter_reasons: true
+  log_execution_time: true
+  log_api_calls: true
+  log_cache_hits: true
+
+# ===================================
+# PERFORMANCE EXPECTATIONS
+# ===================================
+performance:
+  expected_input_count: 2500
+  expected_output_count: 400
+  expected_reduction_rate: 0.84
+
+  target_execution_time_sec: 60
+  target_api_calls: 2500
+  target_cache_hit_rate: 0.80
+
+# ===================================
+# STAGE 1 FILTERS (Technical Pre-screen)
+# ===================================
+stage1_filters:
+  data_completeness:
+    min_ohlcv_days: 250
+    max_gap_days: 60
+    required_continuity: false
+
+  ma_alignment:
+    enabled: true
+    required_alignment: "5>20>60"
+    full_alignment: "5>20>60>120>200"
+    min_score: 75
+
+  rsi_min: 30
+  rsi_max: 70
+  rsi_ideal: 50
+
+  macd:
+    enabled: true
+    require_bullish: true
+    allow_neutral: false
+
+  volume_spike:
+    enabled: true
+    spike_ratio: 1.5
+    lookback_days: 20
+
+  price_position:
+    enabled: true
+    min_position: "above_ma20"
+    ideal_position: "above_ma60"
+
+  scoring_weights:
+    ma_alignment: 0.30
+    rsi: 0.25
+    macd: 0.20
+    volume: 0.15
+    price_position: 0.10
+
+  min_stage1_score: 65
+
+# ===================================
+# NOTES & DOCUMENTATION
+# ===================================
+notes: |
+  Hong Kong Market Filter Configuration
+
+  STAGE 0 - Basic Market Filter:
+  - Market cap: HK$588M (₩1,000억원 equivalent)
+  - Trading value: HK$59M/day (₩100억원 equivalent)
+  - Price: ≥HK$1
+  - Focus: Hang Seng Index constituents preferred
+  - Expected: 2,500 → 400 stocks (84% reduction)
+
+  STAGE 1 - Technical Pre-screen:
+  - Market-agnostic technical indicators
+  - Expected: 400 → 150 stocks (63% reduction)
+
+  Trading Hours (KST):
+  - Morning: 10:30-13:00
+  - Lunch: 13:00-14:00
+  - Afternoon: 14:00-17:00
+
+  Special Notes:
+  - Hong Kong uses variable tick sizes (10 tiers)
+  - Mandatory lunch break (13:00-14:00 KST)
+  - Stamp duty applies to both buy and sell (0.13%)

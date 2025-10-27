@@ -1,0 +1,320 @@
+{{/* Quant Platform Alert Templates */}}
+
+{{/* ========================================
+     Slack Templates
+     ======================================== */}}
+
+{{/* Slack Title Template */}}
+{{ define "slack.quant.title" }}
+  {{- if eq .Status "firing" -}}
+    {{- if eq .CommonLabels.severity "critical" -}}🚨 CRITICAL{{- else if eq .CommonLabels.severity "warning" -}}⚠️  WARNING{{- else -}}ℹ️  INFO{{- end -}}
+  {{- else -}}
+    ✅ RESOLVED
+  {{- end }} | {{ .CommonLabels.alertname }}
+{{ end }}
+
+{{/* Slack Text Template - Main Alert Body */}}
+{{ define "slack.quant.text" }}
+*Alert Category:* `{{ .CommonLabels.category }}`
+*Severity:* `{{ .CommonLabels.severity }}`
+*Status:* {{ if eq .Status "firing" }}🔥 *FIRING*{{ else }}✅ *RESOLVED*{{ end }}
+
+{{ range .Alerts }}
+---
+*Summary:* {{ .Annotations.summary }}
+
+*Details:*
+{{ .Annotations.description }}
+
+{{- if .Labels.strategy_name }}
+*Strategy:* `{{ .Labels.strategy_name }}`
+{{- end }}
+{{- if .Labels.engine }}
+*Engine:* `{{ .Labels.engine }}`
+{{- end }}
+{{- if .Labels.factor_name }}
+*Factor:* `{{ .Labels.factor_name }}`
+{{- end }}
+{{- if .Labels.method }}
+*Method:* `{{ .Labels.method }}`
+{{- end }}
+
+*Started:* {{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}
+{{- if .EndsAt }}
+*Ended:* {{ .EndsAt.Format "2006-01-02 15:04:05 MST" }}
+{{- end }}
+
+{{- if .GeneratorURL }}
+📊 <{{ .GeneratorURL }}|View in Prometheus>
+{{- end }}
+{{ end }}
+
+{{- if .CommonAnnotations.grafana_dashboard }}
+📈 <{{ .CommonAnnotations.grafana_dashboard }}|View in Grafana Dashboard>
+{{- end }}
+
+*Alert Count:* {{ .Alerts | len }} alert(s)
+{{ end }}
+
+
+{{/* ========================================
+     Email Templates (HTML)
+     ======================================== */}}
+
+{{/* Email HTML Template */}}
+{{ define "email.quant.html" }}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: {{ if eq .CommonLabels.severity "critical" }}#dc3545{{ else if eq .CommonLabels.severity "warning" }}#ffc107{{ else }}#17a2b8{{ end }};
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            {{ if eq .Status "firing" }}
+            background-color: #dc3545;
+            {{ else }}
+            background-color: #28a745;
+            {{ end }}
+            color: white;
+        }
+        .alert-box {
+            border: 1px solid #ddd;
+            border-left: 4px solid {{ if eq .CommonLabels.severity "critical" }}#dc3545{{ else if eq .CommonLabels.severity "warning" }}#ffc107{{ else }}#17a2b8{{ end }};
+            padding: 15px;
+            margin-bottom: 20px;
+            background-color: #f8f9fa;
+        }
+        .alert-details {
+            background-color: white;
+            padding: 15px;
+            border-radius: 3px;
+            margin-top: 10px;
+        }
+        .label {
+            font-weight: bold;
+            color: #495057;
+        }
+        .value {
+            color: #212529;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            font-size: 12px;
+            color: #6c757d;
+        }
+        a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .code {
+            background-color: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>
+            {{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }}
+            {{ .CommonLabels.alertname }}
+        </h1>
+        <p>
+            <span class="status-badge">{{ .Status | toUpper }}</span>
+            Category: <span class="code">{{ .CommonLabels.category }}</span> |
+            Severity: <span class="code">{{ .CommonLabels.severity }}</span>
+        </p>
+    </div>
+
+    {{ range .Alerts }}
+    <div class="alert-box">
+        <h3>{{ .Annotations.summary }}</h3>
+
+        <div class="alert-details">
+            <p><strong>Description:</strong></p>
+            <p>{{ .Annotations.description }}</p>
+
+            <table style="width: 100%; margin-top: 15px;">
+                <tr>
+                    <td class="label">Alert Name:</td>
+                    <td class="value"><span class="code">{{ .Labels.alertname }}</span></td>
+                </tr>
+                {{- if .Labels.strategy_name }}
+                <tr>
+                    <td class="label">Strategy:</td>
+                    <td class="value"><span class="code">{{ .Labels.strategy_name }}</span></td>
+                </tr>
+                {{- end }}
+                {{- if .Labels.engine }}
+                <tr>
+                    <td class="label">Engine:</td>
+                    <td class="value"><span class="code">{{ .Labels.engine }}</span></td>
+                </tr>
+                {{- end }}
+                {{- if .Labels.factor_name }}
+                <tr>
+                    <td class="label">Factor:</td>
+                    <td class="value"><span class="code">{{ .Labels.factor_name }}</span></td>
+                </tr>
+                {{- end }}
+                {{- if .Labels.method }}
+                <tr>
+                    <td class="label">Optimization Method:</td>
+                    <td class="value"><span class="code">{{ .Labels.method }}</span></td>
+                </tr>
+                {{- end }}
+                <tr>
+                    <td class="label">Started At:</td>
+                    <td class="value">{{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}</td>
+                </tr>
+                {{- if .EndsAt }}
+                <tr>
+                    <td class="label">Ended At:</td>
+                    <td class="value">{{ .EndsAt.Format "2006-01-02 15:04:05 MST" }}</td>
+                </tr>
+                {{- end }}
+            </table>
+
+            {{- if .Annotations.recommendation }}
+            <div style="margin-top: 15px; padding: 10px; background-color: #fff3cd; border-left: 3px solid #ffc107;">
+                <strong>💡 Recommendation:</strong>
+                <p>{{ .Annotations.recommendation }}</p>
+            </div>
+            {{- end }}
+
+            <div style="margin-top: 15px;">
+                {{- if .GeneratorURL }}
+                <a href="{{ .GeneratorURL }}" style="margin-right: 15px;">📊 View in Prometheus</a>
+                {{- end }}
+                {{- if .Annotations.grafana_dashboard }}
+                <a href="{{ .Annotations.grafana_dashboard }}">📈 View in Grafana</a>
+                {{- end }}
+            </div>
+        </div>
+    </div>
+    {{ end }}
+
+    <div class="footer">
+        <p>
+            <strong>Alert Summary:</strong> {{ .Alerts | len }} alert(s) {{ .Status }}<br>
+            <strong>Generated by:</strong> Quant Platform Alertmanager<br>
+            <strong>Timestamp:</strong> {{ .Alerts.Firing | len }} firing, {{ .Alerts.Resolved | len }} resolved
+        </p>
+        <p style="margin-top: 10px;">
+            This is an automated alert from the Quant Investment Platform monitoring system.
+            For more information, visit <a href="http://localhost:3000">Grafana Dashboard</a> or
+            <a href="http://localhost:9090">Prometheus</a>.
+        </p>
+    </div>
+</body>
+</html>
+{{ end }}
+
+
+{{/* ========================================
+     Webhook Templates (JSON Payload)
+     ======================================== */}}
+
+{{/* Webhook JSON Template */}}
+{{ define "webhook.quant.json" }}
+{
+  "status": "{{ .Status }}",
+  "alert_count": {{ .Alerts | len }},
+  "firing_count": {{ .Alerts.Firing | len }},
+  "resolved_count": {{ .Alerts.Resolved | len }},
+  "common_labels": {
+    "alertname": "{{ .CommonLabels.alertname }}",
+    "severity": "{{ .CommonLabels.severity }}",
+    "category": "{{ .CommonLabels.category }}"
+  },
+  "alerts": [
+    {{ range $i, $alert := .Alerts }}
+    {{- if $i }},{{ end }}
+    {
+      "status": "{{ $alert.Status }}",
+      "labels": {
+        "alertname": "{{ $alert.Labels.alertname }}",
+        "severity": "{{ $alert.Labels.severity }}",
+        "category": "{{ $alert.Labels.category }}"
+        {{- if $alert.Labels.strategy_name }},
+        "strategy_name": "{{ $alert.Labels.strategy_name }}"
+        {{- end }}
+        {{- if $alert.Labels.engine }},
+        "engine": "{{ $alert.Labels.engine }}"
+        {{- end }}
+        {{- if $alert.Labels.factor_name }},
+        "factor_name": "{{ $alert.Labels.factor_name }}"
+        {{- end }}
+        {{- if $alert.Labels.method }},
+        "method": "{{ $alert.Labels.method }}"
+        {{- end }}
+      },
+      "annotations": {
+        "summary": "{{ $alert.Annotations.summary }}",
+        "description": "{{ $alert.Annotations.description }}"
+        {{- if $alert.Annotations.recommendation }},
+        "recommendation": "{{ $alert.Annotations.recommendation }}"
+        {{- end }}
+        {{- if $alert.Annotations.grafana_dashboard }},
+        "grafana_dashboard": "{{ $alert.Annotations.grafana_dashboard }}"
+        {{- end }}
+      },
+      "starts_at": "{{ $alert.StartsAt.Format "2006-01-02T15:04:05Z07:00" }}"
+      {{- if $alert.EndsAt }},
+      "ends_at": "{{ $alert.EndsAt.Format "2006-01-02T15:04:05Z07:00" }}"
+      {{- end }},
+      "generator_url": "{{ $alert.GeneratorURL }}"
+    }
+    {{ end }}
+  ],
+  "external_url": "{{ .ExternalURL }}",
+  "timestamp": "{{ .Alerts.Firing | len | gt 0 | ternary (.Alerts.Firing | first).StartsAt.Format (.Alerts.Resolved | first).EndsAt.Format "2006-01-02T15:04:05Z07:00" }}"
+}
+{{ end }}
+
+
+{{/* ========================================
+     Helper Templates
+     ======================================== */}}
+
+{{/* Severity Emoji */}}
+{{ define "severity.emoji" }}
+  {{- if eq . "critical" -}}🚨
+  {{- else if eq . "warning" -}}⚠️
+  {{- else if eq . "info" -}}ℹ️
+  {{- else -}}📌
+  {{- end -}}
+{{ end }}
+
+{{/* Severity Color (Slack) */}}
+{{ define "severity.color" }}
+  {{- if eq . "critical" -}}danger
+  {{- else if eq . "warning" -}}warning
+  {{- else if eq . "info" -}}#17a2b8
+  {{- else -}}good
+  {{- end -}}
+{{ end }}

@@ -1,0 +1,251 @@
+{
+  "_description": "TSE 33 Sectors to GICS 11 Sectors Mapping",
+  "_source": "Tokyo Stock Exchange (TSE) 33 Industry Classification",
+  "_reference": "https://www.jpx.co.jp/english/sicc/sectors/",
+  "_gics_standard": "GICS (Global Industry Classification Standard) 11 Sectors",
+  "_last_updated": "2025-10-14",
+
+  "tse_to_gics_mapping": {
+    "Fishery, Agriculture & Forestry": {
+      "sector": "Consumer Staples",
+      "sector_code": "30",
+      "notes": "Primary food production",
+      "keywords": ["agriculture", "forestry", "fishery", "farming"]
+    },
+    "Mining": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "notes": "Extraction industries",
+      "keywords": ["mining", "coal", "metal extraction"]
+    },
+    "Construction": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "notes": "Building and infrastructure",
+      "keywords": ["construction", "engineering", "building"]
+    },
+    "Foods": {
+      "sector": "Consumer Staples",
+      "sector_code": "30",
+      "notes": "Food manufacturing and distribution",
+      "keywords": ["food", "packaged", "confectionery", "dairy"]
+    },
+    "Textiles & Apparel": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "notes": "Clothing and textile manufacturing",
+      "keywords": ["textile", "apparel", "clothing", "fashion"]
+    },
+    "Pulp & Paper": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "notes": "Paper and pulp products",
+      "keywords": ["paper", "pulp", "packaging"]
+    },
+    "Chemicals": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "notes": "Chemical manufacturing",
+      "keywords": ["chemicals", "specialty chemicals", "industrial chemicals"]
+    },
+    "Pharmaceutical": {
+      "sector": "Health Care",
+      "sector_code": "35",
+      "notes": "Drug manufacturers and biotech",
+      "keywords": ["pharmaceutical", "drug", "biotech", "medicine"]
+    },
+    "Oil & Coal Products": {
+      "sector": "Energy",
+      "sector_code": "10",
+      "notes": "Petroleum refining and coal products",
+      "keywords": ["oil", "petroleum", "coal", "refining"]
+    },
+    "Rubber Products": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "notes": "Rubber manufacturing",
+      "keywords": ["rubber", "tire", "elastomer"]
+    },
+    "Glass & Ceramics Products": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "notes": "Glass and ceramic manufacturing",
+      "keywords": ["glass", "ceramics", "pottery"]
+    },
+    "Iron & Steel": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "notes": "Steel production",
+      "keywords": ["steel", "iron", "metal"]
+    },
+    "Nonferrous Metals": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "notes": "Aluminum, copper, and other metals",
+      "keywords": ["aluminum", "copper", "zinc", "nonferrous"]
+    },
+    "Metal Products": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "notes": "Fabricated metal products",
+      "keywords": ["metal products", "fabricated", "machinery parts"]
+    },
+    "Machinery": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "notes": "Industrial machinery",
+      "keywords": ["machinery", "industrial equipment", "machine tools"]
+    },
+    "Electric Appliances": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "notes": "Electronics and electrical equipment (largest TSE sector ~16% market cap)",
+      "keywords": ["electronics", "semiconductor", "electrical", "appliances"]
+    },
+    "Transportation Equipment": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "notes": "Automobiles and auto parts",
+      "keywords": ["auto", "automobile", "vehicle", "transportation equipment"]
+    },
+    "Precision Instruments": {
+      "sector": "Health Care",
+      "sector_code": "35",
+      "notes": "Medical devices and precision equipment",
+      "keywords": ["medical devices", "precision", "instruments", "optical"]
+    },
+    "Other Products": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "notes": "Miscellaneous manufacturing",
+      "keywords": ["other", "miscellaneous", "diversified"]
+    },
+    "Electric Power & Gas": {
+      "sector": "Utilities",
+      "sector_code": "55",
+      "notes": "Electric utilities and gas utilities",
+      "keywords": ["electric", "power", "gas", "utility"]
+    },
+    "Land Transportation": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "notes": "Railroads and trucking",
+      "keywords": ["railroad", "rail", "trucking", "land transport"]
+    },
+    "Marine Transportation": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "notes": "Shipping companies",
+      "keywords": ["shipping", "marine", "maritime"]
+    },
+    "Air Transportation": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "notes": "Airlines",
+      "keywords": ["airline", "air transport", "aviation"]
+    },
+    "Warehousing & Harbor Transportation Services": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "notes": "Logistics and warehousing",
+      "keywords": ["warehouse", "logistics", "harbor"]
+    },
+    "Information & Communication": {
+      "sector": "Communication Services",
+      "sector_code": "50",
+      "notes": "Telecommunications and IT services",
+      "keywords": ["telecom", "communication", "IT services", "internet"]
+    },
+    "Wholesale Trade": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "notes": "Trading companies and distributors",
+      "keywords": ["wholesale", "trading", "distribution"]
+    },
+    "Retail Trade": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "notes": "Retail stores and e-commerce",
+      "keywords": ["retail", "store", "e-commerce", "shop"]
+    },
+    "Banks": {
+      "sector": "Financials",
+      "sector_code": "40",
+      "notes": "Commercial and regional banks",
+      "keywords": ["bank", "banking", "financial institution"]
+    },
+    "Securities & Commodity Futures": {
+      "sector": "Financials",
+      "sector_code": "40",
+      "notes": "Brokerage and asset management",
+      "keywords": ["securities", "brokerage", "asset management", "investment"]
+    },
+    "Insurance": {
+      "sector": "Financials",
+      "sector_code": "40",
+      "notes": "Life and non-life insurance",
+      "keywords": ["insurance", "life insurance", "property casualty"]
+    },
+    "Other Financing Business": {
+      "sector": "Financials",
+      "sector_code": "40",
+      "notes": "Financial services",
+      "keywords": ["finance", "credit", "leasing"]
+    },
+    "Real Estate": {
+      "sector": "Real Estate",
+      "sector_code": "60",
+      "notes": "Real estate development and REITs",
+      "keywords": ["real estate", "property", "reit", "development"]
+    },
+    "Services": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "notes": "Consumer and business services",
+      "keywords": ["services", "consulting", "staffing", "outsourcing"]
+    }
+  },
+
+  "gics_11_sectors": {
+    "10": {"name": "Energy", "description": "Oil, gas, and consumable fuels"},
+    "15": {"name": "Materials", "description": "Chemicals, construction materials, metals & mining"},
+    "20": {"name": "Industrials", "description": "Aerospace, machinery, transportation, commercial services"},
+    "25": {"name": "Consumer Discretionary", "description": "Automobiles, consumer durables, leisure, retail"},
+    "30": {"name": "Consumer Staples", "description": "Food, beverages, tobacco, household products"},
+    "35": {"name": "Health Care", "description": "Pharmaceuticals, biotechnology, medical equipment"},
+    "40": {"name": "Financials", "description": "Banks, insurance, capital markets"},
+    "45": {"name": "Information Technology", "description": "Software, hardware, semiconductors, IT services"},
+    "50": {"name": "Communication Services", "description": "Telecom, media, entertainment, interactive media"},
+    "55": {"name": "Utilities", "description": "Electric, gas, water utilities"},
+    "60": {"name": "Real Estate", "description": "Real estate development, REITs, real estate services"}
+  },
+
+  "mapping_notes": {
+    "market_cap_distribution": {
+      "electric_appliances": "~16% of TSE Prime (largest sector)",
+      "fishery_agriculture": "<0.1% (smallest sector)"
+    },
+    "special_considerations": {
+      "trading_companies": "Japanese general trading companies (sogo shosha) like Mitsubishi Corp, Mitsui -> Industrials",
+      "keiretsu": "Many companies part of keiretsu groups with diversified operations",
+      "automotive": "Major sector with Toyota, Honda, Nissan -> Consumer Discretionary"
+    },
+    "fuzzy_matching": {
+      "description": "JPStockParser uses fuzzy keyword matching for unmapped industries",
+      "default": "Industrials (sector code 20) for unclassified companies"
+    }
+  },
+
+  "major_companies_by_sector": {
+    "Information Technology": ["Sony (6758)", "Keyence (6861)", "Tokyo Electron (8035)", "Advantest (6857)"],
+    "Consumer Discretionary": ["Toyota (7203)", "Honda (7267)", "Nissan (7201)", "Fast Retailing (9983)"],
+    "Financials": ["Mitsubishi UFJ (8306)", "Sumitomo Mitsui (8316)", "Mizuho (8411)", "Nomura (8604)"],
+    "Industrials": ["Mitsubishi Corp (8058)", "Mitsui (8031)", "Itochu (8001)", "Hitachi (6501)"],
+    "Communication Services": ["NTT (9432)", "KDDI (9433)", "SoftBank (9984)", "Recruit (6098)"],
+    "Health Care": ["Takeda Pharma (4502)", "Daiichi Sankyo (4568)", "Astellas (4503)", "Eisai (4523)"],
+    "Consumer Staples": ["Seven & i Holdings (3382)", "Kao (4452)", "Kirin (2503)", "Asahi (2502)"],
+    "Materials": ["Shin-Etsu Chemical (4063)", "Nippon Steel (5401)", "JFE Holdings (5411)"],
+    "Utilities": ["Tokyo Electric Power (9501)", "Chubu Electric (9502)", "Kansai Electric (9503)"],
+    "Real Estate": ["Mitsui Fudosan (8801)", "Mitsubishi Estate (8802)", "Sumitomo Realty (8830)"]
+  }
+}

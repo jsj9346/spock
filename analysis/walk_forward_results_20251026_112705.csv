@@ -1,0 +1,3 @@
+period,train_start,train_end,test_start,test_end,return,sharpe,max_drawdown,transaction_costs,win_rate,avg_holdings
+1,2022-01-01,2023-01-01,2023-01-02,2024-01-02,7.11,0.0,0.0,0.45463200000000004,100.0,68.0
+2,2023-01-02,2024-01-02,2024-01-03,2025-01-02,-0.15,0.0,0.0,0.15196700000000002,0.0,72.0

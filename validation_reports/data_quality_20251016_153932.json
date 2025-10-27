@@ -1,0 +1,1166 @@
+{
+  "timestamp": "2025-10-16T15:39:29.180543",
+  "validations": {
+    "null_values": {
+      "critical_nulls": {
+        "ticker": 0,
+        "region": 0,
+        "date": 0,
+        "open": 0,
+        "high": 0,
+        "low": 0,
+        "close": 0,
+        "volume": 0
+      },
+      "optional_nulls": {
+        "ma5": 50747,
+        "ma20": 92072,
+        "ma60": 202272,
+        "ma120": 367572,
+        "ma200": 587972,
+        "rsi_14": 42477,
+        "macd": 108602,
+        "macd_signal": 130642,
+        "volume_ma20": 92072,
+        "atr": 75542,
+        "atr_14": 721662,
+        "bb_upper": 92072,
+        "bb_middle": 92072,
+        "bb_lower": 92072
+      },
+      "total_rows": 721781,
+      "passed": true
+    },
+    "ohlcv_integrity": {
+      "violations": {
+        "high_less_than_low": 0,
+        "close_out_of_range": 342740,
+        "open_out_of_range": 0,
+        "negative_volume": 0,
+        "non_positive_prices": 0
+      },
+      "total_rows": 721781,
+      "passed": false
+    },
+    "technical_indicators": {
+      "violations": {
+        "rsi_out_of_range": 50,
+        "ma5_non_positive": 0,
+        "ma20_non_positive": 0,
+        "ma60_non_positive": 0,
+        "ma120_non_positive": 0,
+        "ma200_non_positive": 0,
+        "atr_non_positive": 0,
+        "bb_band_order": 0,
+        "volume_ratio_negative": 0
+      },
+      "warnings": {},
+      "passed": false
+    },
+    "duplicates": {
+      "duplicates": [],
+      "duplicate_count": 0,
+      "passed": true
+    },
+    "date_ranges": {
+      "regions": {
+        "KR": {
+          "earliest": "2024-10-22",
+          "latest": "2025-10-16",
+          "total_rows": 721631
+        },
+        "US": {
+          "earliest": "2025-09-05",
+          "latest": "2025-10-16",
+          "total_rows": 30
+        },
+        "HK": {
+          "earliest": "2025-09-05",
+          "latest": "2025-10-16",
+          "total_rows": 30
+        },
+        "CN": {
+          "earliest": "2025-09-05",
+          "latest": "2025-10-16",
+          "total_rows": 30
+        },
+        "JP": {
+          "earliest": "2025-09-05",
+          "latest": "2025-10-16",
+          "total_rows": 30
+        },
+        "VN": {
+          "earliest": "2025-09-05",
+          "latest": "2025-10-16",
+          "total_rows": 30
+        }
+      },
+      "retention_violations": [
+        {
+          "region": "KR",
+          "earliest": "2024-10-22",
+          "threshold": "2025-02-08"
+        }
+      ],
+      "future_dates": 0,
+      "passed": true
+    },
+    "cross_region_contamination": {
+      "contamination": [
+        {
+          "region": "KR",
+          "ticker": "0000D0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0000H0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0000J0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0000Y0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0000Z0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0001P0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0001S0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0002C0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0004G0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0004Y0",
+          "row_count": 251,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0005A0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0005C0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0005D0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0005G0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0007F0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0007G0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0007N0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "00088K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0008E0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0008S0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0008T0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0008Z0",
+          "row_count": 251,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "00104K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0010E0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0010V0",
+          "row_count": 251,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0013P0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0013R0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0015B0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0015E0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0015F0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0015K0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0016X0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0017Y0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0018C0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0018Z0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0019K0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0020H0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0021C0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0021D0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0021E0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0022T0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0023A0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0023B0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0025N0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0026E0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0026S0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "00279K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0028X0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0030R0",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0035T0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0036D0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0036R0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0036Z0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0037T0",
+          "row_count": 251,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0038A0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0040S0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0040X0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0040Y0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0041B0",
+          "row_count": 251,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0041D0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0041E0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0041J0",
+          "row_count": 251,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0041L0",
+          "row_count": 251,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0043B0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0043Y0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0044K0",
+          "row_count": 251,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0046A0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0046Y0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0047A0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0047N0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0047P0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0047R0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0048J0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0048K0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "00499K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0049K0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0049M0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0050E0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0051A0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0051G0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0052D0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0052S0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0052T0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0053L0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0053M0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0057H0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0060H0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0061Z0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0064K0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0065G0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0066W0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0067V0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0067Y0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "00680K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0068M0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0069M0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0071M0",
+          "row_count": 251,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0072R0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0072Z0",
+          "row_count": 251,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0073X0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0074K0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "00781K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0078V0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0079X0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "00806K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0080G0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0080X0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0080Y0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0082F0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0082V0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0083S0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0084D0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0085N0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0085P0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0086B0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0086C0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0087F0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0088N0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0089B0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0089C0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0089D0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0090B0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0091C0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0091M0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0091P0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0092B0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0092C0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0093A0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0093B0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0093D0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0094K0",
+          "row_count": 30,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0094L0",
+          "row_count": 27,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0094M0",
+          "row_count": 27,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0094X0",
+          "row_count": 27,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0097L0",
+          "row_count": 27,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0098F0",
+          "row_count": 17,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0098N0",
+          "row_count": 17,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0098Z0",
+          "row_count": 12,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0099L0",
+          "row_count": 22,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0100K0",
+          "row_count": 17,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0101N0",
+          "row_count": 12,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0102A0",
+          "row_count": 22,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0102X0",
+          "row_count": 12,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0103T0",
+          "row_count": 7,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0104G0",
+          "row_count": 7,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0104H0",
+          "row_count": 7,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0104N0",
+          "row_count": 12,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0104P0",
+          "row_count": 12,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0105D0",
+          "row_count": 12,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0105E0",
+          "row_count": 12,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0107F0",
+          "row_count": 12,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0111P0",
+          "row_count": 7,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "0113P0",
+          "row_count": 7,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "02826K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "03473K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "03481K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "18064K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "26490K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "28513K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "33626K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "33626L",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "33637K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "33637L",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "35320K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "36328K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "37550K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "37550L",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "38380K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "45014K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        },
+        {
+          "region": "KR",
+          "ticker": "45226K",
+          "row_count": 254,
+          "expected_pattern": "^\\d{6}$"
+        }
+      ],
+      "contamination_count": 170,
+      "passed": false
+    },
+    "data_completeness": {
+      "gaps": {
+        "KR": [
+          {
+            "ticker": "139260",
+            "gaps": 1
+          },
+          {
+            "ticker": "302190",
+            "gaps": 1
+          },
+          {
+            "ticker": "292150",
+            "gaps": 1
+          }
+        ],
+        "US": [],
+        "HK": [],
+        "CN": [],
+        "JP": [],
+        "VN": []
+      },
+      "total_gaps": 3,
+      "passed": true
+    }
+  },
+  "summary": {
+    "total_checks": 7,
+    "passed": 4,
+    "failed": 3,
+    "warnings": 0
+  }
+}

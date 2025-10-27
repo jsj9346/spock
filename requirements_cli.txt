@@ -1,0 +1,161 @@
+# ============================================================================
+# Quant Platform CLI/TUI Requirements
+# ============================================================================
+# Install with: pip install -r requirements_cli.txt
+#
+# Purpose: Multi-interface support (CLI, TUI, WebUI) with cloud/local hybrid
+# Author: Quant Platform Development Team
+# Last Updated: 2025-10-22
+# ============================================================================
+
+# ============================================================================
+# CLI Interface (Command Line)
+# ============================================================================
+
+# Rich terminal formatting
+rich==13.7.0              # Beautiful tables, progress bars, colors
+click==8.1.7              # Enhanced CLI framework (optional alternative to argparse)
+
+# ============================================================================
+# TUI Interface (Terminal User Interface)
+# ============================================================================
+
+textual==0.41.0           # Modern Python TUI framework
+textual-plotext==0.2.0    # ASCII charts for terminal (optional)
+
+# ============================================================================
+# HTTP Client & API Communication
+# ============================================================================
+
+httpx==0.25.2             # Modern async HTTP client (replacement for requests)
+websockets==12.0          # WebSocket client for real-time updates
+pydantic==2.5.0           # Data validation and serialization
+
+# ============================================================================
+# Authentication & Security
+# ============================================================================
+
+bcrypt==4.1.2             # Password hashing (simpler than passlib)
+# python-jose[cryptography]==3.3.0  # JWT tokens (future commercial use)
+# keyring==24.3.0          # OS keychain storage (future commercial use)
+
+# ============================================================================
+# Configuration Management
+# ============================================================================
+
+python-dotenv==1.0.0      # Environment variable loading (.env files)
+pyyaml==6.0.1             # YAML configuration file parsing
+toml==0.10.2              # TOML configuration (alternative format)
+
+# ============================================================================
+# Logging & Monitoring
+# ============================================================================
+
+loguru==0.7.2             # Enhanced logging with colors and rotation
+python-json-logger==2.0.7 # Structured JSON logging for production
+
+# ============================================================================
+# Data Serialization & Compression
+# ============================================================================
+
+orjson==3.9.10            # Fast JSON serialization (3-5x faster than stdlib)
+msgpack==1.0.7            # Binary serialization for efficient data transfer
+pyarrow==14.0.1           # Parquet file support (efficient column storage)
+
+# ============================================================================
+# Progress & User Feedback
+# ============================================================================
+
+tqdm==4.66.1              # Progress bars for long-running operations
+
+# ============================================================================
+# FastAPI Backend (API Layer)
+# ============================================================================
+
+fastapi==0.103.1          # High-performance async web framework
+uvicorn[standard]==0.24.0 # ASGI server with WebSocket support
+python-multipart==0.0.6   # File upload support for FastAPI
+aiofiles==23.2.1          # Async file I/O
+
+# ============================================================================
+# Database (PostgreSQL + TimescaleDB)
+# ============================================================================
+
+psycopg2-binary==2.9.7    # PostgreSQL adapter (development)
+# psycopg2==2.9.7         # Use this for production (requires compilation)
+sqlalchemy==2.0.23        # ORM for complex queries (optional)
+asyncpg==0.29.0           # Async PostgreSQL driver (for FastAPI)
+
+# ============================================================================
+# Caching & Performance
+# ============================================================================
+
+redis==5.0.1              # Redis client for caching
+aiocache==0.12.2          # Async caching utilities
+
+# ============================================================================
+# AWS Integration (Cloud Mode)
+# ============================================================================
+
+boto3==1.29.7             # AWS SDK (S3, RDS, EC2, CloudWatch)
+botocore==1.32.7          # Core AWS library
+s3transfer==0.7.0         # Efficient S3 uploads/downloads
+
+# ============================================================================
+# Streamlit WebUI (Optional - Separate Installation)
+# ============================================================================
+
+# streamlit==1.28.1       # Install separately: pip install -r requirements_webui.txt
+# plotly==5.17.0
+
+# ============================================================================
+# Data Analysis (Reused from Quant Platform)
+# ============================================================================
+
+pandas==2.0.3             # DataFrame operations
+numpy==1.24.3             # Numerical computing
+
+# ============================================================================
+# Development Tools (Optional)
+# ============================================================================
+
+# pytest==7.4.3           # Testing framework
+# pytest-asyncio==0.21.1  # Async test support
+# black==23.11.0          # Code formatting
+# ruff==0.1.6             # Fast linter
+# mypy==1.7.1             # Type checking
+
+# ============================================================================
+# Platform-Specific Notes
+# ============================================================================
+
+# macOS (M1/M2 Silicon):
+#   - Use native ARM builds for numpy, pandas
+#   - Keyring integration: Keychain Access
+
+# Linux:
+#   - Install system dependencies: libpq-dev, python3-dev
+#   - Keyring integration: Secret Service (libsecret)
+
+# Windows:
+#   - Install: windows-curses (for TUI support)
+#   - Keyring integration: Windows Credential Manager
+
+# ============================================================================
+# Installation Instructions
+# ============================================================================
+
+# Full installation (CLI + TUI + API):
+# pip install -r requirements_cli.txt
+
+# CLI only (minimal):
+# pip install rich httpx python-jose keyring pyyaml loguru
+
+# TUI only (minimal):
+# pip install textual rich httpx python-jose keyring
+
+# API backend:
+# pip install fastapi uvicorn psycopg2-binary sqlalchemy boto3
+
+# Development:
+# pip install -r requirements_cli.txt pytest black ruff mypy

@@ -1,0 +1,183 @@
+[
+  {
+    "date": "2025-10-22",
+    "region": "KR",
+    "correlation_matrix": {
+      "12M_Momentum": {
+        "12M_Momentum": 1.0,
+        "1M_Momentum": 0.14155464640561075,
+        "Book_Value_Quality": -0.626094072521708,
+        "Dividend_Stability": -0.514802585489772,
+        "Earnings_Quality": -0.29310344827586204,
+        "PB_Ratio": -0.626094072521708,
+        "PE_Ratio": -0.29310344827586204,
+        "RSI_Momentum": -0.12177267348864892
+      },
+      "1M_Momentum": {
+        "12M_Momentum": 0.14155464640561075,
+        "1M_Momentum": 1.0,
+        "Book_Value_Quality": -0.09895232120792118,
+        "Dividend_Stability": -0.2183417607830875,
+        "Earnings_Quality": -0.15423728813559323,
+        "PB_Ratio": -0.09895232120792118,
+        "PE_Ratio": -0.15423728813559323,
+        "RSI_Momentum": 0.5857186692423783
+      },
+      "Book_Value_Quality": {
+        "12M_Momentum": -0.626094072521708,
+        "1M_Momentum": -0.09895232120792118,
+        "Book_Value_Quality": 1.0,
+        "Dividend_Stability": 0.7395770929642171,
+        "Earnings_Quality": 0.72414045103694,
+        "PB_Ratio": 1.0,
+        "PE_Ratio": 0.72414045103694,
+        "RSI_Momentum": 0.061166637468401966
+      },
+      "Dividend_Stability": {
+        "12M_Momentum": -0.514802585489772,
+        "1M_Momentum": -0.2183417607830875,
+        "Book_Value_Quality": 0.7395770929642171,
+        "Dividend_Stability": 1.0,
+        "Earnings_Quality": 0.6701347309270775,
+        "PB_Ratio": 0.7395770929642171,
+        "PE_Ratio": 0.6701347309270775,
+        "RSI_Momentum": -0.006751128859368492
+      },
+      "Earnings_Quality": {
+        "12M_Momentum": -0.29310344827586204,
+        "1M_Momentum": -0.15423728813559323,
+        "Book_Value_Quality": 0.72414045103694,
+        "Dividend_Stability": 0.6701347309270775,
+        "Earnings_Quality": 1.0,
+        "PB_Ratio": 0.72414045103694,
+        "PE_Ratio": 1.0,
+        "RSI_Momentum": -0.12828942563358983
+      },
+      "PB_Ratio": {
+        "12M_Momentum": -0.626094072521708,
+        "1M_Momentum": -0.09895232120792118,
+        "Book_Value_Quality": 1.0,
+        "Dividend_Stability": 0.7395770929642171,
+        "Earnings_Quality": 0.72414045103694,
+        "PB_Ratio": 1.0,
+        "PE_Ratio": 0.72414045103694,
+        "RSI_Momentum": 0.061166637468401966
+      },
+      "PE_Ratio": {
+        "12M_Momentum": -0.29310344827586204,
+        "1M_Momentum": -0.15423728813559323,
+        "Book_Value_Quality": 0.72414045103694,
+        "Dividend_Stability": 0.6701347309270775,
+        "Earnings_Quality": 1.0,
+        "PB_Ratio": 0.72414045103694,
+        "PE_Ratio": 1.0,
+        "RSI_Momentum": -0.12828942563358983
+      },
+      "RSI_Momentum": {
+        "12M_Momentum": -0.12177267348864892,
+        "1M_Momentum": 0.5857186692423783,
+        "Book_Value_Quality": 0.061166637468401966,
+        "Dividend_Stability": -0.006751128859368492,
+        "Earnings_Quality": -0.12828942563358983,
+        "PB_Ratio": 0.061166637468401966,
+        "PE_Ratio": -0.12828942563358983,
+        "RSI_Momentum": 1.0
+      }
+    },
+    "redundant_pairs": [
+      {
+        "factor1": "Earnings_Quality",
+        "factor2": "PE_Ratio",
+        "correlation": 1.0,
+        "p_value": 0.0,
+        "is_significant": true,
+        "num_stocks": 81
+      },
+      {
+        "factor1": "Book_Value_Quality",
+        "factor2": "PB_Ratio",
+        "correlation": 0.9999999999999998,
+        "p_value": 0.0,
+        "is_significant": true,
+        "num_stocks": 128
+      },
+      {
+        "factor1": "Dividend_Stability",
+        "factor2": "PB_Ratio",
+        "correlation": 0.7339807652273924,
+        "p_value": 9.519592635138953e-15,
+        "is_significant": true,
+        "num_stocks": 80
+      },
+      {
+        "factor1": "Book_Value_Quality",
+        "factor2": "Dividend_Stability",
+        "correlation": 0.7339807652273923,
+        "p_value": 9.51959263513902e-15,
+        "is_significant": true,
+        "num_stocks": 80
+      }
+    ],
+    "orthogonal_factors": [
+      "12M_Momentum",
+      "1M_Momentum",
+      "Earnings_Quality"
+    ],
+    "clustering": {
+      "linkage_matrix": [
+        [
+          2.0,
+          5.0,
+          0.0,
+          2.0
+        ],
+        [
+          4.0,
+          6.0,
+          0.0,
+          2.0
+        ],
+        [
+          3.0,
+          8.0,
+          0.14750857026403832,
+          3.0
+        ],
+        [
+          1.0,
+          7.0,
+          0.23637426365091785,
+          2.0
+        ],
+        [
+          9.0,
+          10.0,
+          0.3571358689383325,
+          5.0
+        ],
+        [
+          0.0,
+          12.0,
+          0.8672766706915125,
+          6.0
+        ],
+        [
+          11.0,
+          13.0,
+          3.0522548458280028,
+          8.0
+        ]
+      ],
+      "factor_names": [
+        "12M_Momentum",
+        "1M_Momentum",
+        "Book_Value_Quality",
+        "Dividend_Stability",
+        "Earnings_Quality",
+        "PB_Ratio",
+        "PE_Ratio",
+        "RSI_Momentum"
+      ]
+    }
+  }
+]

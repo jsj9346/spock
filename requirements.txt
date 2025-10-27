@@ -1,0 +1,40 @@
+# Core Dependencies (Required)
+pandas==2.0.3
+numpy==1.24.3
+python-dotenv==1.0.0
+PyJWT==2.8.0
+pyyaml==6.0.1
+requests>=2.31.0
+
+# Database
+# SQLite는 Python 기본 내장 (별도 설치 불필요)
+
+# Technical Analysis
+pandas-ta==0.3.14b0
+
+# Optional: Enhanced Logging
+loguru==0.7.0
+
+# Optional: Visualization
+matplotlib==3.7.2
+mplfinance==0.12.10b0
+
+# Optional: System Monitoring
+psutil==5.9.5
+
+# Optional: Phase 3 Performance Optimization
+tqdm==4.67.1          # Progress bars for enrichment tracking
+prometheus-client==0.23.1  # Metrics export for monitoring
+
+# 종목 스캔 (하이브리드 전략)
+# Primary: KRX 공식 API (사업자 등록 후 .env에 KRX_API_KEY 설정)
+# Fallback 1: KRX Data API (API Key 불필요, 기본 사용)
+# Fallback 2: pykrx (개인 투자자용, rate-limiting 적용)
+pykrx>=1.0.51
+
+# Fallback 3: FinanceDataReader (최후 수단)
+finance-datareader>=0.9.50
+
+# Optional: AI-powered Analysis (Phase 3)
+# openai==0.28.1
+# tiktoken==0.4.0

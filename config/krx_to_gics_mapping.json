@@ -1,0 +1,678 @@
+{
+  "version": "2.0",
+  "description": "KRX Industry to GICS Sector Mapping for Korean Stock Market",
+  "source": "KRX 지수업종 classification mapped to GICS 11 sectors",
+  "last_updated": "2025-10-13",
+  "total_industries": 108,
+
+  "gics_sectors": {
+    "10": "Energy",
+    "15": "Materials",
+    "20": "Industrials",
+    "25": "Consumer Discretionary",
+    "30": "Consumer Staples",
+    "35": "Health Care",
+    "40": "Financials",
+    "45": "Information Technology",
+    "50": "Communication Services",
+    "55": "Utilities",
+    "60": "Real Estate"
+  },
+
+  "krx_to_gics_mapping": {
+    "음식료품": {
+      "sector": "Consumer Staples",
+      "sector_code": "30",
+      "industry": "음식료품",
+      "industry_code": "3020"
+    },
+    "섬유의복": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "섬유의복",
+      "industry_code": "2520"
+    },
+    "종이목재": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "industry": "종이목재",
+      "industry_code": "1510"
+    },
+    "화학": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "industry": "화학",
+      "industry_code": "1510"
+    },
+    "의약품": {
+      "sector": "Health Care",
+      "sector_code": "35",
+      "industry": "의약품",
+      "industry_code": "3520"
+    },
+    "비금속광물": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "industry": "비금속광물",
+      "industry_code": "1510"
+    },
+    "철강금속": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "industry": "철강금속",
+      "industry_code": "1510"
+    },
+    "기계": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "기계",
+      "industry_code": "2010"
+    },
+    "전기전자": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "industry": "전기전자",
+      "industry_code": "4520"
+    },
+    "의료정밀": {
+      "sector": "Health Care",
+      "sector_code": "35",
+      "industry": "의료정밀",
+      "industry_code": "3520"
+    },
+    "운수장비": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "운수장비",
+      "industry_code": "2510"
+    },
+    "유통업": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "유통업",
+      "industry_code": "2550"
+    },
+    "전기가스업": {
+      "sector": "Utilities",
+      "sector_code": "55",
+      "industry": "전기가스업",
+      "industry_code": "5510"
+    },
+    "건설업": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "건설업",
+      "industry_code": "2020"
+    },
+    "운수창고": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "운수창고",
+      "industry_code": "2030"
+    },
+    "통신업": {
+      "sector": "Communication Services",
+      "sector_code": "50",
+      "industry": "통신업",
+      "industry_code": "5010"
+    },
+    "금융업": {
+      "sector": "Financials",
+      "sector_code": "40",
+      "industry": "금융업",
+      "industry_code": "4020"
+    },
+    "은행": {
+      "sector": "Financials",
+      "sector_code": "40",
+      "industry": "은행",
+      "industry_code": "4010"
+    },
+    "증권": {
+      "sector": "Financials",
+      "sector_code": "40",
+      "industry": "증권",
+      "industry_code": "4020"
+    },
+    "보험": {
+      "sector": "Financials",
+      "sector_code": "40",
+      "industry": "보험",
+      "industry_code": "4030"
+    },
+    "서비스업": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "서비스업",
+      "industry_code": "2530"
+    },
+    "제조업": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "제조업",
+      "industry_code": "2010"
+    },
+    "반도체": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "industry": "반도체",
+      "industry_code": "4510"
+    },
+    "IT S/W & SVC": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "industry": "IT S/W & SVC",
+      "industry_code": "4530"
+    },
+    "IT H/W": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "industry": "IT H/W",
+      "industry_code": "4520"
+    },
+    "반도체와반도체장비": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "industry": "반도체와반도체장비",
+      "industry_code": "4510"
+    },
+    "디스플레이": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "industry": "디스플레이",
+      "industry_code": "4520"
+    },
+    "자동차": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "자동차",
+      "industry_code": "2510"
+    },
+    "자동차부품": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "자동차부품",
+      "industry_code": "2510"
+    },
+    "조선": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "조선",
+      "industry_code": "2010"
+    },
+    "철강": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "industry": "철강",
+      "industry_code": "1510"
+    },
+    "에너지": {
+      "sector": "Energy",
+      "sector_code": "10",
+      "industry": "에너지",
+      "industry_code": "1010"
+    },
+    "화학섬유": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "industry": "화학섬유",
+      "industry_code": "1510"
+    },
+    "정유": {
+      "sector": "Energy",
+      "sector_code": "10",
+      "industry": "정유",
+      "industry_code": "1010"
+    },
+    "비철금속": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "industry": "비철금속",
+      "industry_code": "1520"
+    },
+    "기계장비": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "기계장비",
+      "industry_code": "2010"
+    },
+    "건설": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "건설",
+      "industry_code": "2020"
+    },
+    "상사자본재": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "상사자본재",
+      "industry_code": "2010"
+    },
+    "운송": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "운송",
+      "industry_code": "2030"
+    },
+    "미디어엔터테인먼트": {
+      "sector": "Communication Services",
+      "sector_code": "50",
+      "industry": "미디어엔터테인먼트",
+      "industry_code": "5020"
+    },
+    "호텔레저": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "호텔레저",
+      "industry_code": "2530"
+    },
+    "교육서비스": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "교육서비스",
+      "industry_code": "2530"
+    },
+    "음식료담배": {
+      "sector": "Consumer Staples",
+      "sector_code": "30",
+      "industry": "음식료담배",
+      "industry_code": "3020"
+    },
+    "화장품": {
+      "sector": "Consumer Staples",
+      "sector_code": "30",
+      "industry": "화장품",
+      "industry_code": "3030"
+    },
+    "소매유통": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "소매유통",
+      "industry_code": "2550"
+    },
+    "필수소비재": {
+      "sector": "Consumer Staples",
+      "sector_code": "30",
+      "industry": "필수소비재",
+      "industry_code": "3010"
+    },
+    "건강관리": {
+      "sector": "Health Care",
+      "sector_code": "35",
+      "industry": "건강관리",
+      "industry_code": "3510"
+    },
+    "제약": {
+      "sector": "Health Care",
+      "sector_code": "35",
+      "industry": "제약",
+      "industry_code": "3520"
+    },
+    "바이오": {
+      "sector": "Health Care",
+      "sector_code": "35",
+      "industry": "바이오",
+      "industry_code": "3520"
+    },
+    "은행업": {
+      "sector": "Financials",
+      "sector_code": "40",
+      "industry": "은행업",
+      "industry_code": "4010"
+    },
+    "증권업": {
+      "sector": "Financials",
+      "sector_code": "40",
+      "industry": "증권업",
+      "industry_code": "4020"
+    },
+    "보험업": {
+      "sector": "Financials",
+      "sector_code": "40",
+      "industry": "보험업",
+      "industry_code": "4030"
+    },
+    "기타금융": {
+      "sector": "Financials",
+      "sector_code": "40",
+      "industry": "기타금융",
+      "industry_code": "4040"
+    },
+    "소프트웨어": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "industry": "소프트웨어",
+      "industry_code": "4530"
+    },
+    "게임": {
+      "sector": "Communication Services",
+      "sector_code": "50",
+      "industry": "게임",
+      "industry_code": "5020"
+    },
+    "인터넷": {
+      "sector": "Communication Services",
+      "sector_code": "50",
+      "industry": "인터넷",
+      "industry_code": "5010"
+    },
+    "전기전자부품": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "industry": "전기전자부품",
+      "industry_code": "4520"
+    },
+    "가전": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "가전",
+      "industry_code": "2540"
+    },
+    "전자": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "industry": "전자",
+      "industry_code": "4520"
+    },
+    "통신서비스": {
+      "sector": "Communication Services",
+      "sector_code": "50",
+      "industry": "통신서비스",
+      "industry_code": "5010"
+    },
+    "전기": {
+      "sector": "Utilities",
+      "sector_code": "55",
+      "industry": "전기",
+      "industry_code": "5510"
+    },
+    "가스": {
+      "sector": "Utilities",
+      "sector_code": "55",
+      "industry": "가스",
+      "industry_code": "5510"
+    },
+    "수도": {
+      "sector": "Utilities",
+      "sector_code": "55",
+      "industry": "수도",
+      "industry_code": "5510"
+    },
+    "부동산": {
+      "sector": "Real Estate",
+      "sector_code": "60",
+      "industry": "부동산",
+      "industry_code": "6010"
+    },
+    "양방향미디어와서비스": {
+      "sector": "Communication Services",
+      "sector_code": "50",
+      "industry": "양방향미디어와서비스",
+      "industry_code": "5020"
+    },
+    "광고": {
+      "sector": "Communication Services",
+      "sector_code": "50",
+      "industry": "광고",
+      "industry_code": "5020"
+    },
+    "방송": {
+      "sector": "Communication Services",
+      "sector_code": "50",
+      "industry": "방송",
+      "industry_code": "5020"
+    },
+    "IT서비스": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "industry": "IT서비스",
+      "industry_code": "4530"
+    },
+    "식품": {
+      "sector": "Consumer Staples",
+      "sector_code": "30",
+      "industry": "식품",
+      "industry_code": "3020"
+    },
+    "핸드셋": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "industry": "핸드셋",
+      "industry_code": "4520"
+    },
+    "통신장비": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "industry": "통신장비",
+      "industry_code": "4520"
+    },
+    "생물공학": {
+      "sector": "Health Care",
+      "sector_code": "35",
+      "industry": "생물공학",
+      "industry_code": "3520"
+    },
+    "생명과학도구및서비스": {
+      "sector": "Health Care",
+      "sector_code": "35",
+      "industry": "생명과학도구및서비스",
+      "industry_code": "3520"
+    },
+    "상업서비스와공급품": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "상업서비스와공급품",
+      "industry_code": "2030"
+    },
+    "섬유,의류,신발,호화품": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "섬유,의류,신발,호화품",
+      "industry_code": "2520"
+    },
+    "호텔,레스토랑,레저": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "호텔,레스토랑,레저",
+      "industry_code": "2530"
+    },
+    "우주항공과국방": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "우주항공과국방",
+      "industry_code": "2010"
+    },
+    "창업투자": {
+      "sector": "Financials",
+      "sector_code": "40",
+      "industry": "창업투자",
+      "industry_code": "4040"
+    },
+    "해운사": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "해운사",
+      "industry_code": "2030"
+    },
+    "가정용품": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "가정용품",
+      "industry_code": "2540"
+    },
+    "가구": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "가구",
+      "industry_code": "2540"
+    },
+    "레저용장비와제품": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "레저용장비와제품",
+      "industry_code": "2530"
+    },
+    "무역회사와판매업체": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "무역회사와판매업체",
+      "industry_code": "2010"
+    },
+    "방송과엔터테인먼트": {
+      "sector": "Communication Services",
+      "sector_code": "50",
+      "industry": "방송과엔터테인먼트",
+      "industry_code": "5020"
+    },
+    "전기제품": {
+      "sector": "Utilities",
+      "sector_code": "55",
+      "industry": "전기제품",
+      "industry_code": "5510"
+    },
+    "항공화물운송과물류": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "항공화물운송과물류",
+      "industry_code": "2030"
+    },
+    "전자장비와기기": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "industry": "전자장비와기기",
+      "industry_code": "4520"
+    },
+    "가정용기기와용품": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "가정용기기와용품",
+      "industry_code": "2540"
+    },
+    "건축자재": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "건축자재",
+      "industry_code": "2020"
+    },
+    "건축제품": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "건축제품",
+      "industry_code": "2020"
+    },
+    "문구류": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "문구류",
+      "industry_code": "2550"
+    },
+    "백화점과일반상점": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "백화점과일반상점",
+      "industry_code": "2550"
+    },
+    "복합기업": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "복합기업",
+      "industry_code": "2010"
+    },
+    "식품과기본식료품소매": {
+      "sector": "Consumer Staples",
+      "sector_code": "30",
+      "industry": "식품과기본식료품소매",
+      "industry_code": "3010"
+    },
+    "음료": {
+      "sector": "Consumer Staples",
+      "sector_code": "30",
+      "industry": "음료",
+      "industry_code": "3020"
+    },
+    "전문소매": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "전문소매",
+      "industry_code": "2550"
+    },
+    "종이와목재": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "industry": "종이와목재",
+      "industry_code": "1510"
+    },
+    "출판": {
+      "sector": "Communication Services",
+      "sector_code": "50",
+      "industry": "출판",
+      "industry_code": "5020"
+    },
+    "컴퓨터와주변기기": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "industry": "컴퓨터와주변기기",
+      "industry_code": "4520"
+    },
+    "판매업체": {
+      "sector": "Consumer Discretionary",
+      "sector_code": "25",
+      "industry": "판매업체",
+      "industry_code": "2550"
+    },
+    "포장재": {
+      "sector": "Materials",
+      "sector_code": "15",
+      "industry": "포장재",
+      "industry_code": "1510"
+    },
+    "항공사": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "항공사",
+      "industry_code": "2030"
+    },
+    "게임엔터테인먼트": {
+      "sector": "Communication Services",
+      "sector_code": "50",
+      "industry": "게임엔터테인먼트",
+      "industry_code": "5020"
+    },
+    "건강관리장비와용품": {
+      "sector": "Health Care",
+      "sector_code": "35",
+      "industry": "건강관리장비와용품",
+      "industry_code": "3510"
+    },
+    "디스플레이장비및부품": {
+      "sector": "Information Technology",
+      "sector_code": "45",
+      "industry": "디스플레이장비및부품",
+      "industry_code": "4520"
+    },
+    "손해보험": {
+      "sector": "Financials",
+      "sector_code": "40",
+      "industry": "손해보험",
+      "industry_code": "4030"
+    }
+  },
+
+  "fallback_mapping": {
+    "default": {
+      "sector": "Industrials",
+      "sector_code": "20",
+      "industry": "기타",
+      "industry_code": "2090"
+    }
+  },
+
+  "notes": [
+    "GICS 11 sectors used as standard classification",
+    "Industry codes follow format: sector_code + 2-digit sub-code",
+    "Fallback to Industrials sector for unmapped industries",
+    "Mapping covers major KRX 지수업종 classifications",
+    "Version 2.0: Enhanced with 20 additional industries from production run (2025-10-13)",
+    "Total 108 industries mapped: 88 initial + 20 discovered during Naver scraping"
+  ]
+}

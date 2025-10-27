@@ -1,0 +1,245 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "created": "2025-10-17",
+    "description": "KIS 해외주식 마스터파일 업종분류코드 → GICS 11 Sector 매핑",
+    "coverage": "US, CN, HK, JP, VN markets",
+    "source": "KIS Master File (.cod) '업종분류코드' column",
+    "fallback": "sector_code=0 or unmapped → Use yfinance API"
+  },
+  "mapping": {
+    "0": {
+      "gics_sector": null,
+      "description": "Unclassified / SPAC / New Listings",
+      "coverage_pct": 54.2,
+      "fallback_required": true,
+      "note": "3,461 US stocks - Use yfinance for sector classification"
+    },
+    "10": {
+      "gics_sector": "Energy",
+      "description": "Oil & Gas, Energy Equipment",
+      "sample_tickers": ["XOM", "CVX", "COP"],
+      "coverage_pct": 2.6
+    },
+    "110": {
+      "gics_sector": "Materials",
+      "description": "Chemicals",
+      "sample_tickers": ["BCPC", "HWKN"],
+      "coverage_pct": 1.0
+    },
+    "130": {
+      "gics_sector": "Materials",
+      "description": "Metals & Mining",
+      "sample_tickers": ["CENX", "KALU"],
+      "coverage_pct": 1.3
+    },
+    "210": {
+      "gics_sector": "Industrials",
+      "description": "Aerospace & Defense",
+      "sample_tickers": [],
+      "coverage_pct": 0
+    },
+    "220": {
+      "gics_sector": "Industrials",
+      "description": "Building Products",
+      "sample_tickers": ["AAON"],
+      "coverage_pct": 0
+    },
+    "230": {
+      "gics_sector": "Industrials",
+      "description": "Electrical Equipment & Machinery",
+      "sample_tickers": ["AMSC", "APWC", "ARTW"],
+      "coverage_pct": 1.8
+    },
+    "240": {
+      "gics_sector": "Industrials",
+      "description": "Industrial Conglomerates",
+      "sample_tickers": [],
+      "coverage_pct": 0
+    },
+    "250": {
+      "gics_sector": "Industrials",
+      "description": "Commercial Services & Supplies",
+      "sample_tickers": [],
+      "coverage_pct": 0
+    },
+    "260": {
+      "gics_sector": "Industrials",
+      "description": "Professional Services",
+      "sample_tickers": ["ACTG", "BBSI", "CMPR"],
+      "coverage_pct": 1.2
+    },
+    "270": {
+      "gics_sector": "Industrials",
+      "description": "Transportation (Airlines, Logistics)",
+      "sample_tickers": ["AAL", "UAL", "DAL"],
+      "coverage_pct": 0
+    },
+    "310": {
+      "gics_sector": "Consumer Discretionary",
+      "description": "Automobiles & Components",
+      "sample_tickers": ["TSLA", "F", "GM"],
+      "coverage_pct": 0
+    },
+    "320": {
+      "gics_sector": "Consumer Discretionary",
+      "description": "Consumer Durables & Apparel",
+      "sample_tickers": [],
+      "coverage_pct": 0
+    },
+    "340": {
+      "gics_sector": "Consumer Discretionary",
+      "description": "Hotels, Restaurants & Leisure",
+      "sample_tickers": [],
+      "coverage_pct": 0
+    },
+    "350": {
+      "gics_sector": "Consumer Discretionary",
+      "description": "Hotels, Restaurants & Leisure",
+      "sample_tickers": ["ARKR", "BJRI", "BLMN", "CAKE"],
+      "coverage_pct": 1.3
+    },
+    "360": {
+      "gics_sector": "Consumer Discretionary",
+      "description": "Household Durables",
+      "sample_tickers": [],
+      "coverage_pct": 0
+    },
+    "370": {
+      "gics_sector": "Communication Services",
+      "description": "Media & Entertainment",
+      "sample_tickers": ["GOOGL", "META", "DIS", "NFLX"],
+      "coverage_pct": 1.8
+    },
+    "380": {
+      "gics_sector": "Consumer Discretionary",
+      "description": "Retailing (E-commerce, Specialty Retail)",
+      "sample_tickers": ["AMZN", "BKNG"],
+      "coverage_pct": 1.7
+    },
+    "410": {
+      "gics_sector": "Consumer Staples",
+      "description": "Food Products",
+      "sample_tickers": ["ALCO", "BYND", "CALM"],
+      "coverage_pct": 1.3
+    },
+    "420": {
+      "gics_sector": "Consumer Staples",
+      "description": "Household Products",
+      "sample_tickers": ["PG", "CLX", "CHD"],
+      "coverage_pct": 0
+    },
+    "430": {
+      "gics_sector": "Consumer Staples",
+      "description": "Food & Staples Retailing",
+      "sample_tickers": ["WMT", "COST", "KR"],
+      "coverage_pct": 0
+    },
+    "510": {
+      "gics_sector": "Health Care",
+      "description": "Health Care Equipment & Supplies",
+      "sample_tickers": ["ACHC", "ALGN", "ANGO"],
+      "coverage_pct": 2.3
+    },
+    "520": {
+      "gics_sector": "Health Care",
+      "description": "Pharmaceuticals",
+      "sample_tickers": ["JNJ", "PFE", "MRK"],
+      "coverage_pct": 1.3
+    },
+    "530": {
+      "gics_sector": "Health Care",
+      "description": "Biotechnology",
+      "sample_tickers": ["ABEO", "ABUS", "ACAD"],
+      "coverage_pct": 3.8
+    },
+    "610": {
+      "gics_sector": "Financials",
+      "description": "Banks",
+      "sample_tickers": ["JPM", "BAC", "WFC"],
+      "coverage_pct": 3.8
+    },
+    "620": {
+      "gics_sector": "Financials",
+      "description": "Insurance",
+      "sample_tickers": ["AAME", "ACGL", "AMSF"],
+      "coverage_pct": 1.2
+    },
+    "630": {
+      "gics_sector": "Financials",
+      "description": "Real Estate (REITs)",
+      "sample_tickers": ["AGNC", "ASPS", "CHCI"],
+      "coverage_pct": 3.0
+    },
+    "640": {
+      "gics_sector": "Financials",
+      "description": "Diversified Financials",
+      "sample_tickers": ["AGMH", "ARCC", "ATLC"],
+      "coverage_pct": 3.1
+    },
+    "710": {
+      "gics_sector": "Information Technology",
+      "description": "Semiconductors & Equipment",
+      "sample_tickers": ["NVDA", "AMD", "INTC"],
+      "coverage_pct": 1.3
+    },
+    "720": {
+      "gics_sector": "Information Technology",
+      "description": "Software & IT Services",
+      "sample_tickers": ["MSFT", "ORCL", "V"],
+      "coverage_pct": 2.6
+    },
+    "730": {
+      "gics_sector": "Information Technology",
+      "description": "Technology Hardware",
+      "sample_tickers": ["AAPL", "DELL", "HPQ"],
+      "coverage_pct": 1.4
+    },
+    "810": {
+      "gics_sector": "Communication Services",
+      "description": "Telecommunication Services",
+      "sample_tickers": ["T", "VZ", "TMUS"],
+      "coverage_pct": 0
+    },
+    "910": {
+      "gics_sector": "Utilities",
+      "description": "Electric Utilities",
+      "sample_tickers": [],
+      "coverage_pct": 0
+    },
+    "920": {
+      "gics_sector": "Utilities",
+      "description": "Gas & Water Utilities",
+      "sample_tickers": [],
+      "coverage_pct": 0
+    },
+    "930": {
+      "gics_sector": "Utilities",
+      "description": "Multi-Utilities",
+      "sample_tickers": [],
+      "coverage_pct": 0
+    }
+  },
+  "usage_notes": {
+    "primary_data_source": "KIS Master File sector_code (100% coverage)",
+    "fallback_strategy": "Use yfinance API for sector_code=0 or unmapped codes",
+    "hybrid_approach": {
+      "step1": "Extract sector_code from master file",
+      "step2": "Map sector_code → GICS sector using this mapping",
+      "step3": "If sector_code=0 or mapping fails → Use yfinance API",
+      "step4": "Always use yfinance for industry text and SPAC/preferred detection"
+    },
+    "performance_benefits": {
+      "instant_sector_classification": "46% of stocks (sector_code != 0)",
+      "reduced_yfinance_calls": "Only 54% need yfinance for sector",
+      "always_need_yfinance": "industry text, is_spac, is_preferred"
+    }
+  },
+  "validation": {
+    "total_us_stocks": 6388,
+    "sector_code_0": 3461,
+    "sector_code_mapped": 2927,
+    "mapping_coverage": "45.8%",
+    "yfinance_required": "54.2%"
+  }
+}

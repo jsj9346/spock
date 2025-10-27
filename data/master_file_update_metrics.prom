@@ -1,0 +1,27 @@
+# HELP spock_master_file_update_success Update success indicator
+# TYPE spock_master_file_update_success gauge
+spock_master_file_update_success{region="US"} 1
+spock_master_file_update_success{region="HK"} 1
+spock_master_file_update_success{region="JP"} 1
+spock_master_file_update_success{region="CN"} 1
+spock_master_file_update_success{region="VN"} 1
+
+# HELP spock_master_file_ticker_count Total tickers after update
+# TYPE spock_master_file_ticker_count gauge
+spock_master_file_ticker_count{region="US"} 6527
+spock_master_file_ticker_count{region="HK"} 2722
+spock_master_file_ticker_count{region="JP"} 4036
+spock_master_file_ticker_count{region="CN"} 5089
+spock_master_file_ticker_count{region="VN"} 696
+
+# HELP spock_master_file_update_duration_seconds Update duration
+# TYPE spock_master_file_update_duration_seconds gauge
+spock_master_file_update_duration_seconds{region="US"} 0.355
+spock_master_file_update_duration_seconds{region="HK"} 0.135
+spock_master_file_update_duration_seconds{region="JP"} 0.179
+spock_master_file_update_duration_seconds{region="CN"} 0.224
+spock_master_file_update_duration_seconds{region="VN"} 0.509
+
+# HELP spock_master_file_update_timestamp Last update timestamp
+# TYPE spock_master_file_update_timestamp gauge
+spock_master_file_update_timestamp 1760536240

@@ -1,0 +1,315 @@
+# ===================================
+# United States Market Filter Configuration
+# ===================================
+# Market: NYSE/NASDAQ/AMEX
+# Currency: USD (US Dollar)
+# Updated: 2025-10-16
+
+region: US
+market_name: "United States (NYSE/NASDAQ/AMEX)"
+currency: USD
+
+# Exchange Rate Configuration
+# USD to KRW conversion (dynamic, updated hourly)
+exchange_rate:
+  source: "kis_api"           # KIS API real-time rate (primary)
+  default_rate: 1300.0        # Fallback: $1 = ₩1,300
+  update_frequency_minutes: 60  # Update every 1 hour
+
+# ===================================
+# STAGE 0 FILTERS (Basic Market Filter)
+# ===================================
+stage0_filters:
+  # Market Capitalization (시가총액)
+  # Threshold: ₩1,000억원 → $77M (at 1,300 rate)
+  # Adjusted to $76.9M for exact ₩100B conversion
+  min_market_cap_local: 76900000      # $76.9M
+  min_market_cap_krw: 100000000000    # ₩1,000억원
+
+  # Daily Trading Value (일 거래대금)
+  # Threshold: ₩100억원/일 → $7.7M/day (at 1,300 rate)
+  min_trading_value_local: 7700000    # $7.7M/day
+  min_trading_value_krw: 10000000000  # ₩100억원/일
+
+  # Price Range (가격 범위)
+  # Min: $5 (penny stock 제외), Max: None
+  price_range_min_local: 5.0    # $5 minimum
+  price_range_max_local: 0      # No maximum
+  price_range_min_krw: 6500     # ₩6,500 (at 1,300 rate)
+  price_range_max_krw: 0        # No maximum
+
+  # ===================================
+  # Market-Specific Exclusion Rules
+  # ===================================
+
+  # Penny Stocks 제외 (< $1)
+  # High volatility, pump-and-dump risk
+  exclude_penny_stocks: true
+
+  # OTC Markets 제외
+  # Over-the-Counter markets (low liquidity)
+  exclude_otc: true
+
+  # Pink Sheets 제외
+  # Unregulated, high risk
+  exclude_pink_sheets: true
+
+  # ETF/ETN 제외
+  exclude_etf: true
+  exclude_etn: true
+
+  # SPAC 제외
+  exclude_spac: true
+
+  # 상장폐지 예정 제외
+  exclude_delisting: true
+
+  # 3개월 평균 거래량 필터
+  # Minimum 3-month average volume: 500,000 shares
+  min_average_volume_3m: 500000
+
+# ===================================
+# API CONFIGURATION
+# ===================================
+api:
+  # Data Source
+  data_source: "KIS_OVERSEAS_API"
+
+  # KIS API Endpoint for US Stock Price
+  endpoint_pattern: "/uapi/overseas-stock/v1/quotations/price"
+
+  # Transaction ID for US Stock
+  tr_id: "HHDFS00000300"  # 해외주식 현재가 시세
+
+  # Rate Limiting (KIS Overseas API)
+  rate_limit_per_sec: 20    # Max 20 requests per second
+  rate_limit_per_min: 1000  # Max 1,000 requests per minute
+
+  # Timeout Settings
+  timeout_sec: 10
+  max_retries: 3
+  retry_delay_sec: 1
+
+# ===================================
+# CACHE SETTINGS
+# ===================================
+cache:
+  # Cache TTL (Time To Live)
+  ttl_market_hours: 3600       # 1 hour during trading hours
+  ttl_after_hours: 86400       # 24 hours after market close
+
+  # Database Table
+  table_name: "filter_cache_stage0"
+
+  # Cache Strategy
+  strategy: "write-through"
+
+  # Cache Cleanup
+  cleanup_older_than_days: 7
+
+# ===================================
+# TRADING HOURS (US Eastern Time → KST)
+# ===================================
+trading_hours:
+  timezone: "America/New_York"
+
+  # Regular Trading Session (EST/EDT → KST)
+  # Summer (EDT): 09:30-16:00 EST = 22:30-05:00 KST (next day)
+  # Winter (EST): 09:30-16:00 EST = 23:30-06:00 KST (next day)
+  regular_session:
+    start: "22:30"  # Summer time (EDT)
+    end: "05:00"    # Next day
+
+  # Daylight Saving Time
+  daylight_saving: true
+  winter_offset_hours: 1  # Winter: add 1 hour (23:30-06:00 KST)
+
+  # Pre-Market Session (optional)
+  pre_market:
+    start: "16:00"  # 04:00 EST = 17:00 KST (previous day, summer)
+    end: "22:30"
+
+  # Post-Market Session (optional)
+  post_market:
+    start: "05:00"  # 16:00 EST = 05:00 KST (next day, summer)
+    end: "13:00"    # 20:00 EST = 09:00 KST (next day, summer)
+
+  # No Lunch Break
+  has_lunch_break: false
+  lunch_break: null
+
+  # Market Holidays
+  holiday_calendar: "config/us_holidays.yaml"
+
+# ===================================
+# TICK SIZE RULES
+# ===================================
+# US markets use decimal pricing
+tick_size_rules:
+  - price_min: 0
+    price_max: 1.0
+    tick_size: 0.0001    # Sub-penny for stocks < $1
+    description: "Under $1 (sub-penny)"
+
+  - price_min: 1.0
+    price_max: null       # No upper limit
+    tick_size: 0.01       # $0.01 for stocks ≥ $1
+    description: "$1 and above (penny)"
+
+# ===================================
+# TRANSACTION COSTS (for Korean investors)
+# ===================================
+transaction_costs:
+  # Trading Fee (한국투자증권 해외주식 수수료)
+  trading_fee_rate: 0.0025  # 0.25% (online trading)
+
+  # US SEC Fee (증권거래세)
+  sec_fee_rate: 0.0000278   # $27.80 per $1M (sell only)
+
+  # Capital Gains Tax (양도소득세)
+  # Korean residents: 22% on profits > ₩2.5M/year
+  capital_gains_tax_rate: 0.22
+
+  # Settlement Period
+  settlement_days: 2  # T+2
+
+# ===================================
+# DATA QUALITY VALIDATION
+# ===================================
+data_validation:
+  # Required Fields
+  required_fields:
+    - ticker
+    - name
+    - market_cap
+    - trading_value
+    - current_price
+
+  # Value Ranges (sanity checks)
+  max_market_cap_usd: 5000000000000   # $5T (Apple-scale max)
+  max_trading_value_usd: 100000000000  # $100B/day
+  max_price_usd: 100000                # $100K (BRK.A-scale max)
+
+  # Data Freshness
+  max_data_age_hours: 24
+
+# ===================================
+# LOGGING & MONITORING
+# ===================================
+logging:
+  log_level: "INFO"
+
+  # Log Filter Results
+  log_passed_tickers: true
+  log_filtered_tickers: true
+  log_filter_reasons: true
+
+  # Performance Metrics
+  log_execution_time: true
+  log_api_calls: true
+  log_cache_hits: true
+
+# ===================================
+# PERFORMANCE EXPECTATIONS
+# ===================================
+performance:
+  # Expected Throughput
+  expected_input_count: 8000         # Total NYSE/NASDAQ/AMEX stocks
+  expected_output_count: 1500        # After Stage 0 filtering (81% reduction)
+  expected_reduction_rate: 0.81      # 81% filtered out
+
+  # Timing Targets
+  target_execution_time_sec: 120     # Target: < 2 minutes for Stage 0
+  target_api_calls: 8000             # One call per ticker
+
+  # Cache Performance
+  target_cache_hit_rate: 0.80        # 80% cache hits during market hours
+
+# ===================================
+# STAGE 1 FILTERS (Technical Pre-screen)
+# ===================================
+stage1_filters:
+  # Data Completeness (13개월 월봉 필터)
+  data_completeness:
+    min_ohlcv_days: 250          # 최소 250일 데이터 필요
+    max_gap_days: 60             # 최대 60일 데이터 공백 허용
+    required_continuity: false   # 연속성 검사 (선택적)
+
+  # Moving Average Alignment (이동평균 정배열)
+  ma_alignment:
+    enabled: true
+    required_alignment: "5>20>60"
+    full_alignment: "5>20>60>120>200"
+    min_score: 75
+
+  # RSI Range (상대강도지수)
+  rsi_min: 30
+  rsi_max: 70
+  rsi_ideal: 50
+
+  # MACD Signal
+  macd:
+    enabled: true
+    require_bullish: true
+    allow_neutral: false
+
+  # Volume Spike (거래량 급증)
+  volume_spike:
+    enabled: true
+    spike_ratio: 1.5
+    lookback_days: 20
+
+  # Price Position
+  price_position:
+    enabled: true
+    min_position: "above_ma20"
+    ideal_position: "above_ma60"
+
+  # Stage 1 Scoring Weights
+  scoring_weights:
+    ma_alignment: 0.30
+    rsi: 0.25
+    macd: 0.20
+    volume: 0.15
+    price_position: 0.10
+
+  # Minimum Stage 1 Score
+  min_stage1_score: 65
+
+# ===================================
+# NOTES & DOCUMENTATION
+# ===================================
+notes: |
+  United States Market Filter Configuration
+
+  Purpose: Multi-stage filtering for NYSE/NASDAQ/AMEX stocks
+
+  STAGE 0 - Basic Market Filter:
+  - Market cap threshold: $77M (₩1,000억원 equivalent)
+  - Trading value threshold: $7.7M/day (₩100억원 equivalent)
+  - Price range: ≥$5 (exclude penny stocks)
+  - Exclusions: Penny stocks, OTC, pink sheets, ETF/ETN, SPAC
+  - Expected: 8,000 → 1,500 stocks (81% reduction)
+
+  STAGE 1 - Technical Pre-screen:
+  - Same as KR market (market-agnostic indicators)
+  - MA alignment, RSI, MACD, Volume spike
+  - Expected: 1,500 → 600 stocks (60% reduction)
+
+  Currency Conversion:
+  - All thresholds normalized to KRW for cross-market comparison
+  - Exchange rate updated hourly via KIS API
+  - Fallback to fixed rate (1,300) if API unavailable
+
+  Trading Hours (KST):
+  - Summer (EDT): 22:30-05:00 (next day)
+  - Winter (EST): 23:30-06:00 (next day)
+  - Pre-market: 17:00-22:30 (previous day, summer)
+  - Post-market: 05:00-13:00 (next day, summer)
+
+  For multi-market comparison:
+  - Korea: config/market_filters/kr_filter_config.yaml
+  - Hong Kong: config/market_filters/hk_filter_config.yaml
+  - China: config/market_filters/cn_filter_config.yaml
+  - Japan: config/market_filters/jp_filter_config.yaml
+  - Vietnam: config/market_filters/vn_filter_config.yaml

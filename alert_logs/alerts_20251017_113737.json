@@ -1,0 +1,33 @@
+{
+  "timestamp": "2025-10-17T11:37:37.822272",
+  "alert_count": 3,
+  "alerts": [
+    {
+      "id": "WARNING_SYSTEM_5318",
+      "timestamp": "2025-10-17T11:37:37.821691",
+      "level": "WARNING",
+      "category": "SYSTEM",
+      "message": "Memory usage high: 70.2%",
+      "value": 70.2,
+      "threshold": 70.0
+    },
+    {
+      "id": "WARNING_SYSTEM_6997",
+      "timestamp": "2025-10-17T11:37:37.821717",
+      "level": "WARNING",
+      "category": "SYSTEM",
+      "message": "Disk usage high: 87.6%",
+      "value": 87.6,
+      "threshold": 80.0
+    },
+    {
+      "id": "CRITICAL_COLLECTORS_8985",
+      "timestamp": "2025-10-17T11:37:37.821730",
+      "level": "CRITICAL",
+      "category": "COLLECTORS",
+      "message": "overall success rate critical: 0.0%",
+      "value": 0.0,
+      "threshold": 80.0
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+rank,ticker,alpha_score,valid_factors_count,weight,strategy_name
+1,7974,-1.1594672692277,1,0.2,Defensive Quality
+2,6758,-1.4109664640899249,1,0.2,Defensive Quality
+3,9984,-1.4734205175268207,1,0.2,Defensive Quality
+4,7203,-1.5731844253585785,1,0.2,Defensive Quality
+5,TEST001,-3.399999999999999,4,0.2,Defensive Quality

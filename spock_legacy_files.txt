@@ -1,0 +1,36 @@
+# Spock Legacy Files to Archive
+# Category: Trading System Core
+
+spock.py
+modules/kis_trading_engine.py
+modules/db_manager_sqlite.py
+modules/scanner.py
+modules/integrated_scoring_system.py
+modules/layered_scoring_engine.py
+modules/portfolio_manager.py
+modules/alert_system.py
+modules/auto_recovery_system.py
+modules/failure_tracker.py
+modules/adaptive_scoring_config.py
+modules/predictive_analysis.py
+modules/metrics_collector.py
+
+# Category: Trading Documentation
+
+spock_PRD.md
+spock.md
+PHASE5_IMPLEMENTATION_PLAN.md
+PHASE5_TASK1_COMPLETION_REPORT.md
+PHASE5_TASK1_COMPLETION_STATUS.md
+PHASE5_TRADING_EXECUTION_DESIGN.md
+REMAINING_TASKS_ANALYSIS.md
+COMPONENT_REFERENCE.md
+
+# Category: Trading Tests
+
+tests/test_phase5_scanner_integration.py
+tests/test_phase5_task4_integration.py
+tests/test_phase5_e2e_pipeline.py
+tests/test_phase5_unit.py
+tests/test_stage2_recommendation_logic.py
+tests/test_market_filter_manager_validation.py

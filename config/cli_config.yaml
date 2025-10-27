@@ -1,0 +1,116 @@
+# Quant Platform CLI Configuration
+# Version: 2.0.0
+# Last Updated: 2025-10-22
+
+# ============================================================================
+# Deployment Mode
+# ============================================================================
+# local: Single-user development/research on local machine
+# cloud: Cloud-hosted backend with authentication
+mode: cloud
+
+# ============================================================================
+# API Configuration
+# ============================================================================
+api:
+  local:
+    base_url: "http://localhost:8000"
+    timeout: 30
+  cloud:
+    base_url: "http://localhost:8000"  # Testing with local server
+    timeout: 60
+
+# ============================================================================
+# Authentication Configuration
+# ============================================================================
+authentication:
+  # auto: Auto-detect based on deployment mode and AWS CLI availability
+  # local: No authentication (direct database access)
+  # simple: Username/password with session tokens (recommended for personal use)
+  # aws: AWS CLI integration (for AWS-native deployments)
+  # jwt: Full JWT authentication (future commercial use)
+  mode: auto
+
+  # Session expiration
+  session_expiration: 604800  # 7 days (Simple Auth mode)
+  aws_session_expiration: 3600  # 1 hour (AWS Auth mode)
+
+# ============================================================================
+# Database Configuration (Local Mode)
+# ============================================================================
+database:
+  type: postgresql
+  host: localhost
+  port: 5432
+  database: quant_platform
+  # User defaults to current system user if not specified
+  # user: postgres
+  # password: ""
+
+# ============================================================================
+# Output Configuration
+# ============================================================================
+output:
+  # Format: table, json, csv
+  default_format: table
+
+  # Enable colored output
+  color_enabled: true
+
+  # Table style: ascii, simple, grid, fancy_grid, rounded_grid
+  table_style: rounded_grid
+
+  # Decimal precision for numeric values
+  decimal_precision: 4
+
+# ============================================================================
+# Performance Configuration
+# ============================================================================
+performance:
+  # HTTP connection timeout (seconds)
+  connection_timeout: 30
+
+  # Maximum retry attempts for failed API calls
+  max_retries: 3
+
+  # Retry delay (seconds)
+  retry_delay: 2
+
+# ============================================================================
+# Cache Configuration
+# ============================================================================
+cache:
+  # Enable local caching
+  enabled: true
+
+  # Cache time-to-live (seconds)
+  ttl: 3600  # 1 hour
+
+  # Cache directory
+  directory: ~/.quant_platform/cache
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+logging:
+  # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: INFO
+
+  # Log file location
+  file: logs/quant_platform.log
+
+  # Log retention (days)
+  retention_days: 30
+
+  # Enable console logging
+  console_enabled: true
+
+# ============================================================================
+# Feature Flags
+# ============================================================================
+features:
+  # Enable TUI mode
+  tui_enabled: false
+
+  # Enable experimental features
+  experimental: false

@@ -1,0 +1,226 @@
+# Prometheus Alert Rules for Spock Trading System
+# Multi-Region Data Quality and Performance Monitoring
+
+groups:
+  # ========================================
+  # Data Quality Alerts
+  # ========================================
+  - name: data_quality
+    interval: 30s
+    rules:
+      # Low data collection rate (< 80% expected)
+      - alert: LowDataCollectionRate
+        expr: |
+          (
+            rate(spock_data_collection_success_total[5m]) /
+            rate(spock_data_collection_attempts_total[5m])
+          ) < 0.80
+        for: 5m
+        labels:
+          severity: warning
+          category: data_quality
+        annotations:
+          summary: "Low data collection rate for {{ $labels.region }}"
+          description: "Data collection success rate is {{ $value | humanizePercentage }} for region {{ $labels.region }} (threshold: 80%)"
+
+      # NULL region values detected
+      - alert: NullRegionDetected
+        expr: spock_ohlcv_null_regions_total > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: data_quality
+        annotations:
+          summary: "NULL region values detected in database"
+          description: "{{ $value }} OHLCV records have NULL region values (expected: 0)"
+
+      # Cross-region contamination detected
+      - alert: CrossRegionContamination
+        expr: spock_cross_region_contamination_total > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: data_quality
+        annotations:
+          summary: "Cross-region data contamination detected"
+          description: "{{ $value }} tickers found in multiple regions (expected: 0)"
+
+      # Stale data (no updates for 24 hours)
+      - alert: StaleMarketData
+        expr: (time() - spock_last_data_update_timestamp) > 86400
+        for: 5m
+        labels:
+          severity: warning
+          category: data_quality
+        annotations:
+          summary: "Stale market data for {{ $labels.region }}"
+          description: "No data updates for {{ $labels.region }} in last 24 hours"
+
+  # ========================================
+  # API Health Alerts
+  # ========================================
+  - name: api_health
+    interval: 30s
+    rules:
+      # High API error rate (> 5%)
+      - alert: HighAPIErrorRate
+        expr: |
+          (
+            rate(spock_api_requests_failed_total[5m]) /
+            rate(spock_api_requests_total[5m])
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          category: api_health
+        annotations:
+          summary: "High API error rate for {{ $labels.region }}"
+          description: "API error rate is {{ $value | humanizePercentage }} for {{ $labels.region }} (threshold: 5%)"
+
+      # Critical API error rate (> 20%)
+      - alert: CriticalAPIErrorRate
+        expr: |
+          (
+            rate(spock_api_requests_failed_total[5m]) /
+            rate(spock_api_requests_total[5m])
+          ) > 0.20
+        for: 2m
+        labels:
+          severity: critical
+          category: api_health
+        annotations:
+          summary: "CRITICAL: API failure for {{ $labels.region }}"
+          description: "API error rate is {{ $value | humanizePercentage }} for {{ $labels.region }} (threshold: 20%)"
+
+      # API rate limit approaching (> 80% of limit)
+      - alert: APIRateLimitApproaching
+        expr: spock_api_rate_limit_usage_percent > 80
+        for: 2m
+        labels:
+          severity: warning
+          category: api_health
+        annotations:
+          summary: "API rate limit approaching for {{ $labels.region }}"
+          description: "API rate limit usage at {{ $value }}% for {{ $labels.region }} (threshold: 80%)"
+
+      # API latency high (> 2 seconds)
+      - alert: HighAPILatency
+        expr: spock_api_request_duration_seconds{quantile="0.95"} > 2.0
+        for: 5m
+        labels:
+          severity: warning
+          category: api_health
+        annotations:
+          summary: "High API latency for {{ $labels.region }}"
+          description: "95th percentile API latency is {{ $value }}s for {{ $labels.region }} (threshold: 2s)"
+
+  # ========================================
+  # Performance Alerts
+  # ========================================
+  - name: performance
+    interval: 30s
+    rules:
+      # Database query slow (> 1 second)
+      - alert: SlowDatabaseQuery
+        expr: spock_db_query_duration_seconds{quantile="0.95"} > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "Slow database queries detected"
+          description: "95th percentile DB query time is {{ $value }}s (threshold: 1s)"
+
+      # High memory usage (> 80%)
+      - alert: HighMemoryUsage
+        expr: spock_memory_usage_percent > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage at {{ $value }}% (threshold: 80%)"
+
+      # Database size growing rapidly (> 500MB/day)
+      - alert: RapidDatabaseGrowth
+        expr: |
+          rate(spock_database_size_bytes[1h]) * 86400 > 500000000
+        for: 1h
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "Rapid database growth detected"
+          description: "Database growing at {{ $value | humanize }}B/day (threshold: 500MB/day)"
+
+  # ========================================
+  # System Health Alerts
+  # ========================================
+  - name: system_health
+    interval: 30s
+    rules:
+      # Service down
+      - alert: SpockServiceDown
+        expr: up{job=~"spock.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: system_health
+        annotations:
+          summary: "Spock service is down"
+          description: "Service {{ $labels.job }} is down for {{ $labels.region }}"
+
+      # Low disk space (< 10GB)
+      - alert: LowDiskSpace
+        expr: spock_disk_free_bytes < 10000000000
+        for: 5m
+        labels:
+          severity: warning
+          category: system_health
+        annotations:
+          summary: "Low disk space"
+          description: "Free disk space is {{ $value | humanize }}B (threshold: 10GB)"
+
+      # Database backup failed
+      - alert: DatabaseBackupFailed
+        expr: (time() - spock_last_backup_timestamp) > 172800
+        for: 10m
+        labels:
+          severity: critical
+          category: system_health
+        annotations:
+          summary: "Database backup failed"
+          description: "No successful backup in last 48 hours"
+
+  # ========================================
+  # Trading Execution Alerts
+  # ========================================
+  - name: trading_execution
+    interval: 30s
+    rules:
+      # Order failure rate high (> 10%)
+      - alert: HighOrderFailureRate
+        expr: |
+          (
+            rate(spock_orders_failed_total[5m]) /
+            rate(spock_orders_total[5m])
+          ) > 0.10
+        for: 5m
+        labels:
+          severity: warning
+          category: trading
+        annotations:
+          summary: "High order failure rate for {{ $labels.region }}"
+          description: "Order failure rate is {{ $value | humanizePercentage }} for {{ $labels.region }} (threshold: 10%)"
+
+      # Position limit approaching (> 90% of max)
+      - alert: PositionLimitApproaching
+        expr: spock_position_size_percent > 90
+        for: 5m
+        labels:
+          severity: warning
+          category: trading
+        annotations:
+          summary: "Position limit approaching for {{ $labels.ticker }}"
+          description: "Position size at {{ $value }}% of max for {{ $labels.ticker }} (threshold: 90%)"

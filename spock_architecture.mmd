@@ -1,0 +1,264 @@
+graph TD
+    %% ========================================================================
+    %% Spock Stock Trading System Architecture
+    %% 한국투자증권 API 기반 주식 자동매매 시스템
+    %%
+    %% 🏢 STOCK MARKET ARCHITECTURE: 주식시장 특화 로컬 실행
+    %% - 한국투자증권 API 연동: KIS Developers API 활용
+    %% - 장중 거래 최적화: 09:00-15:30 KST 운영시간 준수
+    %% - 글로벌 확장성: 미국/일본 등 해외 주식 지원 준비
+    %% - makenaide 검증된 로직 재사용: 70% 코드 재사용률
+    %%
+    %% ✅ Stock Market 특화 기능:
+    %% - 시장 운영시간 관리: 장 시작/종료, 점심시간, 휴장일 처리
+    %% - 섹터별 분석: GICS 섹터 분류 및 섹터 로테이션 분석
+    %% - 외국인/기관 매매 동향: 실시간 수급 분석
+    %% - 배당일정 관리: 배당락일, 배당수익률 고려
+    %% - 글로벌 연계: 나스닥, 다우지수 등 해외 지수 연동
+    %% ========================================================================
+
+    %% 주식시장 운영시간 기반 스케줄러
+    A1["🏢 Stock Market Scheduler<br/>cron 기반 장중 운영<br/>• 장전: 08:30 KST (시장 분석)<br/>• 장중: 09:00-15:30 KST (실시간 거래)<br/>• 장후: 16:00 KST (결산 및 분석)<br/>• 휴장일: 데이터 정리 및 백테스트<br/>• 해외시장: 22:30-05:00 KST (미국)"] --> B[spock.py]
+
+    %% 주식 통합 오케스트레이터
+    B --> C["🎯 Spock Orchestrator 초기화<br/>SQLite DB 연결<br/>한국투자증권 API 인증<br/>시장 운영시간 확인<br/>로그 시스템 설정"]
+
+    %% Stage 1: Stock Analysis Pipeline
+    C --> C1{"⏰ 시장 상태 확인<br/>장중/장외/휴장일 판별"}
+
+    C1 -->|휴장일| C2["📅 휴장일 모드<br/>• 데이터 정리 및 백업<br/>• 백테스트 실행<br/>• 시스템 점검<br/>• 해외시장 분석 준비"]
+
+    C1 -->|장외시간| C3["🌙 장외 모드<br/>• 해외시장 모니터링<br/>• 익일 분석 준비<br/>• 뉴스 스크래핑<br/>• 공시 정보 수집"]
+
+    C1 -->|장중| D["📡 Phase 0: stock_scanner.py<br/>코스피/코스닥 전체 종목 스캔<br/>신규 상장/폐지 종목 감지<br/>시가총액/거래대금 필터링<br/>SQLite 저장"]
+
+    D --> D1["🔔 Scanner Complete<br/>Stock Event Handler"]
+
+    D1 --> E["📊 Phase 1: kis_data_collector.py<br/>250일+ 데이터 보존 정책 실행<br/>SQLite 기존 데이터 확인<br/>갭만큼 증분 OHLCV 수집<br/>일봉/주봉/월봉 동시 관리"]
+
+    E --> E_R["🗑️ 주식 데이터 보존 정책<br/>• 250일 이상 오래된 데이터 감지<br/>• 자동 정리 및 VACUUM 최적화<br/>• 배당/분할 이벤트 보정<br/>• 기술적 지표 충분 데이터 보장"]
+
+    E_R --> E0["🔍 주식 데이터 갭 분석<br/>현재 시각 vs SQLite 최신 데이터<br/>전일 종가 변경사항 감지<br/>공휴일/휴장일 처리"]
+
+    E0 --> E_TI["⚙️ 주식 기술적 지표 업데이트<br/>• NULL → 값 변환 메커니즘<br/>• 조건부 지표 계산 (MA5/20/60/120/200)<br/>• RSI, MACD, Bollinger Bands<br/>• 거래량 지표 (OBV, VWAP)"]
+
+    E_TI --> E_SEC["🏭 섹터 분석<br/>• GICS 섹터 분류<br/>• 섹터별 상대강도<br/>• 섹터 로테이션 감지<br/>• 테마주 그룹 분석"]
+
+    E_SEC --> E1{"⚡ 수집 전략 분기<br/>데이터 갭 크기에 따른 처리"}
+
+    E1 -->|갭=0일| E2["✅ 수집 스킵<br/>모든 데이터 최신 상태<br/>기술적 지표 재사용"]
+    E1 -->|갭=1일| E3["🔄 전일 데이터 업데이트<br/>HLCV만 업데이트<br/>시가는 변경 없음"]
+    E1 -->|갭>1일| E4["📥 증분 데이터 수집<br/>갭 기간만큼 OHLCV 수집<br/>전체 기술적 지표 재계산"]
+
+    E2 --> E5["🔔 Collection Complete<br/>Stock Event Handler"]
+    E3 --> E5
+    E4 --> E5
+
+    %% ========================================================================
+    %% Stock Phase 2: 주식 특화 기술적 필터링
+    %% - makenaide 기술적 필터링 + 주식 특화 지표
+    %% - integrated_scoring_system.py: LayeredScoringEngine 활용
+    %% - 주식 특화: PER/PBR, 재무지표, 외국인 지분율 등
+    %% ========================================================================
+
+    E5 --> F["🎯 Phase 2: stock_technical_filter.py<br/>Weinstein Stage 2 진입 감지<br/>주식 특화 4단계 게이트 필터링<br/>• 기술적 분석: MA, RSI, MACD<br/>• 기본적 분석: PER, PBR, ROE<br/>• 수급 분석: 외국인/기관 매매<br/>SQLite 결과 저장"]
+
+    F --> F_FUND["💰 기본적 분석<br/>• PER/PBR/ROE 스크리닝<br/>• 재무건전성 점검<br/>• 매출/영업이익 성장률<br/>• 부채비율/유동비율"]
+
+    F_FUND --> F_SUPPLY["📈 수급 분석<br/>• 외국인 매매 동향<br/>• 기관 매매 동향<br/>• 개인 매매 비중<br/>• 공매도 잔고 분석"]
+
+    F_SUPPLY --> F1["🔔 Filter Complete<br/>Stock Event Handler"]
+
+    %% ========================================================================
+    %% Stock Phase 3: GPT 분석 (주식 패턴 특화)
+    %% - Cup & Handle, VCP 패턴 → 주식 차트 패턴으로 확장
+    %% - 삼각수렴, 깃발형, 펜넌트 등 주식 특화 패턴 추가
+    %% ========================================================================
+
+    F1 --> G{"💰 GPT 분석 실행 여부<br/>비용 vs 정확도 선택<br/>주식 패턴 특화"}
+
+    G -->|Enable GPT| H["🤖 Phase 3: stock_gpt_analyzer.py<br/>OpenAI GPT-4 API 직접 호출<br/>주식 차트 패턴 분석<br/>• Cup & Handle, VCP<br/>• 삼각수렴, 깃발형, 펜넌트<br/>• 캔들스틱 패턴 분석<br/>로컬 캐시 저장"]
+
+    G -->|Skip GPT| H1["📊 기술적 분석만 사용<br/>LayeredScoringEngine 점수<br/>비용 절약 모드"]
+
+    H --> H2["💾 GPT 결과 SQLite 저장<br/>spock_gpt_analysis 테이블<br/>거래 준비 플래그 설정"]
+
+    H1 --> H3["💾 기술적 분석 결과 저장<br/>spock_technical_analysis 테이블<br/>거래 준비 플래그 설정"]
+
+    H2 --> H4["🧮 Kelly Calculator<br/>주식 패턴별 승률 매핑<br/>포지션 사이징 계산<br/>• Stage 2 진입: 65-70%<br/>• 컵앤핸들: 60-65%<br/>• 삼각수렴: 55-60%<br/>SQLite 저장"]
+
+    H3 --> H4
+
+    %% ========================================================================
+    %% Stage 2: Stock Trading Engine
+    %% - 한국투자증권 API 연동
+    %% - 주식 특화 거래 로직: 호가 단위, 거래 수수료 고려
+    %% - 시장 운영시간 엄격 준수
+    %% ========================================================================
+
+    H4 --> I{"🚦 주식 거래 후보 검증<br/>• 시장 운영시간 확인<br/>• 거래정지 종목 제외<br/>• 가격제한폭 확인"}
+
+    I -->|No Candidates| J["📭 오늘은 거래 없음<br/>• 매수 조건 미충족<br/>• 시장 상황 부적절<br/>• 다음 스케줄 대기"]
+
+    I -->|Valid Candidates| K["🔔 주식 거래 엔진 시작<br/>KIS Trading Engine"]
+
+    subgraph "⚡ Stock Trading Engine"
+        K --> L["📋 분석 결과 로드<br/>• SQLite에서 모든 분석 결과 조회<br/>• Kelly 포지션 사이징 로드<br/>• 주식 매수 후보 목록 준비<br/>• 거래 가능 시간 확인"]
+
+        L --> M["📊 주식 시장 감정 분석<br/>• Fear&Greed Index (주식용)<br/>• VIX 지수 확인<br/>• 코스피/코스닥 지수 트렌드<br/>• 외국인 매매 동향<br/>• Market Sentiment 종합 판정"]
+
+        M --> M1["🌍 글로벌 시장 연계<br/>• 나스닥/다우지수 영향<br/>• 엔/달러 환율 영향<br/>• 중국 상해지수 동향<br/>• 국제 원자재 가격"]
+
+        M1 --> N1{"🌡️ 종합 시장 감정<br/>BEAR / NEUTRAL / BULL"}
+
+        N1 -->|BEAR| N2["🚫 거래 중단<br/>• 약세장 감지로 거래 취소<br/>• 모든 매수 신호 무시<br/>• 기존 포지션 보호 모드<br/>• 로그 기록"]
+
+        N1 -->|NEUTRAL/BULL| O["✅ 조건 검증 + Kelly 조정<br/>• SQLite 포트폴리오 상태 조회<br/>• Kelly 기본값 → 실시간 조정<br/>• 집중도/현금비율 검증<br/>• 섹터 분산 확인"]
+
+        O --> P{"💰 최종 매수 조건 통과?<br/>Kelly 공식 + 주식 리스크 검증"}
+
+        N2 --> S
+
+        P -->|Yes| Q["💸 주식 거래 실행<br/>• Kelly 조정된 할당 비율 적용<br/>• 한국투자증권 API 호출<br/>• 호가 단위 맞춤 주문<br/>• 시장가/지정가 선택<br/>• 실시간 로그 출력"]
+
+        P -->|No| R["⚠️ 매수 조건 불충족<br/>조건 변화로 인한 거래 취소<br/>로그 기록"]
+
+        Q --> S["📊 주식 포트폴리오 상태 조회<br/>• SQLite에서 현재 보유 종목 확인<br/>• 수익률 및 손실률 계산<br/>• 배당 일정 확인<br/>• 매도 조건 스캐닝"]
+
+        R --> S
+
+        S --> T["🎯 주식 매도 조건 검증<br/>• 7-8% 손절 조건 확인<br/>• 20-25% 수익 실현 조건<br/>• 기술적 매도 신호 감지<br/>• 배당락일 전 매도 고려"]
+
+        T --> U{"📉 매도 실행 필요?<br/>손절 or 익절 조건 충족"}
+
+        U -->|Yes| V["💹 주식 매도 실행<br/>• 한국투자증권 API 매도 주문<br/>• 호가 단위 맞춤<br/>• 거래 결과 SQLite 기록<br/>• 포트폴리오 업데이트<br/>• 실시간 알림"]
+
+        U -->|No| W["✅ 포트폴리오 유지<br/>현재 포지션 보유 지속<br/>상태 로그 기록"]
+
+        V --> X["📋 거래 결과 종합<br/>• SQLite 거래 기록 저장<br/>• 수수료 및 세금 계산<br/>• 성과 메트릭 업데이트<br/>• JSON 백업 파일 생성"]
+
+        W --> X
+
+        X --> Y["🏁 거래 세션 완료<br/>• 최종 상태 로그 출력<br/>• 성과 요약 표시<br/>• 다음 실행 스케줄 표시<br/>• 장 마감 후 분석 준비"]
+    end
+
+    %% ========================================================================
+    %% 주식 결과 처리 및 알림 시스템
+    %% ========================================================================
+    Y --> Z["📊 최종 결과 처리<br/>• 주식 거래 성과 분석<br/>• 일일 보고서 업데이트<br/>• 포트폴리오 동기화<br/>• 세금 계산 준비"]
+
+    Z --> AA["🔔 주식 알림 시스템<br/>• 터미널 결과 출력<br/>• 이메일 거래 알림<br/>• Slack 포트폴리오 상태<br/>• 카카오톡 수익률 알림<br/>• 로그 파일 저장"]
+
+    J --> BB["📝 No-Trade 로그<br/>거래 없음 기록<br/>SQLite + 로그 파일"]
+
+    C2 --> CC["📅 휴장일 작업 완료<br/>시스템 점검 및 최적화"]
+    C3 --> DD["🌙 장외 작업 완료<br/>해외시장 분석 결과"]
+
+    %% ========================================================================
+    %% 주식 데이터 저장소 및 백업 시스템
+    %% ========================================================================
+    subgraph "🗃️ Stock Data Layer"
+        EE["🗄️ SQLite Database<br/>• spock_local.db<br/>• 주식 종목 거래/분석 데이터<br/>• 포트폴리오 상태<br/>• 배당 일정<br/>• 섹터 분류<br/>• 기본적 분석 데이터<br/>• 250일 데이터 보존 정책"]
+
+        FF["📦 JSON 백업 시스템<br/>• data/backups/ 디렉토리<br/>• 일별 데이터 백업<br/>• 거래 내역 아카이브<br/>• 세무 정산 데이터<br/>• 성과 분석 보고서"]
+
+        GG["🔄 주식 동기화<br/>• SQLite ↔ 한국투자증권 API<br/>• 실시간 포트폴리오 동기화<br/>• 배당 일정 업데이트<br/>• 공시 정보 수집"]
+    end
+
+    %% ========================================================================
+    %% 주식 모니터링 및 개발 지원 시스템
+    %% ========================================================================
+    subgraph "🛡️ Stock Monitoring & Dev Support"
+        HH["🔄 주식 특화 에러 처리<br/>• 거래시간 외 주문 방지<br/>• 호가 단위 검증<br/>• 거래정지 종목 감지<br/>• API 한도 관리"]
+
+        II["🚨 주식 모니터링<br/>• 실시간 터미널 로그<br/>• 거래 체결 알림<br/>• 포트폴리오 변동 추적<br/>• 시장 이상 상황 감지"]
+
+        JJ["📊 주식 개발자 도구<br/>• 모의투자 모드<br/>• 백테스트 시스템<br/>• 성과 시각화<br/>• 거래 패턴 분석"]
+    end
+
+    %% ========================================================================
+    %% 주식 특화 기능
+    %% ========================================================================
+    subgraph "🚀 Stock Specialized Features"
+        KK["🧠 주식 최적화<br/>• 호가 단위 자동 맞춤<br/>• 거래 수수료 최적화<br/>• 세금 효율적 거래<br/>• 배당락일 관리"]
+
+        LL["💡 주식 개발 편의성<br/>• 모의투자 연동<br/>• 실시간 차트 연동<br/>• 종목 분석 도구<br/>• 섹터 분석 대시보드"]
+
+        MM["📈 주식 포트폴리오 관리<br/>• 실시간 평가손익<br/>• 배당 수익 추적<br/>• 세금 시뮬레이션<br/>• 리밸런싱 제안"]
+
+        NN["🎯 주식 필터링 시스템<br/>• 시가총액 10억원+ 검증<br/>• 일평균 거래대금 1억원+ 검증<br/>• 상장 1년+ 종목 우선<br/>• 우선주/ETF 제외 옵션"]
+
+        OO["🏭 섹터 분석 시스템<br/>• GICS 11개 섹터 분류<br/>• 섹터별 상대강도 분석<br/>• 섹터 로테이션 감지<br/>• 테마주 동반 상승 감지"]
+
+        PP["🌍 글로벌 연계 시스템<br/>• 나스닥/S&P500 연동<br/>• 환율 영향 분석<br/>• ADR 연계 종목 추적<br/>• 해외 동종업계 비교"]
+    end
+
+    %% ========================================================================
+    %% 연결선 정의 (주식 데이터 흐름)
+    %% ========================================================================
+    H2 --> EE
+    H3 --> EE
+    L --> EE
+    X --> EE
+    Z --> FF
+
+    L --> HH
+    M --> II
+    Y --> JJ
+
+    C --> KK
+    X --> LL
+    S --> MM
+    E0 --> NN
+    F_SUPPLY --> OO
+    M1 --> PP
+
+    %% ========================================================================
+    %% 스타일링 (Stock 테마)
+    %% ========================================================================
+    style B fill:#2E86AB,stroke:#333,stroke-width:4px
+    style K fill:#A23B72,stroke:#333,stroke-width:3px
+    style L fill:#F18F01,stroke:#333,stroke-width:2px
+    style Q fill:#C73E1D,stroke:#333,stroke-width:2px
+    style V fill:#F18F01,stroke:#333,stroke-width:2px
+    style Y fill:#2E86AB,stroke:#333,stroke-width:4px
+    style AA fill:#2E86AB,stroke:#333,stroke-width:2px
+
+    %% Stock Analysis Pipeline
+    style D fill:#B8E6B8,stroke:#333,stroke-width:2px
+    style E fill:#B8E6B8,stroke:#333,stroke-width:2px
+    style F fill:#FFB3B3,stroke:#333,stroke-width:3px
+    style H fill:#B8E6B8,stroke:#333,stroke-width:2px
+
+    %% Stock Trading Engine
+    style L fill:#FFD700,stroke:#333,stroke-width:2px
+    style M fill:#87CEEB,stroke:#333,stroke-width:3px
+    style M1 fill:#87CEEB,stroke:#333,stroke-width:2px
+    style N1 fill:#87CEEB,stroke:#333,stroke-width:2px
+    style N2 fill:#FF6B6B,stroke:#333,stroke-width:2px
+    style O fill:#FFD700,stroke:#333,stroke-width:2px
+    style S fill:#FFD700,stroke:#333,stroke-width:2px
+    style T fill:#FFD700,stroke:#333,stroke-width:2px
+
+    %% Stock Data Layer
+    style EE fill:#DDA0DD,stroke:#333,stroke-width:2px
+    style FF fill:#DDA0DD,stroke:#333,stroke-width:2px
+    style GG fill:#DDA0DD,stroke:#333,stroke-width:2px
+
+    %% Stock Monitoring System
+    style HH fill:#FFB3BA,stroke:#333,stroke-width:2px
+    style II fill:#FFB3BA,stroke:#333,stroke-width:2px
+    style JJ fill:#FFB3BA,stroke:#333,stroke-width:2px
+
+    %% Stock Specialized Features
+    style KK fill:#98FB98,stroke:#333,stroke-width:3px
+    style LL fill:#F0E68C,stroke:#333,stroke-width:2px
+    style MM fill:#DDA0DD,stroke:#333,stroke-width:2px
+    style NN fill:#87CEEB,stroke:#333,stroke-width:3px
+    style OO fill:#F4A460,stroke:#333,stroke-width:3px
+    style PP fill:#20B2AA,stroke:#333,stroke-width:3px
+
+    %% Market Hours Management
+    style C1 fill:#FF7F50,stroke:#333,stroke-width:3px
+    style C2 fill:#FFE4B5,stroke:#333,stroke-width:2px
+    style C3 fill:#E0E6FF,stroke:#333,stroke-width:2px

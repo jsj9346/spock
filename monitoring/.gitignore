@@ -1,0 +1,19 @@
+# Monitoring Stack .gitignore
+
+# Environment files with credentials (DO NOT COMMIT)
+.env.alertmanager
+
+# Grafana data
+grafana-data/
+
+# Prometheus data
+prometheus-data/
+
+# Alertmanager data
+alertmanager-data/
+
+# Logs
+logs/*.log
+
+# Docker volumes
+*.db

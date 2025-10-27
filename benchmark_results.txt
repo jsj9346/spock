@@ -1,0 +1,105 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.11, pytest-8.4.2, pluggy-1.5.0 -- /Users/13ruce/anaconda3/bin/python3
+cachedir: .pytest_cache
+rootdir: /Users/13ruce/spock
+plugins: anyio-4.10.0, cov-7.0.0
+collecting ... collected 5 items
+
+tests/test_performance_benchmark.py::TestPerformanceBenchmark::test_01_benchmark_100_tickers ✅ Test database created: data/test_performance_benchmark.db
+
+🔄 Generating test data for 1000 tickers...
+✅ Generated 1000 tickers with 250000 OHLCV records
+
+======================================================================
+📊 BENCHMARK: 100 Tickers
+======================================================================
+⏱️  Execution Time: 0.018s
+✅ Passed: 0/100 (0.0%)
+💾 Memory: 5.6 MB
+⚙️  CPU: 0.0%
+PASSED
+tests/test_performance_benchmark.py::TestPerformanceBenchmark::test_02_benchmark_250_tickers 
+======================================================================
+📊 BENCHMARK: 250 Tickers (Stage 1 Target Output)
+======================================================================
+⏱️  Execution Time: 0.050s
+✅ Passed: 0/250 (0.0%)
+💾 Memory: 20.0 MB
+⚙️  CPU: 0.0%
+PASSED
+tests/test_performance_benchmark.py::TestPerformanceBenchmark::test_03_benchmark_600_tickers 
+======================================================================
+📊 BENCHMARK: 600 Tickers (Stage 0 Target Input)
+======================================================================
+⏱️  Execution Time: 0.106s
+✅ Passed: 0/600 (0.0%)
+💾 Memory: 15.6 MB
+⚙️  CPU: 0.0%
+PASSED
+tests/test_performance_benchmark.py::TestPerformanceBenchmark::test_04_benchmark_1000_tickers 
+======================================================================
+📊 BENCHMARK: 1000 Tickers (Phase 4 Preparation)
+======================================================================
+⏱️  Execution Time: 0.121s
+✅ Passed: 0/1000 (0.0%)
+💾 Memory: 9.6 MB
+⚙️  CPU: 30.6%
+PASSED
+tests/test_performance_benchmark.py::TestPerformanceBenchmark::test_05_scalability_verification 
+======================================================================
+📈 SCALABILITY VERIFICATION (O(n) Complexity)
+======================================================================
+   100 tickers: 0.027s
+   250 tickers: 0.061s
+   600 tickers: 0.107s
+  1000 tickers: 0.138s
+
+📊 Scalability Analysis:
+   100 tickers: 0.027s (baseline)
+   600 tickers: 0.107s
+   Ratio: 4.04x (expected: 6.0x)
+FAILED
+🧹 Cleaned up test database: data/test_performance_benchmark.db
+
+
+=================================== FAILURES ===================================
+__________ TestPerformanceBenchmark.test_05_scalability_verification ___________
+
+self = <test_performance_benchmark.TestPerformanceBenchmark testMethod=test_05_scalability_verification>
+
+    def test_05_scalability_verification(self):
+        """Verify linear scalability O(n)"""
+        print("\n" + "="*70)
+        print("📈 SCALABILITY VERIFICATION (O(n) Complexity)")
+        print("="*70)
+    
+        results = []
+        for size in self.dataset_sizes:
+            result = self._run_benchmark(size)
+            results.append(result)
+            print(f"  {size:4d} tickers: {result['execution_time']:.3f}s")
+    
+        # Check if execution time scales linearly
+        # Compare 600 vs 100: should be ~6x
+        ratio_600_100 = results[2]['execution_time'] / results[0]['execution_time']
+        expected_ratio = 600 / 100  # 6.0
+    
+        print(f"\n📊 Scalability Analysis:")
+        print(f"   100 tickers: {results[0]['execution_time']:.3f}s (baseline)")
+        print(f"   600 tickers: {results[2]['execution_time']:.3f}s")
+        print(f"   Ratio: {ratio_600_100:.2f}x (expected: {expected_ratio:.1f}x)")
+    
+        # Allow 20% deviation from linear scaling
+>       self.assertAlmostEqual(ratio_600_100, expected_ratio, delta=expected_ratio * 0.2,
+                               msg="Execution time should scale linearly (±20%)")
+E       AssertionError: 4.035875668098466 != 6.0 within 1.2000000000000002 delta (1.9641243319015338 difference) : Execution time should scale linearly (±20%)
+
+tests/test_performance_benchmark.py:397: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  modules.stock_pre_filter:stock_pre_filter.py:510 필터 실행 로그 기록 실패: table filter_execution_log has no column named execution_timestamp
+WARNING  modules.stock_pre_filter:stock_pre_filter.py:510 필터 실행 로그 기록 실패: table filter_execution_log has no column named execution_timestamp
+WARNING  modules.stock_pre_filter:stock_pre_filter.py:510 필터 실행 로그 기록 실패: table filter_execution_log has no column named execution_timestamp
+WARNING  modules.stock_pre_filter:stock_pre_filter.py:510 필터 실행 로그 기록 실패: table filter_execution_log has no column named execution_timestamp
+=========================== short test summary info ============================
+FAILED tests/test_performance_benchmark.py::TestPerformanceBenchmark::test_05_scalability_verification
+========================= 1 failed, 4 passed in 4.92s ==========================

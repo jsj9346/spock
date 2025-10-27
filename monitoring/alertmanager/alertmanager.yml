@@ -1,0 +1,306 @@
+# Alertmanager Configuration for Quant Platform & Spock Trading System
+
+global:
+  resolve_timeout: 5m
+  # Note: SMTP and Slack configurations are set in receivers
+  # Environment variables are loaded from .env.alertmanager
+
+# Alert routing configuration
+route:
+  group_by: ['alertname', 'cluster', 'service', 'category']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  receiver: 'default-receiver'
+
+  routes:
+    # === Quant Platform Alerts (Balanced Priority: Critical + Warning Only) ===
+
+    # Critical backtest performance issues
+    - match:
+        severity: critical
+        category: backtest_performance
+      receiver: 'quant-critical-alerts'
+      repeat_interval: 30m
+      group_wait: 10s
+      continue: false
+
+    # Critical backtest quality issues
+    - match:
+        severity: critical
+        category: backtest_quality
+      receiver: 'quant-critical-alerts'
+      repeat_interval: 30m
+      group_wait: 10s
+      continue: false
+
+    # Critical optimization failures
+    - match:
+        severity: critical
+        category: portfolio_optimization
+      receiver: 'quant-critical-alerts'
+      repeat_interval: 30m
+      group_wait: 10s
+      continue: false
+
+    # Critical API failures
+    - match:
+        severity: critical
+        category: quant_api_performance
+      receiver: 'quant-critical-alerts'
+      repeat_interval: 30m
+      group_wait: 10s
+      continue: false
+
+    # Critical database issues
+    - match:
+        severity: critical
+        category: database_connection_pool
+      receiver: 'quant-critical-alerts'
+      repeat_interval: 30m
+      group_wait: 10s
+      continue: false
+
+    # Warning level backtest alerts
+    - match:
+        severity: warning
+        category: backtest_performance
+      receiver: 'quant-warning-alerts'
+      repeat_interval: 2h
+      continue: false
+
+    - match:
+        severity: warning
+        category: backtest_quality
+      receiver: 'quant-warning-alerts'
+      repeat_interval: 2h
+      continue: false
+
+    # Warning level factor calculation alerts
+    - match:
+        severity: warning
+        category: factor_calculation
+      receiver: 'quant-warning-alerts'
+      repeat_interval: 2h
+      continue: false
+
+    # Warning level optimization alerts
+    - match:
+        severity: warning
+        category: portfolio_optimization
+      receiver: 'quant-warning-alerts'
+      repeat_interval: 2h
+      continue: false
+
+    # Warning level API alerts
+    - match:
+        severity: warning
+        category: quant_api_performance
+      receiver: 'quant-warning-alerts'
+      repeat_interval: 2h
+      continue: false
+
+    # Warning level database alerts
+    - match:
+        severity: warning
+        category: database_connection_pool
+      receiver: 'quant-warning-alerts'
+      repeat_interval: 2h
+      continue: false
+
+    # === Legacy Spock Trading System Alerts ===
+
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      repeat_interval: 1h
+
+    # Warning alerts - less frequent notification
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      repeat_interval: 6h
+
+    # Data quality alerts
+    - match:
+        category: data_quality
+      receiver: 'data-quality-alerts'
+      repeat_interval: 3h
+
+    # API health alerts
+    - match:
+        category: api_health
+      receiver: 'api-health-alerts'
+      repeat_interval: 2h
+
+    # Trading alerts
+    - match:
+        category: trading
+      receiver: 'trading-alerts'
+      repeat_interval: 30m
+
+# Receivers configuration
+receivers:
+  # Default receiver (console logging only)
+  - name: 'default-receiver'
+    # Info-level alerts go here (suppressed in balanced mode)
+
+  # === Quant Platform Receivers ===
+
+  # Quant Critical Alerts - Email + Slack + Webhook + Console
+  # Note: Configure credentials in .env.alertmanager
+  - name: 'quant-critical-alerts'
+    # Uncomment and configure after setting up .env.alertmanager
+    # email_configs:
+    #   - to: '${EMAIL_TO}'
+    #     from: '${EMAIL_USERNAME}'
+    #     smarthost: '${EMAIL_SMTP_HOST}:${EMAIL_SMTP_PORT}'
+    #     auth_username: '${EMAIL_USERNAME}'
+    #     auth_password: '${EMAIL_PASSWORD}'
+    #     headers:
+    #       Subject: '🚨 [CRITICAL] Quant Platform: {{ .GroupLabels.alertname }}'
+    #     html: '{{ template "email.quant.html" . }}'
+    # slack_configs:
+    #   - api_url: '${SLACK_WEBHOOK_URL}'
+    #     channel: '#quant-critical-alerts'
+    #     title: '{{ template "slack.quant.title" . }}'
+    #     text: '{{ template "slack.quant.text" . }}'
+    #     color: 'danger'
+    #     send_resolved: true
+    # webhook_configs:
+    #   - url: '${CUSTOM_WEBHOOK_URL}'
+    #     send_resolved: true
+    #     http_config:
+    #       follow_redirects: true
+    #     max_alerts: 0
+
+  # Quant Warning Alerts - Slack + Webhook + Console
+  # Note: Configure credentials in .env.alertmanager
+  - name: 'quant-warning-alerts'
+    # Uncomment and configure after setting up .env.alertmanager
+    # slack_configs:
+    #   - api_url: '${SLACK_WEBHOOK_URL}'
+    #     channel: '#quant-warnings'
+    #     title: '{{ template "slack.quant.title" . }}'
+    #     text: '{{ template "slack.quant.text" . }}'
+    #     color: 'warning'
+    #     send_resolved: true
+    # webhook_configs:
+    #   - url: '${CUSTOM_WEBHOOK_URL}'
+    #     send_resolved: true
+    #     http_config:
+    #       follow_redirects: true
+    #     max_alerts: 0
+
+  # === Legacy Spock Receivers ===
+
+  # Critical alerts receiver
+  - name: 'critical-alerts'
+    # Uncomment and configure after setting up .env.alertmanager
+    # slack_configs:
+    #   - api_url: '${SLACK_WEBHOOK_URL}'
+    #     channel: '#spock-critical-alerts'
+    #     title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+    #     color: 'danger'
+    #     send_resolved: true
+
+  # Warning alerts receiver
+  - name: 'warning-alerts'
+    # Uncomment and configure after setting up .env.alertmanager
+    # email_configs:
+    #   - to: '${EMAIL_TO}'
+    #     from: '${EMAIL_USERNAME}'
+    #     smarthost: '${EMAIL_SMTP_HOST}:${EMAIL_SMTP_PORT}'
+    #     auth_username: '${EMAIL_USERNAME}'
+    #     auth_password: '${EMAIL_PASSWORD}'
+    #     headers:
+    #       Subject: '⚠️ WARNING: {{ .GroupLabels.alertname }}'
+
+  # Data quality alerts receiver
+  - name: 'data-quality-alerts'
+    # Uncomment and configure after setting up .env.alertmanager
+    # slack_configs:
+    #   - api_url: '${SLACK_WEBHOOK_URL}'
+    #     channel: '#spock-data-quality'
+    #     title: 'Data Quality Issue: {{ .GroupLabels.alertname }}'
+
+  # API health alerts receiver
+  - name: 'api-health-alerts'
+    # Uncomment and configure after setting up .env.alertmanager
+    # slack_configs:
+    #   - api_url: '${SLACK_WEBHOOK_URL}'
+    #     channel: '#spock-api-health'
+    #     title: 'API Health Issue: {{ .GroupLabels.alertname }}'
+
+  # Trading alerts receiver
+  - name: 'trading-alerts'
+    # Uncomment and configure after setting up .env.alertmanager
+    # slack_configs:
+    #   - api_url: '${SLACK_WEBHOOK_URL}'
+    #     channel: '#spock-trading'
+    #     title: 'Trading Alert: {{ .GroupLabels.alertname }}'
+    #     color: 'good'
+
+# Inhibit rules (suppress alerts based on conditions)
+inhibit_rules:
+  # === Quant Platform Inhibit Rules ===
+
+  # Suppress warning if critical alert is firing for same issue
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'strategy_name', 'factor_name']
+
+  # Suppress info alerts always (balanced mode)
+  - source_match:
+      severity: 'warning'
+    target_match:
+      severity: 'info'
+    equal: ['category']
+
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'info'
+    equal: ['category']
+
+  # Suppress backtest warnings if API is down
+  - source_match:
+      alertname: 'QuantPlatformAPIDown'
+    target_match:
+      category: 'backtest_performance'
+    equal: []
+
+  # Suppress factor calculation warnings if database pool exhausted
+  - source_match:
+      alertname: 'DatabasePoolExhausted'
+    target_match:
+      category: 'factor_calculation'
+    equal: []
+
+  # Suppress optimization warnings if database has issues
+  - source_match:
+      category: 'database_connection_pool'
+      severity: 'critical'
+    target_match:
+      category: 'portfolio_optimization'
+    equal: []
+
+  # === Legacy Spock Inhibit Rules ===
+
+  # Suppress warning if critical alert is firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'region']
+
+  # Suppress data collection warnings if API is down
+  - source_match:
+      alertname: 'SpockServiceDown'
+    target_match:
+      category: 'data_quality'
+    equal: ['region']

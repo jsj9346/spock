@@ -1,0 +1,208 @@
+# ============================================================================
+# Portfolio Optimization Constraints Configuration
+# ============================================================================
+# Purpose: Define constraints and settings for portfolio optimization
+#
+# Usage:
+#   from modules.optimization import MeanVarianceOptimizer
+#   import yaml
+#
+#   with open('config/optimization_constraints.yaml') as f:
+#       config = yaml.safe_load(f)
+#
+#   optimizer = MeanVarianceOptimizer(
+#       constraints=config['portfolio_constraints']
+#   )
+#
+# Author: Quant Platform Development Team
+# Last Updated: 2025-10-21
+# Version: 1.0.0
+# ============================================================================
+
+# ============================================================================
+# Portfolio Constraints
+# ============================================================================
+portfolio_constraints:
+  # Position size limits (비중 제한)
+  min_position: 0.01              # 최소 1% (avoid micro positions)
+  max_position: 0.15              # 최대 15% (concentration risk)
+
+  # Sector exposure limits (섹터 노출도 제한)
+  max_sector_exposure: 0.40       # 섹터 최대 40% (sector diversification)
+
+  # Turnover limits (회전율 제한)
+  max_turnover: 0.20              # 월 최대 20% 리밸런싱 (transaction cost control)
+
+  # Cash reserve (현금 보유)
+  min_cash: 0.10                  # 최소 10% 현금 (liquidity buffer)
+  max_cash: 0.30                  # 최대 30% 현금 (opportunity cost)
+
+  # Long-only or long-short (롱온리 vs 롱숏)
+  long_only: true                 # true: 매수만, false: 공매도 허용
+
+  # Total leverage (총 레버리지)
+  max_leverage: 1.0               # 1.0 = 100% (no leverage), 2.0 = 200%
+
+# ============================================================================
+# Region-specific limits (지역별 노출도 제한)
+# ============================================================================
+region_limits:
+  max_region_exposure:
+    KR: 0.50    # 한국 최대 50%
+    US: 0.50    # 미국 최대 50%
+    CN: 0.20    # 중국 최대 20%
+    JP: 0.20    # 일본 최대 20%
+    HK: 0.20    # 홍콩 최대 20%
+    VN: 0.10    # 베트남 최대 10%
+
+  # Regional diversification requirement (지역 다변화 요구사항)
+  min_regions: 2                  # 최소 2개 지역에 분산 투자
+  min_region_allocation: 0.05     # 각 지역 최소 5%
+
+# ============================================================================
+# Optimization Methods (최적화 방법)
+# ============================================================================
+optimization_methods:
+  # Available methods (사용 가능한 방법)
+  available:
+    - mean_variance        # Markowitz (평균-분산 최적화)
+    - risk_parity         # Equal Risk Contribution (동일 리스크 기여)
+    - black_litterman     # Bayesian approach (베이지안 접근)
+    - kelly_criterion     # Geometric growth (기하 성장률 최대화)
+
+  # Default method (기본 방법)
+  default: mean_variance
+
+  # Method-specific settings (방법별 설정)
+  mean_variance:
+    risk_aversion: 1.0            # 리스크 회피 계수 (1.0 = balanced)
+    target_return: null           # 목표 수익률 (null = maximize Sharpe)
+    allow_short: false            # 공매도 허용 여부
+
+  risk_parity:
+    risk_measure: "volatility"    # volatility, var, cvar
+    target_risk: 0.15             # 목표 연간 변동성 15%
+
+  black_litterman:
+    tau: 0.05                     # 불확실성 파라미터
+    market_implied_returns: true  # 시장 균형 수익률 사용
+    confidence_level: 0.5         # 투자자 견해 신뢰도
+
+  kelly_criterion:
+    fractional_kelly: 0.5         # Half-Kelly (0.5 = conservative)
+    correlation_adjustment: true  # 상관관계 조정
+
+# ============================================================================
+# Rebalancing Strategy (리밸런싱 전략)
+# ============================================================================
+rebalancing:
+  # Rebalancing method (리밸런싱 방법)
+  method: "threshold"             # threshold, periodic, hybrid
+
+  # Threshold-based rebalancing (임계값 기반)
+  drift_threshold_percent: 5.0    # 5% 이탈 시 리밸런싱
+
+  # Periodic rebalancing (주기적 리밸런싱)
+  frequency: "monthly"            # daily, weekly, monthly, quarterly
+  calendar_dates:                 # 특정 날짜 (monthly일 경우)
+    - 1                           # 매월 1일
+
+  # Hybrid settings (하이브리드 설정)
+  min_rebalance_interval_days: 30 # 최소 30일 간격
+  max_rebalance_interval_days: 90 # 최대 90일 간격
+
+  # Trade size limits (거래 규모 제한)
+  max_trade_size_percent: 10.0    # 한 번에 최대 10% 거래
+  min_trade_size_percent: 1.0     # 최소 1% (avoid tiny trades)
+
+  # Transaction cost consideration (거래비용 고려)
+  cost_threshold_bps: 10          # 10bp 이상 이득 시에만 리밸런싱
+
+# ============================================================================
+# Risk Budgeting (리스크 예산)
+# ============================================================================
+risk_budgeting:
+  # Total portfolio risk budget (포트폴리오 전체 리스크 예산)
+  max_portfolio_volatility: 0.20  # 연간 최대 변동성 20%
+  max_portfolio_var_95: 0.05      # 95% VaR 최대 5%
+
+  # Sector risk budgets (섹터별 리스크 예산)
+  sector_risk_budgets:
+    Technology: 0.30              # 기술 섹터 최대 30% 리스크 기여
+    Financials: 0.25              # 금융 섹터 최대 25% 리스크 기여
+    Healthcare: 0.20              # 헬스케어 섹터 최대 20% 리스크 기여
+    Consumer: 0.15                # 소비재 섹터 최대 15% 리스크 기여
+    Others: 0.10                  # 기타 섹터 최대 10% 리스크 기여
+
+# ============================================================================
+# Transaction Cost Model (거래비용 모델)
+# ============================================================================
+transaction_costs:
+  # Commission rates by region (지역별 수수료율)
+  commission_rates:
+    KR: 0.00015   # 0.015% (한국투자증권)
+    US: 0.00050   # 0.050% (US brokers)
+    CN: 0.00100   # 0.100% (China)
+    JP: 0.00100   # 0.100% (Japan)
+    HK: 0.00100   # 0.100% (Hong Kong)
+    VN: 0.00150   # 0.150% (Vietnam)
+
+  # Slippage model (슬리피지 모델)
+  slippage_model: "volume_based"  # fixed, volume_based, volatility_based
+  slippage_bps: 5                 # 5 basis points (fixed model)
+
+  # Market impact (시장 충격)
+  market_impact_enabled: true
+  impact_coefficient: 0.1         # Kyle's lambda (거래량 대비 영향)
+
+# ============================================================================
+# Optimization Solver Settings (솔버 설정)
+# ============================================================================
+solver_settings:
+  # Solver selection (솔버 선택)
+  solver: "ECOS"                  # ECOS, SCS, OSQP, CVXOPT
+
+  # Solver parameters (솔버 파라미터)
+  max_iterations: 10000
+  tolerance: 1e-6
+  verbose: false
+
+  # Fallback solvers (대체 솔버)
+  fallback_solvers:
+    - "SCS"
+    - "OSQP"
+
+# ============================================================================
+# Validation Rules (검증 규칙)
+# ============================================================================
+validation:
+  # Sum of weights validation (비중 합계 검증)
+  weight_sum_tolerance: 0.01      # 1% 허용 오차 (99% ~ 101%)
+
+  # Constraint violation tolerance (제약조건 위반 허용치)
+  constraint_tolerance: 0.001     # 0.1% 허용 오차
+
+  # Numerical stability (수치 안정성)
+  min_eigenvalue: 1e-8            # 공분산 행렬 최소 고유값
+
+# ============================================================================
+# Advanced Settings (고급 설정)
+# ============================================================================
+advanced:
+  # Robust optimization (강건 최적화)
+  robust_optimization:
+    enabled: false
+    uncertainty_set: "box"        # box, ellipsoidal
+    robustness_parameter: 0.1
+
+  # Factor-based constraints (팩터 기반 제약)
+  factor_constraints:
+    max_factor_exposure:
+      momentum: 0.5               # 모멘텀 팩터 최대 0.5 노출
+      value: 0.5                  # 가치 팩터 최대 0.5 노출
+      quality: 0.5                # 품질 팩터 최대 0.5 노출
+
+  # ESG constraints (ESG 제약)
+  esg_constraints:
+    enabled: false
+    min_esg_score: 5.0            # 최소 ESG 점수 (1-10)

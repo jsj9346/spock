@@ -1,0 +1,218 @@
+```mermaid
+graph TB
+    subgraph "External Data Sources"
+        A1[Yahoo Finance<br/>^VIX Symbol]
+        A2[CNN Money<br/>Fear & Greed Index]
+        A3[KIS API<br/>Foreign/Institution Flow]
+        A4[Market Adapters<br/>Sector OHLCV Data]
+    end
+
+    subgraph "Data Collection Layer"
+        B1[VIXDataCollector<br/>• Fetch VIX data<br/>• Classify volatility<br/>• Calculate multiplier]
+        B2[FearGreedCollector<br/>• Web scraping<br/>• Sentiment classification<br/>• Contrarian signals]
+        B3[ForeignInstitutionCollector<br/>• KIS API integration<br/>• Net buy tracking<br/>• Trend detection]
+        B4[SectorRotationAnalyzer<br/>• Relative strength<br/>• Momentum scoring<br/>• Hot sector ranking]
+    end
+
+    subgraph "Analysis Layer"
+        C1[SentimentAggregator<br/>• Combine all sources<br/>• Weight by reliability<br/>• Generate overall score]
+        C2[MarketRegimeClassifier<br/>• Bull/Bear detection<br/>• Regime transitions<br/>• Confidence scoring]
+        C3[VolatilityAnalyzer<br/>• VIX trend analysis<br/>• Volatility clustering<br/>• Risk level assessment]
+        C4[SignalGenerator<br/>• Position sizing advice<br/>• Trading recommendations<br/>• Risk warnings]
+    end
+
+    subgraph "Database Layer"
+        D1[(market_sentiment<br/>Daily summary)]
+        D2[(foreign_institution_flow<br/>Flow by ticker)]
+        D3[(sector_rotation<br/>Sector metrics)]
+    end
+
+    subgraph "Integration Layer - Consumers"
+        E1[LayeredScoringEngine<br/>Layer 1: MarketRegime]
+        E2[Portfolio Manager<br/>Position sizing adjustment]
+        E3[Risk Manager<br/>Circuit breaker: VIX >40]
+        E4[Trading Engine<br/>Entry/exit timing]
+    end
+
+    subgraph "Utilities"
+        F1[Retry Logic<br/>Exponential backoff]
+        F2[Data Validation<br/>Range checks]
+        F3[Error Logger<br/>Centralized logging]
+        F4[Cache Manager<br/>Session caching]
+    end
+
+    A1 -->|REST API| B1
+    A2 -->|HTTP + Parse| B2
+    A3 -->|KIS REST API| B3
+    A4 -->|SQL Queries| B4
+
+    B1 --> C1
+    B2 --> C1
+    B3 --> C1
+    B4 --> C1
+
+    C1 --> C2
+    C1 --> C3
+    C2 --> C4
+    C3 --> C4
+
+    C4 --> D1
+    B3 --> D2
+    B4 --> D3
+
+    D1 -.->|Query| E1
+    D1 -.->|Query| E2
+    D1 -.->|Query| E3
+    D1 -.->|Query| E4
+
+    D2 -.->|Ticker-specific| E1
+    D3 -.->|Sector-specific| E1
+
+    B1 -.->|Use| F1
+    B2 -.->|Use| F1
+    B3 -.->|Use| F1
+
+    C1 -.->|Use| F2
+    C2 -.->|Use| F2
+
+    B1 -.->|Log| F3
+    B2 -.->|Log| F3
+    B3 -.->|Log| F3
+    C1 -.->|Log| F3
+
+    B3 -.->|Cache| F4
+
+    style A1 fill:#e1f5ff
+    style A2 fill:#e1f5ff
+    style A3 fill:#e1f5ff
+    style A4 fill:#e1f5ff
+
+    style B1 fill:#fff4e1
+    style B2 fill:#fff4e1
+    style B3 fill:#fff4e1
+    style B4 fill:#fff4e1
+
+    style C1 fill:#e8f5e9
+    style C2 fill:#e8f5e9
+    style C3 fill:#e8f5e9
+    style C4 fill:#e8f5e9
+
+    style D1 fill:#f3e5f5
+    style D2 fill:#f3e5f5
+    style D3 fill:#f3e5f5
+
+    style E1 fill:#fce4ec
+    style E2 fill:#fce4ec
+    style E3 fill:#fce4ec
+    style E4 fill:#fce4ec
+
+    style F1 fill:#f5f5f5
+    style F2 fill:#f5f5f5
+    style F3 fill:#f5f5f5
+    style F4 fill:#f5f5f5
+```
+
+## Data Flow Sequence
+
+```mermaid
+sequenceDiagram
+    participant Scheduler
+    participant Analyzer as MarketSentimentAnalyzer
+    participant VIX as VIXCollector
+    participant FG as FearGreedCollector
+    participant KIS as ForeignFlowCollector
+    participant Sector as SectorAnalyzer
+    participant DB as Database
+    participant Scoring as ScoringEngine
+
+    Note over Scheduler: Daily 08:30 KST
+    Scheduler->>Analyzer: update_daily_sentiment()
+
+    par Data Collection (Parallel)
+        Analyzer->>VIX: collect_vix_data()
+        VIX-->>Analyzer: VIXData(vix=25.5, level=MODERATE)
+    and
+        Analyzer->>FG: collect_fear_greed_index()
+        FG-->>Analyzer: FearGreedData(index=45, sentiment=NEUTRAL)
+    and
+        Analyzer->>KIS: collect_foreign_flow()
+        KIS-->>Analyzer: ForeignFlow(net_buy=150M, signal=BUY)
+    and
+        Analyzer->>Sector: analyze_sector_rotation()
+        Sector-->>Analyzer: Dict[sector, SectorSignal]
+    end
+
+    Analyzer->>Analyzer: classify_market_regime()
+    Note right of Analyzer: Regime = BULL_CORRECTION
+
+    Analyzer->>Analyzer: calculate_sentiment_score()
+    Note right of Analyzer: Score = +35 (Mild Bullish)
+
+    Analyzer->>Analyzer: recommend_position_sizing()
+    Note right of Analyzer: Multiplier = 0.75x
+
+    Analyzer->>DB: save_sentiment_to_db(summary)
+    DB-->>Analyzer: Success
+
+    Note over Analyzer: Integration
+
+    Scoring->>DB: get_market_sentiment_summary()
+    DB-->>Scoring: MarketSentimentSummary
+    Scoring->>Scoring: Apply to Layer 1 MarketRegime score
+```
+
+## Position Sizing Decision Tree
+
+```mermaid
+graph TD
+    Start[Market Sentiment Analysis] --> VIX{VIX Level?}
+
+    VIX -->|VIX < 20| Low[Low Volatility]
+    VIX -->|VIX 20-30| Mod[Moderate Volatility]
+    VIX -->|VIX 30-40| High[High Volatility]
+    VIX -->|VIX > 40| Ext[Extreme Volatility]
+
+    Low --> Regime1{Market Regime?}
+    Mod --> Regime2{Market Regime?}
+    High --> Regime3{Market Regime?}
+    Ext --> Regime4{Market Regime?}
+
+    Regime1 -->|Bull| PS1[1.0x Position<br/>Full Size]
+    Regime1 -->|Other| PS2[0.75x Position]
+
+    Regime2 -->|Bull/Sideways| PS3[0.75x Position]
+    Regime2 -->|Bear| PS4[0.5x Position]
+
+    Regime3 -->|Any| PS5[0.5x Position<br/>Defensive]
+
+    Regime4 -->|Any| PS6[0.25x Position<br/>Emergency Cash]
+
+    PS1 --> Trade{Foreign Flow?}
+    PS2 --> Trade
+    PS3 --> Trade
+    PS4 --> Trade
+    PS5 --> Trade
+    PS6 --> Trade
+
+    Trade -->|Strong Buy| Final1[Execute Trade<br/>+5 Confidence]
+    Trade -->|Neutral| Final2[Execute Trade<br/>+0 Confidence]
+    Trade -->|Sell| Final3[Skip Trade<br/>-5 Confidence]
+
+    style Start fill:#e1f5ff
+    style VIX fill:#fff4e1
+    style Low fill:#c8e6c9
+    style Mod fill:#fff9c4
+    style High fill:#ffccbc
+    style Ext fill:#ef9a9a
+
+    style PS1 fill:#4caf50,color:#fff
+    style PS2 fill:#8bc34a,color:#fff
+    style PS3 fill:#ffc107
+    style PS4 fill:#ff9800
+    style PS5 fill:#ff5722,color:#fff
+    style PS6 fill:#f44336,color:#fff
+
+    style Final1 fill:#2e7d32,color:#fff
+    style Final2 fill:#9e9e9e,color:#fff
+    style Final3 fill:#c62828,color:#fff
+```

@@ -1,0 +1,85 @@
+{
+  "timestamp": "2025-10-16T15:36:11.818884",
+  "benchmarks": {
+    "database_queries": {
+      "region_select": {
+        "query": "SELECT by region (LIMIT 1000)",
+        "iterations": 10,
+        "avg_ms": 3.106808662414551,
+        "p50_ms": 2.7794837951660156,
+        "p95_ms": 5.459785461425781,
+        "min_ms": 2.7561187744140625,
+        "max_ms": 5.459785461425781
+      },
+      "ticker_region_select": {
+        "query": "SELECT by ticker + region",
+        "iterations": 10,
+        "avg_ms": 0.7789134979248047,
+        "p50_ms": 0.7104873657226562,
+        "p95_ms": 1.3561248779296875
+      },
+      "date_range_select": {
+        "query": "SELECT by date range (LIMIT 1000)",
+        "iterations": 10,
+        "avg_ms": 12.238454818725586,
+        "p50_ms": 3.943920135498047,
+        "p95_ms": 86.77077293395996
+      },
+      "aggregation": {
+        "query": "GROUP BY region",
+        "time_ms": 162.40882873535156
+      }
+    },
+    "collector_init": {
+      "KR": {
+        "avg_ms": 3.8894176483154297,
+        "min_ms": 0.5590915679931641,
+        "max_ms": 17.112016677856445
+      },
+      "US": {
+        "avg_ms": 0.5573749542236328,
+        "min_ms": 0.5421638488769531,
+        "max_ms": 0.5779266357421875
+      },
+      "HK": {
+        "avg_ms": 0.5468368530273438,
+        "min_ms": 0.5412101745605469,
+        "max_ms": 0.5612373352050781
+      },
+      "CN": {
+        "avg_ms": 0.5548477172851562,
+        "min_ms": 0.5440711975097656,
+        "max_ms": 0.5640983581542969
+      },
+      "JP": {
+        "avg_ms": 0.543975830078125,
+        "min_ms": 0.5240440368652344,
+        "max_ms": 0.5669593811035156
+      },
+      "VN": {
+        "avg_ms": 0.5301952362060547,
+        "min_ms": 0.5211830139160156,
+        "max_ms": 0.5440711975097656
+      }
+    },
+    "memory_usage": {
+      "before_mb": 128.046875,
+      "after_mb": 153.375,
+      "delta_mb": 25.328125,
+      "current_mb": 153.375
+    },
+    "database_metrics": {
+      "total_rows": 721781,
+      "db_size_mb": 243.02734375,
+      "avg_row_bytes": 353.0608868895136,
+      "region_counts": {
+        "CN": 30,
+        "HK": 30,
+        "JP": 30,
+        "KR": 721631,
+        "US": 30,
+        "VN": 30
+      }
+    }
+  }
+}

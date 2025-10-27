@@ -1,0 +1,367 @@
+# ============================================================================
+# Factor Library Definitions
+# ============================================================================
+# Purpose: Define factor categories, weights, and calculation parameters
+#
+# Usage:
+#   from modules.factors import FactorScoreCalculator
+#   import yaml
+#
+#   with open('config/factor_definitions.yaml') as f:
+#       config = yaml.safe_load(f)
+#
+#   calculator = FactorScoreCalculator(
+#       factor_weights=config['factors']
+#   )
+#
+# Author: Quant Platform Development Team
+# Last Updated: 2025-10-21
+# Version: 1.0.0
+# ============================================================================
+
+# ============================================================================
+# Factor Categories and Weights
+# ============================================================================
+# Direction:
+#   - "ascending": Lower values are better (e.g., P/E ratio, volatility)
+#   - "descending": Higher values are better (e.g., ROE, momentum)
+# ============================================================================
+
+factors:
+  # ==========================================================================
+  # Value Factors (가치 팩터) - 4 factors
+  # ==========================================================================
+  value:
+    description: "Fundamental valuation metrics indicating undervalued stocks"
+    description_kr: "저평가된 주식을 나타내는 펀더멘털 평가 지표"
+    category_weight: 0.25           # 전체 팩터 중 25% 비중
+
+    factors:
+      - name: "pe_ratio"
+        display_name: "P/E Ratio"
+        display_name_kr: "주가수익비율"
+        weight: 0.25                # 카테고리 내 25%
+        direction: "ascending"      # Lower is better
+        description: "Price-to-Earnings ratio (시가/순이익)"
+        outlier_threshold:
+          min: 0                    # Negative P/E excluded
+          max: 100                  # Very high P/E capped
+
+      - name: "pb_ratio"
+        display_name: "P/B Ratio"
+        display_name_kr: "주가순자산비율"
+        weight: 0.25
+        direction: "ascending"      # Lower is better
+        description: "Price-to-Book ratio (시가/순자산)"
+        outlier_threshold:
+          min: 0
+          max: 20
+
+      - name: "ev_ebitda"
+        display_name: "EV/EBITDA"
+        display_name_kr: "기업가치/EBITDA"
+        weight: 0.25
+        direction: "ascending"      # Lower is better
+        description: "Enterprise Value to EBITDA ratio"
+        outlier_threshold:
+          min: 0
+          max: 50
+
+      - name: "dividend_yield"
+        display_name: "Dividend Yield"
+        display_name_kr: "배당수익률"
+        weight: 0.25
+        direction: "descending"     # Higher is better
+        description: "Annual dividend / stock price"
+        outlier_threshold:
+          min: 0
+          max: 0.15               # 15% max
+
+  # ==========================================================================
+  # Momentum Factors (모멘텀 팩터) - 5 factors
+  # ==========================================================================
+  momentum:
+    description: "Price trend and momentum indicators"
+    description_kr: "가격 추세 및 모멘텀 지표"
+    category_weight: 0.25
+
+    factors:
+      - name: "return_12m"
+        display_name: "12-Month Return"
+        display_name_kr: "12개월 수익률"
+        weight: 0.40                # 카테고리 내 40%
+        direction: "descending"     # Higher is better
+        description: "12-month return excluding last month"
+        lookback_period: 252        # 252 trading days
+        exclude_last_month: true
+
+      - name: "rsi_momentum"
+        display_name: "RSI Momentum"
+        display_name_kr: "RSI 모멘텀"
+        weight: 0.30
+        direction: "descending"     # Higher is better (but not overbought)
+        description: "Relative Strength Index"
+        rsi_period: 14
+        outlier_threshold:
+          min: 30                   # Oversold threshold
+          max: 70                   # Overbought threshold
+
+      - name: "price_52w_high"
+        display_name: "52-Week High Proximity"
+        display_name_kr: "52주 최고가 근접도"
+        weight: 0.30
+        direction: "descending"     # Higher is better
+        description: "Current price / 52-week high"
+        lookback_period: 252
+
+  # ==========================================================================
+  # Quality Factors (품질 팩터) - 9 factors
+  # ==========================================================================
+  quality:
+    description: "Business quality and financial health metrics"
+    description_kr: "기업 품질 및 재무 건전성 지표"
+    category_weight: 0.25
+
+    factors:
+      # Profitability (수익성)
+      - name: "roe"
+        display_name: "Return on Equity"
+        display_name_kr: "자기자본이익률"
+        weight: 0.20
+        direction: "descending"     # Higher is better
+        description: "Net income / Shareholders' equity"
+        outlier_threshold:
+          min: -0.5
+          max: 1.0                  # 100% ROE cap
+
+      - name: "roa"
+        display_name: "Return on Assets"
+        display_name_kr: "총자산이익률"
+        weight: 0.15
+        direction: "descending"
+        description: "Net income / Total assets"
+        outlier_threshold:
+          min: -0.3
+          max: 0.5
+
+      - name: "operating_margin"
+        display_name: "Operating Margin"
+        display_name_kr: "영업이익률"
+        weight: 0.15
+        direction: "descending"
+        description: "Operating income / Revenue"
+        outlier_threshold:
+          min: -0.5
+          max: 1.0
+
+      - name: "net_profit_margin"
+        display_name: "Net Profit Margin"
+        display_name_kr: "순이익률"
+        weight: 0.10
+        direction: "descending"
+        description: "Net income / Revenue"
+        outlier_threshold:
+          min: -0.5
+          max: 1.0
+
+      # Financial Stability (재무 안정성)
+      - name: "current_ratio"
+        display_name: "Current Ratio"
+        display_name_kr: "유동비율"
+        weight: 0.10
+        direction: "descending"     # Higher is better
+        description: "Current assets / Current liabilities"
+        outlier_threshold:
+          min: 0.5
+          max: 5.0
+
+      - name: "quick_ratio"
+        display_name: "Quick Ratio"
+        display_name_kr: "당좌비율"
+        weight: 0.10
+        direction: "descending"
+        description: "(Current assets - Inventory) / Current liabilities"
+        outlier_threshold:
+          min: 0.3
+          max: 3.0
+
+      - name: "debt_to_equity"
+        display_name: "Debt-to-Equity"
+        display_name_kr: "부채비율"
+        weight: 0.10
+        direction: "ascending"      # Lower is better
+        description: "Total debt / Shareholders' equity"
+        outlier_threshold:
+          min: 0
+          max: 5.0
+
+      # Earnings Quality (이익 품질)
+      - name: "accruals_ratio"
+        display_name: "Accruals Ratio"
+        display_name_kr: "발생액비율"
+        weight: 0.05
+        direction: "ascending"      # Lower is better (cash-based earnings)
+        description: "(Net income - Cash flow from operations) / Total assets"
+        outlier_threshold:
+          min: -0.5
+          max: 0.5
+
+      - name: "cf_to_ni_ratio"
+        display_name: "Cash Flow to Net Income"
+        display_name_kr: "현금흐름/순이익 비율"
+        weight: 0.05
+        direction: "descending"     # Higher is better
+        description: "Operating cash flow / Net income"
+        outlier_threshold:
+          min: 0.5
+          max: 3.0
+
+  # ==========================================================================
+  # Low-Volatility Factors (저변동성 팩터) - 3 factors
+  # ==========================================================================
+  low_volatility:
+    description: "Risk reduction and defensive characteristics"
+    description_kr: "리스크 감소 및 방어적 특성"
+    category_weight: 0.15
+
+    factors:
+      - name: "volatility_60d"
+        display_name: "60-Day Volatility"
+        display_name_kr: "60일 변동성"
+        weight: 0.40
+        direction: "ascending"      # Lower is better
+        description: "Standard deviation of 60-day returns"
+        lookback_period: 60
+
+      - name: "beta"
+        display_name: "Market Beta"
+        display_name_kr: "시장 베타"
+        weight: 0.30
+        direction: "ascending"      # Lower is better (defensive)
+        description: "Systematic risk vs. market index"
+        lookback_period: 252
+        outlier_threshold:
+          min: -1.0
+          max: 3.0
+
+      - name: "max_drawdown"
+        display_name: "Maximum Drawdown"
+        display_name_kr: "최대 낙폭"
+        weight: 0.30
+        direction: "ascending"      # Lower is better
+        description: "Peak-to-trough decline"
+        lookback_period: 252
+
+  # ==========================================================================
+  # Size Factors (규모 팩터) - 3 factors
+  # ==========================================================================
+  size:
+    description: "Market capitalization and liquidity metrics"
+    description_kr: "시가총액 및 유동성 지표"
+    category_weight: 0.10
+
+    factors:
+      - name: "market_cap"
+        display_name: "Market Capitalization"
+        display_name_kr: "시가총액"
+        weight: 0.60
+        direction: "ascending"      # Smaller is better (small-cap premium)
+        description: "Total market value of shares"
+        use_log_transform: true     # Log(market cap) for normalization
+
+      - name: "trading_volume"
+        display_name: "Trading Volume"
+        display_name_kr: "거래량"
+        weight: 0.20
+        direction: "descending"     # Higher is better (liquidity)
+        description: "Average daily trading volume (60-day)"
+        lookback_period: 60
+
+      - name: "free_float"
+        display_name: "Free Float"
+        display_name_kr: "유동주식비율"
+        weight: 0.20
+        direction: "descending"     # Higher is better
+        description: "Percentage of freely tradable shares"
+        outlier_threshold:
+          min: 0.1                  # 10% minimum
+          max: 1.0
+
+# ============================================================================
+# Factor Combination Methods (팩터 결합 방법)
+# ============================================================================
+combination_methods:
+  # Default combination method (기본 결합 방법)
+  default: "equal_weight"
+
+  # Available methods (사용 가능한 방법)
+  methods:
+    - equal_weight                  # 동일 가중치
+    - category_weight               # 카테고리별 가중치
+    - optimization                  # 최적화 가중치 (Sharpe 최대화)
+    - pca                           # 주성분 분석
+    - ml_based                      # 기계학습 기반 (XGBoost, RandomForest)
+
+  # Optimization settings (최적화 설정)
+  optimization:
+    method: "sharpe_ratio"          # sharpe_ratio, information_ratio, sortino_ratio
+    lookback_period_months: 36      # 3년 데이터
+    reoptimize_frequency: "annually"
+
+# ============================================================================
+# Factor Score Normalization (팩터 점수 정규화)
+# ============================================================================
+normalization:
+  # Normalization method (정규화 방법)
+  method: "z_score"                 # z_score, min_max, rank, quantile
+
+  # Z-score settings (Z-score 설정)
+  z_score:
+    winsorize: true                 # 이상치 윈저라이징
+    winsorize_threshold: 3.0        # 3 표준편차
+
+  # Rank settings (순위 설정)
+  rank:
+    ascending_rank: true            # true: 1=best, false: 1=worst
+    percentile: true                # Convert to percentile (0-100)
+
+# ============================================================================
+# Universe Filtering (유니버스 필터링)
+# ============================================================================
+universe_filtering:
+  # Minimum requirements (최소 요구사항)
+  min_market_cap_usd: 100000000     # 1억 달러 (small-cap cutoff)
+  min_price_usd: 1.0                # 1달러 (penny stock cutoff)
+  min_daily_volume_usd: 1000000     # 100만 달러 (liquidity)
+
+  # Data quality requirements (데이터 품질 요구사항)
+  max_missing_days: 10              # 최대 10일 결측 허용 (60일 기준)
+  min_data_history_days: 252        # 최소 1년 데이터
+
+# ============================================================================
+# Factor Rebalancing (팩터 리밸런싱)
+# ============================================================================
+rebalancing:
+  # Recalculation frequency (재계산 주기)
+  factor_update_frequency: "daily"  # daily, weekly, monthly
+
+  # Factor weights reoptimization (팩터 가중치 재최적화)
+  weights_reoptimization_frequency: "quarterly"
+
+  # Staleness threshold (팩터 신선도 임계값)
+  max_factor_age_days: 7            # 7일 이상 오래된 팩터는 재계산
+
+# ============================================================================
+# Validation and Testing (검증 및 테스트)
+# ============================================================================
+validation:
+  # Factor efficacy testing (팩터 효과 테스트)
+  test_period_years: 5              # 5년 백테스트
+  out_of_sample_ratio: 0.2          # 20% 표본 외 검증
+
+  # Statistical significance (통계적 유의성)
+  min_ic_correlation: 0.05          # 최소 정보계수 (IC) 0.05
+  min_t_statistic: 2.0              # 최소 t-통계량 2.0 (95% 신뢰)
+
+  # Turnover analysis (회전율 분석)
+  max_turnover_monthly: 0.30        # 월 최대 30% 회전율

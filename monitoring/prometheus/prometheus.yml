@@ -1,0 +1,100 @@
+# Prometheus Configuration for Spock Trading System
+# Multi-Region Monitoring Setup
+
+global:
+  scrape_interval: 15s      # Collect metrics every 15 seconds
+  evaluation_interval: 15s   # Evaluate rules every 15 seconds
+  external_labels:
+    cluster: 'spock-trading'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - localhost:9093
+
+# Load alert rules
+rule_files:
+  - "alerts.yml"           # Legacy Spock trading system alerts
+  - "quant_alerts.yml"     # Quant platform alerts (backtest, factor, optimization)
+
+# Scrape configurations
+scrape_configs:
+  # Quant Platform FastAPI Backend
+  - job_name: 'quant-platform-api'
+    static_configs:
+      - targets: ['host.docker.internal:8000']
+        labels:
+          service: 'quant-platform'
+          component: 'api'
+    metrics_path: '/metrics/'
+    scrape_interval: 10s
+
+  # Spock Trading System Metrics (Legacy - Commented Out)
+  # - job_name: 'spock_trading'
+  #   static_configs:
+  #     - targets: ['localhost:8000']
+  #       labels:
+  #         service: 'spock'
+  #         region: 'all'
+
+  # Korea Market Adapter
+  - job_name: 'spock_kr_adapter'
+    static_configs:
+      - targets: ['localhost:8001']
+        labels:
+          service: 'adapter'
+          region: 'KR'
+          market: 'KOSPI/KOSDAQ'
+
+  # US Market Adapter
+  - job_name: 'spock_us_adapter'
+    static_configs:
+      - targets: ['localhost:8002']
+        labels:
+          service: 'adapter'
+          region: 'US'
+          market: 'NYSE/NASDAQ/AMEX'
+
+  # China Market Adapter
+  - job_name: 'spock_cn_adapter'
+    static_configs:
+      - targets: ['localhost:8003']
+        labels:
+          service: 'adapter'
+          region: 'CN'
+          market: 'SSE/SZSE'
+
+  # Hong Kong Market Adapter
+  - job_name: 'spock_hk_adapter'
+    static_configs:
+      - targets: ['localhost:8004']
+        labels:
+          service: 'adapter'
+          region: 'HK'
+          market: 'HKEX'
+
+  # Japan Market Adapter
+  - job_name: 'spock_jp_adapter'
+    static_configs:
+      - targets: ['localhost:8005']
+        labels:
+          service: 'adapter'
+          region: 'JP'
+          market: 'TSE'
+
+  # Vietnam Market Adapter
+  - job_name: 'spock_vn_adapter'
+    static_configs:
+      - targets: ['localhost:8006']
+        labels:
+          service: 'adapter'
+          region: 'VN'
+          market: 'HOSE/HNX'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

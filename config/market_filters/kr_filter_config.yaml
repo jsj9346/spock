@@ -1,0 +1,339 @@
+# ===================================
+# Korea Market Filter Configuration
+# ===================================
+# Market: KOSPI/KOSDAQ
+# Currency: KRW (Korean Won)
+# Updated: 2025-10-04
+
+region: KR
+market_name: "Korea (KOSPI/KOSDAQ)"
+currency: KRW
+
+# Exchange Rate Configuration
+# KRW is the base currency, so rate is fixed at 1.0
+exchange_rate:
+  source: "fixed"  # No conversion needed for base currency
+  default_rate: 1.0
+  update_frequency_minutes: 0  # No updates required
+
+# ===================================
+# STAGE 0 FILTERS (Basic Market Filter)
+# ===================================
+stage0_filters:
+  # Market Capitalization (시가총액)
+  # Threshold: 1,000억원 (100B KRW) - Filters out micro-caps
+  min_market_cap_local: 100000000000  # 100B KRW (1,000억원)
+  min_market_cap_krw: 100000000000    # 100B KRW (1,000억원)
+
+  # Daily Trading Value (일 거래대금)
+  # Threshold: 100억원/일 (10B KRW/day) - Ensures adequate liquidity
+  min_trading_value_local: 10000000000  # 10B KRW/day (100억원/일)
+  min_trading_value_krw: 10000000000    # 10B KRW/day (100억원/일)
+
+  # Price Range (가격 범위)
+  # Min: 5,000원 (avoids penny stocks), Max: 500,000원 (avoids tick size issues)
+  price_range_min_local: 0      # 0 KRW -> 제한 없음
+  price_range_max_local: 0    # 500,000 KRW
+  price_range_min_krw: 0
+  price_range_max_krw: 0
+
+  # ===================================
+  # Market-Specific Exclusion Rules
+  # ===================================
+
+  # 관리종목 제외 (Admin/Warning Stocks)
+  # Stocks under exchange surveillance (high delisting risk)
+  exclude_admin_stocks: true
+  admin_stock_codes:
+    - "01"  # 투자주의
+    - "02"  # 투자경고
+    - "03"  # 투자위험
+
+  # 정리매매 제외 (Delisting Process)
+  # Stocks in delisting process
+  exclude_delisting: true
+
+  # ETF/ETN 제외
+  # Exchange Traded Funds and Notes
+  exclude_etf: true
+  exclude_etn: true
+
+  # SPAC 제외
+  # Special Purpose Acquisition Companies
+  exclude_spac: true
+
+  # 우선주 제외 (Preferred Stocks)
+  # Lower liquidity, different trading patterns
+  exclude_preferred_stock: true
+
+  # KONEX 제외
+  # Korea New Exchange (high-risk small caps)
+  exclude_konex: true
+
+  # 상장폐지 예정 제외
+  # Stocks scheduled for delisting
+  exclude_scheduled_delisting: true
+
+# ===================================
+# API CONFIGURATION
+# ===================================
+api:
+  # Data Source
+  data_source: "KIS_API"
+
+  # KIS API Endpoint for Current Price Quote
+  endpoint_pattern: "/uapi/domestic-stock/v1/quotations/inquire-price"
+
+  # Transaction ID for Current Price
+  tr_id: "FHKST01010100"
+
+  # Rate Limiting (KIS API limits)
+  rate_limit_per_sec: 20    # Max 20 requests per second
+  rate_limit_per_min: 1000  # Max 1,000 requests per minute
+
+  # Timeout Settings
+  timeout_sec: 10
+  max_retries: 3
+  retry_delay_sec: 1
+
+# ===================================
+# CACHE SETTINGS
+# ===================================
+cache:
+  # Cache TTL (Time To Live)
+  ttl_market_hours: 3600       # 1 hour during trading hours (09:00-15:30)
+  ttl_after_hours: 86400       # 24 hours after market close
+
+  # Database Table
+  table_name: "filter_cache_stage0"
+
+  # Cache Strategy
+  strategy: "write-through"  # Update cache immediately after fetching
+
+  # Cache Cleanup
+  cleanup_older_than_days: 7  # Remove cache older than 7 days
+
+# ===================================
+# TRADING HOURS (Korea Time - KST)
+# ===================================
+trading_hours:
+  timezone: "Asia/Seoul"
+
+  # Regular Trading Session
+  regular_session:
+    start: "09:00"
+    end: "15:30"
+
+  # Pre-Market Session (optional, for future use)
+  pre_market:
+    start: "08:30"
+    end: "09:00"
+
+  # Post-Market Session (optional, for future use)
+  post_market:
+    start: "15:30"
+    end: "16:00"
+
+  # Lunch Break
+  has_lunch_break: false
+  lunch_break: null
+
+  # Market Holidays (Korean national holidays)
+  # Note: Loaded separately from market_schedule.json
+  holiday_calendar: "config/market_schedule.json"
+
+# ===================================
+# TICK SIZE RULES (호가 단위)
+# ===================================
+# Price-dependent tick size for order placement
+tick_size_rules:
+  - price_min: 0
+    price_max: 1000
+    tick_size: 1
+    description: "Under 1,000원"
+
+  - price_min: 1000
+    price_max: 5000
+    tick_size: 5
+    description: "1,000원 ~ 5,000원"
+
+  - price_min: 5000
+    price_max: 10000
+    tick_size: 10
+    description: "5,000원 ~ 10,000원"
+
+  - price_min: 10000
+    price_max: 50000
+    tick_size: 50
+    description: "10,000원 ~ 50,000원"
+
+  - price_min: 50000
+    price_max: 100000
+    tick_size: 100
+    description: "50,000원 ~ 100,000원"
+
+  - price_min: 100000
+    price_max: 500000
+    tick_size: 500
+    description: "100,000원 ~ 500,000원"
+
+  - price_min: 500000
+    price_max: null  # No upper limit
+    tick_size: 1000
+    description: "500,000원 이상"
+
+# ===================================
+# TRANSACTION COSTS (거래 비용)
+# ===================================
+transaction_costs:
+  # Trading Fee (매매 수수료)
+  trading_fee_rate: 0.00015  # 0.015% (online trading)
+
+  # Securities Transaction Tax (증권거래세)
+  # KOSPI: 0.23% (sell only)
+  # KOSDAQ: 0.15% (sell only)
+  securities_tax_kospi: 0.0023   # 0.23%
+  securities_tax_kosdaq: 0.0015  # 0.15%
+
+  # Settlement Period
+  settlement_days: 2  # T+2
+
+# ===================================
+# DATA QUALITY VALIDATION
+# ===================================
+data_validation:
+  # Required Fields
+  required_fields:
+    - ticker
+    - name
+    - market_cap
+    - trading_value
+    - current_price
+
+  # Value Ranges (sanity checks)
+  max_market_cap_krw: 1000000000000000  # 1,000조원 (sanity check)
+  max_trading_value_krw: 10000000000000  # 10조원/일
+  max_price_krw: 10000000  # 1,000만원
+
+  # Data Freshness
+  max_data_age_hours: 24
+
+# ===================================
+# LOGGING & MONITORING
+# ===================================
+logging:
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+  # Log Filter Results
+  log_passed_tickers: true
+  log_filtered_tickers: true
+  log_filter_reasons: true
+
+  # Performance Metrics
+  log_execution_time: true
+  log_api_calls: true
+  log_cache_hits: true
+
+# ===================================
+# PERFORMANCE EXPECTATIONS
+# ===================================
+performance:
+  # Expected Throughput
+  expected_input_count: 3000     # Total KOSPI/KOSDAQ stocks
+  expected_output_count: 600     # After Stage 0 filtering (80% reduction)
+  expected_reduction_rate: 0.80  # 80% filtered out
+
+  # Timing Targets
+  target_execution_time_sec: 10  # Target: < 10 seconds for Stage 0
+  target_api_calls: 3000         # One call per ticker (or batch)
+
+  # Cache Performance
+  target_cache_hit_rate: 0.80    # 80% cache hits during market hours
+
+# ===================================
+# STAGE 1 FILTERS (Technical Pre-screen)
+# ===================================
+stage1_filters:
+  # Moving Average Alignment (이동평균 정배열)
+  # Check: 5 > 20 > 60 > 120 > 200 (bullish structure)
+  ma_alignment:
+    enabled: true
+    required_alignment: "5>20>60"  # Minimum: MA5 > MA20 > MA60
+    full_alignment: "5>20>60>120>200"  # Ideal: All MAs aligned
+    min_score: 75  # Minimum MA alignment score to pass
+
+  # RSI Range (상대강도지수)
+  # Avoid overbought/oversold conditions
+  rsi_min: 30   # Below 30 = oversold (too weak)
+  rsi_max: 70   # Above 70 = overbought (too strong)
+  rsi_ideal: 50  # Ideal RSI = 50 (neutral strength)
+
+  # MACD Signal (MACD 시그널)
+  # Require bullish crossover
+  macd:
+    enabled: true
+    require_bullish: true  # MACD > Signal and Histogram > 0
+    allow_neutral: false   # Don't allow neutral signals
+
+  # Volume Spike (거래량 급증)
+  # Recent volume should exceed 20-day average
+  volume_spike:
+    enabled: true
+    spike_ratio: 1.5  # Volume > 1.5x 20-day average
+    lookback_days: 20
+
+  # Price Position (가격 위치)
+  # Price should be above MA20 (support level)
+  price_position:
+    enabled: true
+    min_position: "above_ma20"  # Price > MA20
+    ideal_position: "above_ma60"  # Price > MA60 is better
+
+  # Stage 1 Scoring Weights
+  scoring_weights:
+    ma_alignment: 0.30    # 30% - Most important
+    rsi: 0.25             # 25% - Strength indicator
+    macd: 0.20            # 20% - Momentum indicator
+    volume: 0.15          # 15% - Volume confirmation
+    price_position: 0.10  # 10% - Support level
+
+  # Minimum Stage 1 Score to Pass
+  min_stage1_score: 65  # 65/100 minimum to pass to Stage 2
+
+# ===================================
+# NOTES & DOCUMENTATION
+# ===================================
+notes: |
+  Korea Market Filter Configuration
+
+  Purpose: Multi-stage filtering for KOSPI/KOSDAQ stocks
+
+  STAGE 0 - Basic Market Filter:
+  - Market cap threshold: 1,000억원 (filters out micro-caps)
+  - Trading value threshold: 100억원/day (ensures liquidity)
+  - Price range: 5,000원 ~ 500,000원 (avoids penny stocks and tick size issues)
+  - Comprehensive exclusions: Admin stocks, ETF/ETN, SPAC, preferred stocks, KONEX
+  - Expected: 3,000 → 600 stocks (80% reduction)
+
+  STAGE 1 - Technical Pre-screen:
+  - MA alignment: 5 > 20 > 60 > 120 > 200 (bullish structure)
+  - RSI range: 30-70 (not overbought/oversold)
+  - MACD: Bullish crossover required
+  - Volume spike: >1.5x 20-day average
+  - Price position: Above MA20 support
+  - Expected: 600 → 250 stocks (58% reduction)
+
+  STAGE 2 - Deep Analysis (LayeredScoringEngine):
+  - 100-point scoring system (Macro + Structural + Micro layers)
+  - Pattern recognition (Cup & Handle, VCP, etc.)
+  - Market regime analysis
+  - Expected: 250 → 30-50 BUY candidates (88% reduction)
+
+  Overall Pipeline:
+  - Total: 3,000 → 600 → 250 → 30-50 stocks (98-99% reduction)
+  - Execution time: ~15-20 seconds total
+
+  For multi-market expansion:
+  - US market: See us_filter_config.yaml
+  - Hong Kong: See hk_filter_config.yaml
+  - China: See cn_filter_config.yaml

@@ -1,0 +1,151 @@
+# ============================================================================
+# Quant Investment Platform - Requirements
+# ============================================================================
+# This file defines dependencies for the Quant Investment Platform.
+# Install with: pip install -r requirements_quant.txt
+#
+# Author: Quant Platform Development Team
+# Last Updated: 2025-10-20
+# ============================================================================
+
+# ============================================================================
+# Core Dependencies (Required)
+# ============================================================================
+
+# Data Manipulation & Analysis
+pandas==2.0.3                 # DataFrame operations, time-series analysis
+numpy==1.24.3                 # Numerical computing, linear algebra
+scipy==1.11.0                 # Scientific computing, optimization algorithms
+scikit-learn==1.3.0           # Machine learning, factor combination
+statsmodels==0.14.0           # Econometric models, statistical testing
+
+# ============================================================================
+# Database (PostgreSQL + TimescaleDB)
+# ============================================================================
+
+psycopg2-binary==2.9.7        # PostgreSQL adapter for Python
+# Note: Use psycopg2-binary for development, psycopg2 for production
+
+# ============================================================================
+# Backtesting Engines
+# ============================================================================
+
+backtrader==1.9.78.123        # Primary backtesting framework (event-driven)
+zipline-reloaded==2.4.0       # Secondary framework (Quantopian-style API)
+vectorbt==0.25.6              # Tertiary framework (ultra-fast vectorized)
+
+# ============================================================================
+# Portfolio Optimization
+# ============================================================================
+
+cvxpy==1.3.2                  # Convex optimization (Markowitz, constraints)
+PyPortfolioOpt==1.5.5         # Portfolio optimization toolkit
+riskfolio-lib==4.3.0          # Advanced portfolio optimization
+# scipy (defined above) - Required for optimization algorithms
+
+# ============================================================================
+# Technical Analysis (Reused from Spock)
+# ============================================================================
+
+pandas-ta==0.3.14b0           # Technical indicators library
+
+# ============================================================================
+# Web Framework & API
+# ============================================================================
+
+fastapi==0.103.1              # Async REST API framework
+streamlit==1.27.0             # Interactive research dashboard
+uvicorn==0.23.2               # ASGI server for FastAPI
+pydantic==2.4.2               # Data validation for FastAPI
+
+# ============================================================================
+# Visualization
+# ============================================================================
+
+plotly==5.17.0                # Interactive charts (dashboard)
+matplotlib==3.7.2             # Static plots (reused from Spock)
+seaborn==0.12.2               # Statistical data visualization
+mplfinance==0.12.10b0         # Financial charts (reused from Spock)
+
+# ============================================================================
+# Configuration & Logging
+# ============================================================================
+
+python-dotenv==1.0.0          # Environment variable management
+pyyaml==6.0.1                 # YAML configuration files
+loguru==0.7.0                 # Enhanced logging
+
+# ============================================================================
+# Security & Authentication
+# ============================================================================
+
+PyJWT==2.8.0                  # JSON Web Tokens (reused from Spock)
+requests>=2.31.0              # HTTP client (reused from Spock)
+
+# ============================================================================
+# System Monitoring & Performance
+# ============================================================================
+
+psutil==5.9.5                 # System resource monitoring
+tqdm==4.67.1                  # Progress bars (migration, data processing)
+prometheus-client==0.23.1     # Metrics export for monitoring
+
+# ============================================================================
+# Data Collection (Reused from Spock - 70% Code Reuse)
+# ============================================================================
+
+# Korea Stock Exchange
+pykrx>=1.0.51                 # KRX data API (fallback)
+finance-datareader>=0.9.50    # FinanceDataReader (fallback)
+
+# ============================================================================
+# Optional: AI-Powered Analysis (Phase 3+)
+# ============================================================================
+
+# openai==0.28.1              # GPT-based analysis (uncomment if needed)
+# tiktoken==0.4.0             # Token counting for GPT (uncomment if needed)
+
+# ============================================================================
+# Development & Testing (Optional)
+# ============================================================================
+
+# pytest==7.4.2               # Testing framework
+# pytest-cov==4.1.0           # Code coverage
+# black==23.9.1               # Code formatter
+# flake8==6.1.0               # Linter
+# mypy==1.5.1                 # Type checker
+
+# ============================================================================
+# Notes & Installation Tips
+# ============================================================================
+
+# PostgreSQL + TimescaleDB Installation:
+# ----------------------------------------
+# macOS:
+#   brew install postgresql@15
+#   brew install timescaledb
+#   timescaledb-tune --quiet --yes
+#
+# Ubuntu/Debian:
+#   sudo apt install postgresql-15
+#   sudo apt install timescaledb-2-postgresql-15
+#   sudo timescaledb-tune --quiet --yes
+#
+# Create database:
+#   createdb quant_platform
+#   psql -d quant_platform -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
+
+# ============================================================================
+# Dependency Compatibility Matrix
+# ============================================================================
+# Python Version: 3.11+
+# PostgreSQL: 15.5+
+# TimescaleDB: 2.11+
+# Tested on: macOS Sonoma 14.x, Ubuntu 22.04 LTS
+
+# ============================================================================
+# Total Dependencies: 28 packages
+# Estimated Install Time: 5-10 minutes
+# Estimated Disk Space: ~500 MB (with dependencies)
+# ============================================================================
+scipy

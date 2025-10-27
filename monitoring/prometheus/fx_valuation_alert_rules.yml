@@ -1,0 +1,434 @@
+# FX Valuation Alert Rules - Phase 3
+#
+# Purpose: Automated alerts for currency investment signals and data quality monitoring
+# Integration: Prometheus + Alertmanager + Grafana
+#
+# Alert Severity Levels:
+#   - critical: Immediate action required (data quality failures)
+#   - warning: Review recommended (confidence degradation, trend changes)
+#   - info: Informational (buy/sell signals, analysis completion)
+#
+# Created: 2025-10-24
+
+groups:
+  - name: fx_valuation_signals
+    interval: 1m
+    rules:
+      # ================================================================
+      # CRITICAL ALERTS - Data Quality
+      # ================================================================
+
+      - alert: FXDataQualityCritical
+        expr: |
+          fx_valuation_confidence < 0.3
+          AND fx_valuation_data_quality == 1
+        for: 5m
+        labels:
+          severity: critical
+          category: data_quality
+          component: fx_valuation
+        annotations:
+          summary: "Critical data quality issue for {{ $labels.currency }}"
+          description: |
+            Currency: {{ $labels.currency }}
+            Confidence: {{ $value | humanizePercentage }}
+            Data Quality: {{ $labels.data_quality }}
+
+            **Impact**: Valuation analysis unreliable, investment signals invalid
+
+            **Action Required**:
+            1. Check FX data collection logs (logs/fx_collection_*.log)
+            2. Verify BOK API connectivity
+            3. Run manual backfill: python3 scripts/backfill_fx_history.py --currencies {{ $labels.currency }}
+            4. Review database for data gaps
+
+            **Dashboard**: http://localhost:3000/d/fx-valuation-dashboard
+          dashboard: "http://localhost:3000/d/fx-valuation-dashboard?var-currency={{ $labels.currency }}"
+
+      - alert: FXAnalysisFailed
+        expr: |
+          rate(fx_valuation_analysis_errors_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          category: system
+          component: fx_valuation
+        annotations:
+          summary: "FX valuation analysis failing for {{ $labels.currency }}"
+          description: |
+            Currency: {{ $labels.currency }}
+            Error Rate: {{ $value | humanize }} errors/sec
+
+            **Impact**: No updated investment signals available
+
+            **Action Required**:
+            1. Check analyzer logs: logs/fx_analysis.log
+            2. Verify database connectivity
+            3. Check for schema mismatches
+            4. Run dry-run test: python3 scripts/analyze_fx_valuation.py --currencies {{ $labels.currency }} --dry-run
+
+            **Common Causes**:
+            - Database connection timeout
+            - Missing historical data
+            - Schema alignment issues
+          runbook: "docs/PHASE2_FX_VALUATION_SUMMARY.md#troubleshooting"
+
+      # ================================================================
+      # WARNING ALERTS - Data Quality & Trends
+      # ================================================================
+
+      - alert: FXConfidenceDegraded
+        expr: |
+          fx_valuation_confidence < 0.5
+          AND fx_valuation_confidence >= 0.3
+        for: 10m
+        labels:
+          severity: warning
+          category: data_quality
+          component: fx_valuation
+        annotations:
+          summary: "Low confidence for {{ $labels.currency }} valuation"
+          description: |
+            Currency: {{ $labels.currency }}
+            Confidence: {{ $value | humanizePercentage }}
+
+            **Impact**: Investment signals less reliable
+
+            **Review Recommended**:
+            1. Check data completeness (last 365 days)
+            2. Review data quality score distribution
+            3. Consider increasing confidence threshold for signals
+
+            **Dashboard Panel**: Data Quality Warnings
+            **Query**: SELECT * FROM fx_valuation_signals WHERE currency = '{{ $labels.currency }}' ORDER BY date DESC LIMIT 30;
+
+      - alert: FXAttractivenessTrendDown
+        expr: |
+          (
+            fx_valuation_attractiveness_score -
+            fx_valuation_attractiveness_score offset 7d
+          ) < -20
+          AND fx_valuation_confidence > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          category: market_trend
+          component: fx_valuation
+        annotations:
+          summary: "{{ $labels.currency }} attractiveness declined sharply"
+          description: |
+            Currency: {{ $labels.currency }}
+            Current Attractiveness: {{ $value | humanize }}
+            7-Day Change: {{ $value | humanize }} points
+
+            **Trend Analysis**:
+            - Review momentum indicators (may be reversing)
+            - Check volatility changes
+            - Analyze multi-period returns
+
+            **Consider**:
+            - Reducing position size
+            - Setting tighter stop-loss
+            - Reviewing fundamental factors
+
+            **Dashboard Panel**: Attractiveness Trend (Last 30 Days)
+
+      - alert: FXVolatilitySpike
+        expr: |
+          fx_valuation_volatility > 0.3
+          AND fx_valuation_confidence > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          category: risk
+          component: fx_valuation
+        annotations:
+          summary: "High volatility detected for {{ $labels.currency }}"
+          description: |
+            Currency: {{ $labels.currency }}
+            Volatility (60-day): {{ $value | humanizePercentage }}
+
+            **Risk Assessment**:
+            - Volatility exceeds 30% threshold (high risk)
+            - Position sizing should be reduced
+            - Stop-loss adjustments recommended
+
+            **Action**:
+            1. Review momentum vs volatility scatter plot
+            2. Consider reducing exposure
+            3. Check for market events or news
+
+            **Dashboard Panel**: Momentum vs Volatility (Risk-Return)
+
+      - alert: FXDataStaleness
+        expr: |
+          time() - fx_valuation_last_update_timestamp > 86400
+        for: 30m
+        labels:
+          severity: warning
+          category: data_quality
+          component: fx_valuation
+        annotations:
+          summary: "Stale valuation data for {{ $labels.currency }}"
+          description: |
+            Currency: {{ $labels.currency }}
+            Last Update: {{ $value | humanizeDuration }} ago
+
+            **Impact**: Investment signals may be outdated
+
+            **Check**:
+            1. Verify daily collection cron job status
+            2. Check if market is open (weekends/holidays)
+            3. Review collection logs for errors
+
+            **Manual Trigger**:
+            python3 scripts/analyze_fx_valuation.py --currencies {{ $labels.currency }}
+
+      # ================================================================
+      # INFO ALERTS - Investment Signals
+      # ================================================================
+
+      - alert: FXBuySignalHighConfidence
+        expr: |
+          fx_valuation_attractiveness_score > 75
+          AND fx_valuation_confidence > 0.8
+          AND fx_valuation_data_quality == 1
+        for: 15m
+        labels:
+          severity: info
+          category: investment_signal
+          signal_type: buy
+          component: fx_valuation
+        annotations:
+          summary: "🟢 BUY signal for {{ $labels.currency }}"
+          description: |
+            **Investment Opportunity Detected**
+
+            Currency: {{ $labels.currency }}
+            Attractiveness: {{ $value | humanize }}/100
+            Confidence: {{ $labels.confidence | humanizePercentage }}
+
+            **Valuation Metrics**:
+            - 12M Return: {{ $labels.return_12m | humanizePercentage }}
+            - Trend Score: {{ $labels.trend_score | humanize }}/100
+            - Momentum: {{ $labels.momentum_acceleration | humanize }}/100
+            - Volatility: {{ $labels.volatility | humanizePercentage }}
+
+            **Signal Criteria Met**:
+            ✅ Attractiveness > 75 (strong buy zone)
+            ✅ Confidence > 80% (high reliability)
+            ✅ Data quality: GOOD
+
+            **Recommended Actions**:
+            1. Review detailed metrics in dashboard
+            2. Verify trend continuation
+            3. Check correlation with portfolio holdings
+            4. Consider position size based on volatility
+
+            **Dashboard**: http://localhost:3000/d/fx-valuation-dashboard?var-currency={{ $labels.currency }}
+          dashboard: "http://localhost:3000/d/fx-valuation-dashboard?var-currency={{ $labels.currency }}"
+
+      - alert: FXSellSignalHighConfidence
+        expr: |
+          fx_valuation_attractiveness_score < 25
+          AND fx_valuation_confidence > 0.8
+          AND fx_valuation_data_quality == 1
+        for: 15m
+        labels:
+          severity: info
+          category: investment_signal
+          signal_type: sell
+          component: fx_valuation
+        annotations:
+          summary: "🔴 SELL signal for {{ $labels.currency }}"
+          description: |
+            **Exit Opportunity Detected**
+
+            Currency: {{ $labels.currency }}
+            Attractiveness: {{ $value | humanize }}/100
+            Confidence: {{ $labels.confidence | humanizePercentage }}
+
+            **Valuation Metrics**:
+            - 12M Return: {{ $labels.return_12m | humanizePercentage }}
+            - Trend Score: {{ $labels.trend_score | humanize }}/100
+            - Momentum: {{ $labels.momentum_acceleration | humanize }}/100
+            - Volatility: {{ $labels.volatility | humanizePercentage }}
+
+            **Signal Criteria Met**:
+            ✅ Attractiveness < 25 (weak/sell zone)
+            ✅ Confidence > 80% (high reliability)
+            ✅ Data quality: GOOD
+
+            **Recommended Actions**:
+            1. Review trend reversal indicators
+            2. Check momentum deterioration
+            3. Consider reducing/closing position
+            4. Review portfolio impact
+
+            **Dashboard**: http://localhost:3000/d/fx-valuation-dashboard?var-currency={{ $labels.currency }}
+          dashboard: "http://localhost:3000/d/fx-valuation-dashboard?var-currency={{ $labels.currency }}"
+
+      - alert: FXNewBuyOpportunity
+        expr: |
+          (
+            fx_valuation_attractiveness_score > 75
+            AND fx_valuation_attractiveness_score offset 1d <= 75
+          )
+          AND fx_valuation_confidence > 0.7
+        for: 5m
+        labels:
+          severity: info
+          category: investment_signal
+          signal_type: buy_new
+          component: fx_valuation
+        annotations:
+          summary: "New buy opportunity: {{ $labels.currency }}"
+          description: |
+            Currency: {{ $labels.currency }}
+            Attractiveness: {{ $value | humanize }}/100 (crossed 75 threshold)
+
+            **New Development**:
+            Currency just entered buy zone (crossed >75 threshold)
+
+            **Review**:
+            1. Verify trend strength and sustainability
+            2. Check if this is trend continuation or reversal
+            3. Assess entry timing and position size
+
+      - alert: FXAnalysisComplete
+        expr: |
+          increase(fx_valuation_analysis_success_total[1h]) > 0
+        for: 1m
+        labels:
+          severity: info
+          category: system
+          component: fx_valuation
+        annotations:
+          summary: "Daily FX valuation analysis completed"
+          description: |
+            **Analysis Summary**:
+            Currencies Analyzed: {{ $labels.currencies_count }}
+            Success Rate: {{ $value | humanizePercentage }}
+
+            **Review Dashboard**:
+            - Currency Attractiveness Heatmap
+            - Buy/Sell Signals
+            - Data Quality Warnings
+
+            **Dashboard**: http://localhost:3000/d/fx-valuation-dashboard
+
+      # ================================================================
+      # RECORDING RULES - Pre-aggregated Metrics
+      # ================================================================
+
+  - name: fx_valuation_recording
+    interval: 1m
+    rules:
+      # Average attractiveness across all currencies
+      - record: fx_valuation:attractiveness:avg
+        expr: |
+          avg(fx_valuation_attractiveness_score{data_quality="GOOD"})
+
+      # Average confidence across all currencies
+      - record: fx_valuation:confidence:avg
+        expr: |
+          avg(fx_valuation_confidence{data_quality="GOOD"})
+
+      # Count of buy signals (high confidence)
+      - record: fx_valuation:buy_signals:count
+        expr: |
+          count(
+            fx_valuation_attractiveness_score > 75
+            AND fx_valuation_confidence > 0.8
+            AND fx_valuation_data_quality == 1
+          )
+
+      # Count of sell signals (high confidence)
+      - record: fx_valuation:sell_signals:count
+        expr: |
+          count(
+            fx_valuation_attractiveness_score < 25
+            AND fx_valuation_confidence > 0.8
+            AND fx_valuation_data_quality == 1
+          )
+
+      # Count of low confidence currencies
+      - record: fx_valuation:low_confidence:count
+        expr: |
+          count(fx_valuation_confidence < 0.5)
+
+      # Analysis success rate (last hour)
+      - record: fx_valuation:analysis:success_rate_1h
+        expr: |
+          rate(fx_valuation_analysis_success_total[1h]) /
+          rate(fx_valuation_analysis_total[1h])
+
+      # Average 12-month return (high confidence only)
+      - record: fx_valuation:return_12m:avg_high_confidence
+        expr: |
+          avg(
+            fx_valuation_return_12m{confidence > 0.8, data_quality="GOOD"}
+          )
+
+      # Average volatility (high confidence only)
+      - record: fx_valuation:volatility:avg_high_confidence
+        expr: |
+          avg(
+            fx_valuation_volatility{confidence > 0.8, data_quality="GOOD"}
+          )
+
+# ================================================================
+# Alertmanager Configuration Notes
+# ================================================================
+#
+# These alerts should be routed to:
+#
+# 1. Critical Alerts (data_quality, system):
+#    - Immediate notification (Slack/Email)
+#    - Page on-call engineer
+#    - Auto-create incident ticket
+#
+# 2. Warning Alerts (data_quality, market_trend, risk):
+#    - Slack notification
+#    - Email daily digest
+#    - Dashboard annotation
+#
+# 3. Info Alerts (investment_signal, system):
+#    - Slack channel (#fx-signals)
+#    - Email daily summary
+#    - Log to investment journal
+#
+# Example Alertmanager route:
+#
+# routes:
+#   - match:
+#       component: fx_valuation
+#       severity: critical
+#     receiver: pagerduty
+#     continue: true
+#
+#   - match:
+#       component: fx_valuation
+#       severity: warning
+#     receiver: slack-warnings
+#
+#   - match:
+#       component: fx_valuation
+#       category: investment_signal
+#     receiver: slack-fx-signals
+#
+# ================================================================
+# Dashboard Integration
+# ================================================================
+#
+# These alerts appear in Grafana dashboard:
+# - Alert panel showing active alerts
+# - Annotations on time series charts
+# - Alert history table
+#
+# Alert states:
+# - Pending: Condition met but not for duration
+# - Firing: Alert actively firing
+# - Resolved: Condition no longer met
+#
+# ================================================================

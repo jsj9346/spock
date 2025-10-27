@@ -1,0 +1,10 @@
+{
+  "started_at": "2025-10-20T14:48:23.358622",
+  "completed_tables": [
+    "global_market_indices"
+  ],
+  "current_table": null,
+  "current_offset": 0,
+  "total_migrated": 6,
+  "errors": []
+}

@@ -1,0 +1,412 @@
+[
+  {
+    "date": "2024-10-10",
+    "region": "KR",
+    "correlation_matrix": {
+      "12M_Momentum": {
+        "12M_Momentum": 1.0,
+        "1M_Momentum": 0.07168757554978501,
+        "Current_Ratio": 0.09813973521001577,
+        "Debt_Ratio": -0.01464315981191345,
+        "Operating_Profit_Margin": 0.4204003946000959,
+        "PB_Ratio": -0.35588746123307663,
+        "PE_Ratio": -0.12125758903072163,
+        "ROE_Proxy": 0.4413787355071066,
+        "RSI_Momentum": 0.07168757554978501
+      },
+      "1M_Momentum": {
+        "12M_Momentum": 0.07168757554978501,
+        "1M_Momentum": 1.0,
+        "Current_Ratio": 0.07963323145318144,
+        "Debt_Ratio": -0.04617949430397333,
+        "Operating_Profit_Margin": 0.1233676021116977,
+        "PB_Ratio": -0.21668333922535224,
+        "PE_Ratio": -0.1314253959433176,
+        "ROE_Proxy": 0.14970825229230342,
+        "RSI_Momentum": 1.0
+      },
+      "Current_Ratio": {
+        "12M_Momentum": 0.09813973521001577,
+        "1M_Momentum": 0.07963323145318144,
+        "Current_Ratio": 1.0,
+        "Debt_Ratio": 0.6718532925812726,
+        "Operating_Profit_Margin": 0.04367879966657405,
+        "PB_Ratio": -0.18300544654246856,
+        "PE_Ratio": -0.24612392331203112,
+        "ROE_Proxy": -0.04973603778827452,
+        "RSI_Momentum": 0.07963323145318144
+      },
+      "Debt_Ratio": {
+        "12M_Momentum": -0.01464315981191345,
+        "1M_Momentum": -0.04617949430397333,
+        "Current_Ratio": 0.6718532925812726,
+        "Debt_Ratio": 1.0,
+        "Operating_Profit_Margin": 0.05929424840233398,
+        "PB_Ratio": 0.22507502535590576,
+        "PE_Ratio": -0.03845512642400667,
+        "ROE_Proxy": -0.33414837454848567,
+        "RSI_Momentum": -0.04617949430397333
+      },
+      "Operating_Profit_Margin": {
+        "12M_Momentum": 0.4204003946000959,
+        "1M_Momentum": 0.1233676021116977,
+        "Current_Ratio": 0.04367879966657405,
+        "Debt_Ratio": 0.05929424840233398,
+        "Operating_Profit_Margin": 1.0,
+        "PB_Ratio": -0.10308991902103833,
+        "PE_Ratio": 0.09408168935815504,
+        "ROE_Proxy": 0.7039177549319255,
+        "RSI_Momentum": 0.1233676021116977
+      },
+      "PB_Ratio": {
+        "12M_Momentum": -0.35588746123307663,
+        "1M_Momentum": -0.21668333922535224,
+        "Current_Ratio": -0.18300544654246856,
+        "Debt_Ratio": 0.22507502535590576,
+        "Operating_Profit_Margin": -0.10308991902103833,
+        "PB_Ratio": 1.0,
+        "PE_Ratio": 0.6782816504861309,
+        "ROE_Proxy": -0.3110759146739957,
+        "RSI_Momentum": -0.21668333922535224
+      },
+      "PE_Ratio": {
+        "12M_Momentum": -0.12125758903072163,
+        "1M_Momentum": -0.1314253959433176,
+        "Current_Ratio": -0.24612392331203112,
+        "Debt_Ratio": -0.03845512642400667,
+        "Operating_Profit_Margin": 0.09408168935815504,
+        "PB_Ratio": 0.6782816504861309,
+        "PE_Ratio": 1.0,
+        "ROE_Proxy": -0.008002222839677688,
+        "RSI_Momentum": -0.1314253959433176
+      },
+      "ROE_Proxy": {
+        "12M_Momentum": 0.4413787355071066,
+        "1M_Momentum": 0.14970825229230342,
+        "Current_Ratio": -0.04973603778827452,
+        "Debt_Ratio": -0.33414837454848567,
+        "Operating_Profit_Margin": 0.7039177549319255,
+        "PB_Ratio": -0.3110759146739957,
+        "PE_Ratio": -0.008002222839677688,
+        "ROE_Proxy": 1.0,
+        "RSI_Momentum": 0.14970825229230342
+      },
+      "RSI_Momentum": {
+        "12M_Momentum": 0.07168757554978501,
+        "1M_Momentum": 1.0,
+        "Current_Ratio": 0.07963323145318144,
+        "Debt_Ratio": -0.04617949430397333,
+        "Operating_Profit_Margin": 0.1233676021116977,
+        "PB_Ratio": -0.21668333922535224,
+        "PE_Ratio": -0.1314253959433176,
+        "ROE_Proxy": 0.14970825229230342,
+        "RSI_Momentum": 1.0
+      }
+    },
+    "redundant_pairs": [
+      {
+        "factor1": "1M_Momentum",
+        "factor2": "RSI_Momentum",
+        "correlation": 1.0,
+        "p_value": 0.0,
+        "is_significant": true,
+        "num_stocks": 119
+      },
+      {
+        "factor1": "Operating_Profit_Margin",
+        "factor2": "ROE_Proxy",
+        "correlation": 0.8611657527415861,
+        "p_value": 7.733510930068242e-39,
+        "is_significant": true,
+        "num_stocks": 128
+      },
+      {
+        "factor1": "Current_Ratio",
+        "factor2": "Debt_Ratio",
+        "correlation": 0.7517927446569178,
+        "p_value": 2.3307748153623734e-24,
+        "is_significant": true,
+        "num_stocks": 127
+      },
+      {
+        "factor1": "PB_Ratio",
+        "factor2": "PE_Ratio",
+        "correlation": 0.7327202693709106,
+        "p_value": 1.648016205952049e-14,
+        "is_significant": true,
+        "num_stocks": 79
+      }
+    ],
+    "orthogonal_factors": [
+      "12M_Momentum",
+      "1M_Momentum",
+      "Current_Ratio",
+      "Operating_Profit_Margin",
+      "PB_Ratio"
+    ],
+    "clustering": {
+      "linkage_matrix": [
+        [
+          1.0,
+          8.0,
+          2.220446049250313e-16,
+          2.0
+        ],
+        [
+          4.0,
+          7.0,
+          0.15521225368731595,
+          2.0
+        ],
+        [
+          2.0,
+          3.0,
+          0.18724271837739503,
+          2.0
+        ],
+        [
+          5.0,
+          6.0,
+          0.1980488275294917,
+          2.0
+        ],
+        [
+          0.0,
+          10.0,
+          0.5492418356728458,
+          3.0
+        ],
+        [
+          11.0,
+          12.0,
+          1.6212073963872613,
+          4.0
+        ],
+        [
+          9.0,
+          14.0,
+          1.89697169183139,
+          6.0
+        ],
+        [
+          13.0,
+          15.0,
+          2.145937979427776,
+          9.0
+        ]
+      ],
+      "factor_names": [
+        "12M_Momentum",
+        "1M_Momentum",
+        "Current_Ratio",
+        "Debt_Ratio",
+        "Operating_Profit_Margin",
+        "PB_Ratio",
+        "PE_Ratio",
+        "ROE_Proxy",
+        "RSI_Momentum"
+      ]
+    }
+  },
+  {
+    "date": "2025-09-18",
+    "region": "KR",
+    "correlation_matrix": {
+      "12M_Momentum": {
+        "12M_Momentum": 1.0,
+        "1M_Momentum": 0.13502747252747252,
+        "Current_Ratio": -0.22902930402930402,
+        "Debt_Ratio": -0.38905677655677656,
+        "Operating_Profit_Margin": 0.19688644688644688,
+        "PB_Ratio": -0.4634034663180166,
+        "PE_Ratio": -0.18324175824175823,
+        "ROE_Proxy": 0.29354395604395606,
+        "RSI_Momentum": 0.14006233981893412
+      },
+      "1M_Momentum": {
+        "12M_Momentum": 0.13502747252747252,
+        "1M_Momentum": 1.0,
+        "Current_Ratio": 0.1679029304029304,
+        "Debt_Ratio": 0.18296703296703296,
+        "Operating_Profit_Margin": 0.16891025641025642,
+        "PB_Ratio": -0.3201538497599498,
+        "PE_Ratio": -0.1494047619047619,
+        "ROE_Proxy": -0.035256410256410256,
+        "RSI_Momentum": 0.9993587687702294
+      },
+      "Current_Ratio": {
+        "12M_Momentum": -0.22902930402930402,
+        "1M_Momentum": 0.1679029304029304,
+        "Current_Ratio": 1.0,
+        "Debt_Ratio": 0.7365842490842491,
+        "Operating_Profit_Margin": 0.17596153846153847,
+        "PB_Ratio": -0.07804665859780241,
+        "PE_Ratio": 0.09844322344322344,
+        "ROE_Proxy": -0.012225274725274725,
+        "RSI_Momentum": 0.16649870556166393
+      },
+      "Debt_Ratio": {
+        "12M_Momentum": -0.38905677655677656,
+        "1M_Momentum": 0.18296703296703296,
+        "Current_Ratio": 0.7365842490842491,
+        "Debt_Ratio": 1.0,
+        "Operating_Profit_Margin": 0.1727106227106227,
+        "PB_Ratio": 0.2691453559623834,
+        "PE_Ratio": 0.2541208791208791,
+        "ROE_Proxy": -0.35,
+        "RSI_Momentum": 0.18633743409996897
+      },
+      "Operating_Profit_Margin": {
+        "12M_Momentum": 0.19688644688644688,
+        "1M_Momentum": 0.16891025641025642,
+        "Current_Ratio": 0.17596153846153847,
+        "Debt_Ratio": 0.1727106227106227,
+        "Operating_Profit_Margin": 1.0,
+        "PB_Ratio": -0.19769225491112463,
+        "PE_Ratio": 0.052243589743589745,
+        "ROE_Proxy": 0.5921245421245421,
+        "RSI_Momentum": 0.17699078139370053
+      },
+      "PB_Ratio": {
+        "12M_Momentum": -0.4634034663180166,
+        "1M_Momentum": -0.3201538497599498,
+        "Current_Ratio": -0.07804665859780241,
+        "Debt_Ratio": 0.2691453559623834,
+        "Operating_Profit_Margin": -0.19769225491112463,
+        "PB_Ratio": 1.0,
+        "PE_Ratio": 0.6296160628038029,
+        "ROE_Proxy": -0.44428672829244753,
+        "RSI_Momentum": -0.31534220597947116
+      },
+      "PE_Ratio": {
+        "12M_Momentum": -0.18324175824175823,
+        "1M_Momentum": -0.1494047619047619,
+        "Current_Ratio": 0.09844322344322344,
+        "Debt_Ratio": 0.2541208791208791,
+        "Operating_Profit_Margin": 0.052243589743589745,
+        "PB_Ratio": 0.6296160628038029,
+        "PE_Ratio": 1.0,
+        "ROE_Proxy": -0.10782967032967034,
+        "RSI_Momentum": -0.14189501682016323
+      },
+      "ROE_Proxy": {
+        "12M_Momentum": 0.29354395604395606,
+        "1M_Momentum": -0.035256410256410256,
+        "Current_Ratio": -0.012225274725274725,
+        "Debt_Ratio": -0.35,
+        "Operating_Profit_Margin": 0.5921245421245421,
+        "PB_Ratio": -0.44428672829244753,
+        "PE_Ratio": -0.10782967032967034,
+        "ROE_Proxy": 1.0,
+        "RSI_Momentum": -0.037340793900042954
+      },
+      "RSI_Momentum": {
+        "12M_Momentum": 0.14006233981893412,
+        "1M_Momentum": 0.9993587687702294,
+        "Current_Ratio": 0.16649870556166393,
+        "Debt_Ratio": 0.18633743409996897,
+        "Operating_Profit_Margin": 0.17699078139370053,
+        "PB_Ratio": -0.31534220597947116,
+        "PE_Ratio": -0.14189501682016323,
+        "ROE_Proxy": -0.037340793900042954,
+        "RSI_Momentum": 1.0
+      }
+    },
+    "redundant_pairs": [
+      {
+        "factor1": "1M_Momentum",
+        "factor2": "RSI_Momentum",
+        "correlation": 0.9984054818865834,
+        "p_value": 2.0428923977232593e-160,
+        "is_significant": true,
+        "num_stocks": 129
+      },
+      {
+        "factor1": "Operating_Profit_Margin",
+        "factor2": "ROE_Proxy",
+        "correlation": 0.8611657527415861,
+        "p_value": 7.733510930068242e-39,
+        "is_significant": true,
+        "num_stocks": 128
+      },
+      {
+        "factor1": "Current_Ratio",
+        "factor2": "Debt_Ratio",
+        "correlation": 0.7517927446569178,
+        "p_value": 2.3307748153623734e-24,
+        "is_significant": true,
+        "num_stocks": 127
+      }
+    ],
+    "orthogonal_factors": [
+      "12M_Momentum",
+      "1M_Momentum",
+      "Current_Ratio",
+      "Operating_Profit_Margin",
+      "PB_Ratio"
+    ],
+    "clustering": {
+      "linkage_matrix": [
+        [
+          1.0,
+          8.0,
+          8.163291246088278e-05,
+          2.0
+        ],
+        [
+          2.0,
+          3.0,
+          0.15151365905397607,
+          2.0
+        ],
+        [
+          5.0,
+          6.0,
+          0.2881838351251572,
+          2.0
+        ],
+        [
+          4.0,
+          7.0,
+          0.3144998734834522,
+          2.0
+        ],
+        [
+          0.0,
+          11.0,
+          1.0083878374128765,
+          3.0
+        ],
+        [
+          12.0,
+          13.0,
+          1.6240869562383642,
+          5.0
+        ],
+        [
+          10.0,
+          14.0,
+          1.7995080478084033,
+          7.0
+        ],
+        [
+          9.0,
+          15.0,
+          1.9422697244112563,
+          9.0
+        ]
+      ],
+      "factor_names": [
+        "12M_Momentum",
+        "1M_Momentum",
+        "Current_Ratio",
+        "Debt_Ratio",
+        "Operating_Profit_Margin",
+        "PB_Ratio",
+        "PE_Ratio",
+        "ROE_Proxy",
+        "RSI_Momentum"
+      ]
+    }
+  }
+]
