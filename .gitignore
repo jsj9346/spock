@@ -44,6 +44,8 @@ venv.bak/
 *.db-journal
 *.sqlite
 *.sqlite3
+*.db.backup*
+data/*.backup*
 
 # SQL Backups (keep in backups/ for now)
 /*.sql
