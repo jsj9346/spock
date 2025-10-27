@@ -5,12 +5,18 @@ KR OHLCV Historical Data Backfill (pykrx)
 Backfills historical OHLCV data for KR stocks using pykrx library.
 Required for momentum factor calculation (12M_Momentum needs 252-day lookback).
 
-Target Coverage: All KR stocks in database
+Target Coverage: Week 3 universe (350 tickers: KOSPI 200 + KOSDAQ 150)
 Data Source: pykrx (KRX market data - official Korean exchange data)
-Target Date Range: 2023-10-10 to 2024-10-09 (252 trading days for 12M momentum)
+Target Date Range: 2019-01-01 to 2024-12-31 (5 years for backtesting)
 
 Usage:
-    # Full backfill (252 days of historical data)
+    # Week 3: Full backfill using universe file (RECOMMENDED)
+    python3 scripts/backfill_kr_ohlcv_pykrx.py \
+      --start 2019-01-01 --end 2024-12-31 \
+      --universe data/kr_universe_week3.csv \
+      --rate-limit 0.5
+
+    # Legacy: Full backfill (252 days of historical data, database tickers)
     python3 scripts/backfill_kr_ohlcv_pykrx.py --start 2023-10-10 --end 2024-10-09
 
     # Dry run (preview only)
@@ -26,8 +32,8 @@ Exit Codes:
     0: Success
     1: Critical error
 
-Author: Spock Quant Platform - Week 4 OHLCV Backfill
-Date: 2025-10-23
+Author: Spock Quant Platform - Week 3 Database Population
+Date: 2025-10-27
 """
 
 import sys
@@ -109,16 +115,41 @@ class PyKRXOHLCVBackfiller:
             time.sleep(wait_time)
         self.last_request_time = time.time()
 
-    def get_kr_tickers_for_backfill(self, limit: Optional[int] = None) -> List[str]:
+    def get_kr_tickers_for_backfill(self, limit: Optional[int] = None, universe_file: Optional[str] = None) -> List[str]:
         """
         Get list of KR tickers for backfill
 
         Args:
             limit: Maximum tickers to return (for testing)
+            universe_file: Path to universe CSV file (Week 3 recommended)
 
         Returns:
             List of ticker codes
         """
+        # Week 3 Enhancement: Use universe file if provided
+        if universe_file:
+            import os
+            if not os.path.exists(universe_file):
+                logger.error(f"❌ Universe file not found: {universe_file}")
+                raise FileNotFoundError(f"Universe file not found: {universe_file}")
+
+            logger.info(f"📊 Loading tickers from universe file: {universe_file}")
+            df = pd.read_csv(universe_file)
+
+            if 'ticker' not in df.columns:
+                logger.error(f"❌ Universe file missing 'ticker' column")
+                raise ValueError("Universe file must have 'ticker' column")
+
+            # Ensure tickers are zero-padded to 6 digits (KR ticker format)
+            tickers = [str(ticker).zfill(6) for ticker in df['ticker'].tolist()]
+
+            if limit:
+                tickers = tickers[:limit]
+
+            logger.info(f"📊 Loaded {len(tickers)} tickers from universe file")
+            return tickers
+
+        # Original database query (fallback)
         query = """
         SELECT DISTINCT ticker
         FROM tickers
@@ -134,7 +165,7 @@ class PyKRXOHLCVBackfiller:
         results = self.db.execute_query(query)
         tickers = [row['ticker'] for row in results]
 
-        logger.info(f"📊 Found {len(tickers)} KR stocks for backfill")
+        logger.info(f"📊 Found {len(tickers)} KR stocks for backfill (database)")
         return tickers
 
     def check_existing_data(self, ticker: str, start_date: date, end_date: date) -> Dict:
@@ -335,7 +366,7 @@ class PyKRXOHLCVBackfiller:
             self.stats['tickers_failed'] += 1
             return False
 
-    def run_backfill(self, start_date: date, end_date: date, limit: Optional[int] = None):
+    def run_backfill(self, start_date: date, end_date: date, limit: Optional[int] = None, universe_file: Optional[str] = None):
         """
         Run full backfill operation
 
@@ -343,6 +374,7 @@ class PyKRXOHLCVBackfiller:
             start_date: Start date for backfill
             end_date: End date for backfill
             limit: Maximum tickers to process (for testing)
+            universe_file: Path to universe CSV file (Week 3 recommended)
         """
         logger.info("=" * 80)
         logger.info("KR OHLCV Historical Data Backfill (pykrx)")
@@ -350,10 +382,12 @@ class PyKRXOHLCVBackfiller:
         logger.info(f"Date Range: {start_date} to {end_date}")
         logger.info(f"Mode: {'DRY RUN' if self.dry_run else 'LIVE'}")
         logger.info(f"Rate Limit: {self.rate_limit_delay}s delay per ticker")
+        if universe_file:
+            logger.info(f"Universe File: {universe_file}")
         logger.info("")
 
         # Get tickers
-        tickers = self.get_kr_tickers_for_backfill(limit=limit)
+        tickers = self.get_kr_tickers_for_backfill(limit=limit, universe_file=universe_file)
         total_tickers = len(tickers)
 
         if total_tickers == 0:
@@ -412,6 +446,7 @@ def main():
     parser.add_argument('--dry-run', action='store_true', help='Dry run mode (no database writes)')
     parser.add_argument('--limit', type=int, help='Limit number of tickers (for testing)')
     parser.add_argument('--rate-limit', type=float, default=1.0, help='Delay between API calls in seconds (default: 1.0)')
+    parser.add_argument('--universe', type=str, help='Path to universe CSV file (Week 3: data/kr_universe_week3.csv)')
 
     args = parser.parse_args()
 
@@ -448,7 +483,8 @@ def main():
         backfiller.run_backfill(
             start_date=start_date,
             end_date=end_date,
-            limit=args.limit
+            limit=args.limit,
+            universe_file=args.universe
         )
 
         return 0
