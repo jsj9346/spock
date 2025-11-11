@@ -44,8 +44,8 @@ class HistoricalVolatilityFactor(FactorBase):
         super().__init__(
             name="Historical_Volatility",
             category=FactorCategory.LOW_VOL,
-            lookback_days=60,
-            min_required_days=60
+            lookback_days=30,
+            min_required_days=30
         )
 
     def calculate(self, data: pd.DataFrame, ticker: str) -> Optional[FactorResult]:
@@ -66,7 +66,7 @@ class HistoricalVolatilityFactor(FactorBase):
             return None
 
         try:
-            if len(data) < 60:
+            if len(data) < 30:
                 return None
 
             # Sort by date
@@ -75,7 +75,7 @@ class HistoricalVolatilityFactor(FactorBase):
             # Calculate daily returns
             returns = data['close'].pct_change().dropna()
 
-            if len(returns) < 30:
+            if len(returns) < 20:
                 return None
 
             # Calculate volatility (annualized)
@@ -196,7 +196,7 @@ class MaxDrawdownFactor(FactorBase):
             name="Max_Drawdown",
             category=FactorCategory.LOW_VOL,
             lookback_days=252,
-            min_required_days=60
+            min_required_days=30
         )
 
     def calculate(self, data: pd.DataFrame, ticker: str) -> Optional[FactorResult]:

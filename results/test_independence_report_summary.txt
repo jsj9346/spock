@@ -1,0 +1,32 @@
+Independence Validation Report
+==================================================
+Date: 2025-10-28 12:26:24
+Period: 2024-09-01 to 2024-10-22
+Universe: 139 tickers
+Threshold: |r| < 0.5
+
+Results:
+  Total pairs tested: 36
+  Independent pairs: 32 (88.9%)
+  Correlated pairs: 4
+
+
+Recommendations:
+==================================================
+⚠️  Found 4 correlated factor pairs (|r| >= 0.5)
+
+Top correlated pairs:
+  - 1M_Momentum ↔ RSI_Momentum: r=1.000 (1M / RSI)
+  - Operating_Profit_Margin ↔ ROE_Proxy: r=0.870 (Operating / ROE)
+  - Current_Ratio ↔ Debt_Ratio: r=0.754 (Current / Debt)
+  - PB_Ratio ↔ PE_Ratio: r=0.717 (PB / PE)
+
+📊 Inter-category correlations: 4 pairs
+   Recommendation: Review factor weighting in combination strategies
+
+💡 General Recommendations:
+  1. Use equal-weight combiner for highly correlated factors
+  2. Consider dropping one factor from each correlated pair
+  3. Use orthogonalization techniques (e.g., PCA)
+  4. Monitor factor correlations over time (regime changes)
+

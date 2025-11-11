@@ -150,22 +150,27 @@ class PriceAdjuster:
             return
 
         # Get current price to calculate adjustment factor
+        # Find nearest trading day (dividend dates are often non-trading days like 12-31)
         price_query = """
-        SELECT close FROM ohlcv_data
-        WHERE ticker = %s AND region = 'KR' AND date = %s
+        SELECT close, date FROM ohlcv_data
+        WHERE ticker = %s AND region = 'KR' AND date <= %s
+        ORDER BY date DESC
         LIMIT 1
         """
 
         try:
             result = self.db.execute_query(price_query, (ticker, dividend_date))
             if not result:
-                logger.warning(f"    ⚠️  No price data found for {ticker} on {dividend_date}")
+                logger.warning(f"    ⚠️  No price data found for {ticker} on or before {dividend_date}")
                 return
 
             current_price = result[0]['close']
+            actual_date = result[0]['date']
             adjustment_factor = (current_price - dividend_amount) / current_price
 
-            # Update prices before dividend date
+            logger.info(f"    Price on {actual_date}: ₩{current_price:,.0f}, Factor: {adjustment_factor:.6f}")
+
+            # Update prices before the actual trading day
             update_query = """
             UPDATE ohlcv_data
             SET
@@ -181,7 +186,7 @@ class PriceAdjuster:
             affected_rows = self.db.execute_update(
                 update_query,
                 (adjustment_factor, adjustment_factor, adjustment_factor, adjustment_factor,
-                 ticker, dividend_date)
+                 ticker, actual_date)
             )
             self.stats['records_adjusted'] += affected_rows
             self.stats['dividends_applied'] += 1

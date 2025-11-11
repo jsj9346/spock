@@ -612,3 +612,51 @@ class KoreaAdapter(BaseMarketAdapter):
         logger.info(f"   - KIS ETF API: {'✅' if health['kis_etf_api'] else '❌'}")
 
         return health
+
+    # ========================================
+    # TICKER REFRESHER INTEGRATION
+    # ========================================
+
+    def fetch_kr_tickers(self) -> List[Dict]:
+        """
+        Fetch all Korean tickers (stocks + ETFs) for TickerRefresher integration
+
+        This method provides a unified interface for TickerRefresher to get
+        all Korean market tickers in a standardized format.
+
+        Returns:
+            List of ticker dictionaries with standardized fields:
+                - ticker: Ticker symbol
+                - name: Company/ETF name
+                - asset_type: 'STOCK' or 'ETF'
+                - exchange: Exchange name
+                - region: 'KR'
+                - currency: 'KRW'
+                - listing_date: Listing date (if available)
+        """
+        logger.info(f"🔍 [KR] Fetching all tickers for TickerRefresher...")
+
+        all_tickers = []
+
+        # Fetch stocks
+        try:
+            stocks = self.scan_stocks(force_refresh=False)
+            all_tickers.extend(stocks)
+            logger.info(f"✅ [KR] Fetched {len(stocks)} stocks")
+        except Exception as e:
+            logger.error(f"❌ [KR] Stock fetch failed: {e}")
+
+        # Fetch ETFs
+        try:
+            etfs = self.scan_etfs(force_refresh=False)
+            all_tickers.extend(etfs)
+            logger.info(f"✅ [KR] Fetched {len(etfs)} ETFs")
+        except Exception as e:
+            logger.error(f"❌ [KR] ETF fetch failed: {e}")
+
+        logger.info(f"✅ [KR] Total tickers fetched: {len(all_tickers)}")
+        return all_tickers
+
+
+# Alias for TickerRefresher compatibility
+KRMarketAdapter = KoreaAdapter

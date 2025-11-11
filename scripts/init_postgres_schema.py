@@ -126,7 +126,9 @@ class PostgresSchemaInitializer:
             "DROP TABLE IF EXISTS portfolio_holdings CASCADE;",
             "DROP TABLE IF EXISTS backtest_results CASCADE;",
             "DROP TABLE IF EXISTS strategies CASCADE;",
+            "DROP TABLE IF EXISTS fx_signals CASCADE;",
             "DROP TABLE IF EXISTS ticker_fundamentals CASCADE;",
+            "DROP TABLE IF EXISTS exchange_rates CASCADE;",
             "DROP TABLE IF EXISTS technical_analysis CASCADE;",
             "DROP TABLE IF EXISTS ohlcv_data CASCADE;",
             "DROP TABLE IF EXISTS etf_holdings CASCADE;",
@@ -367,6 +369,190 @@ class PostgresSchemaInitializer:
         """
 
         self.execute_sql(sql_comment, "Adding comment to ohlcv_data")
+
+    def create_exchange_rates_hypertable(self):
+        """Create exchange_rates hypertable (FX time-series data)"""
+
+        # Step 1: Create regular table
+        sql_create_table = """
+        CREATE TABLE exchange_rates (
+            id BIGSERIAL,
+            base_currency VARCHAR(3) NOT NULL,
+            quote_currency VARCHAR(3) NOT NULL,
+            date DATE NOT NULL,
+            rate NUMERIC(20, 10) NOT NULL,
+            source VARCHAR(50),
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            PRIMARY KEY (base_currency, quote_currency, date)
+        );
+        """
+
+        self.execute_sql(sql_create_table, "Creating exchange_rates table")
+
+        # Step 2: Convert to hypertable (1 month chunks)
+        sql_hypertable = """
+        SELECT create_hypertable('exchange_rates', 'date',
+            chunk_time_interval => INTERVAL '1 month',
+            if_not_exists => TRUE
+        );
+        """
+
+        self.execute_sql(sql_hypertable, "Converting exchange_rates to hypertable")
+
+        # Step 3: Create indexes
+        sql_indexes = """
+        CREATE INDEX idx_exchange_rates_date ON exchange_rates(date DESC);
+        CREATE INDEX idx_exchange_rates_currency ON exchange_rates(base_currency, quote_currency, date DESC);
+        CREATE INDEX idx_exchange_rates_base ON exchange_rates(base_currency, date DESC);
+        """
+
+        self.execute_sql(sql_indexes, "Creating indexes on exchange_rates")
+
+        # Step 4: Enable compression (segment by currency pair, order by date)
+        sql_compression = """
+        ALTER TABLE exchange_rates SET (
+            timescaledb.compress,
+            timescaledb.compress_segmentby = 'base_currency, quote_currency',
+            timescaledb.compress_orderby = 'date DESC'
+        );
+        """
+
+        self.execute_sql(sql_compression, "Enabling compression on exchange_rates")
+
+        # Step 5: Add compression policy (90 days)
+        sql_compression_policy = """
+        SELECT add_compression_policy('exchange_rates', INTERVAL '90 days');
+        """
+
+        self.execute_sql(sql_compression_policy, "Adding compression policy to exchange_rates")
+
+        # Step 6: Add comment
+        sql_comment = """
+        COMMENT ON TABLE exchange_rates IS 'Daily FX exchange rates (hypertable, 90-day compression)';
+        """
+
+        self.execute_sql(sql_comment, "Adding comment to exchange_rates")
+
+    def create_fx_signals_table(self):
+        """Create fx_signals table (FX trading signals)"""
+
+        # Step 1: Create regular table (not hypertable - low volume data)
+        sql_create_table = """
+        CREATE TABLE fx_signals (
+            id BIGSERIAL PRIMARY KEY,
+            currency VARCHAR(3) NOT NULL,
+            signal_type VARCHAR(50) NOT NULL,
+            magnitude NUMERIC(10, 4) NOT NULL,
+            current_rate NUMERIC(20, 10) NOT NULL,
+            previous_rate NUMERIC(20, 10),
+            date DATE NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        """
+
+        self.execute_sql(sql_create_table, "Creating fx_signals table")
+
+        # Step 2: Create indexes
+        sql_indexes = """
+        CREATE INDEX idx_fx_signals_currency ON fx_signals(currency, date DESC);
+        CREATE INDEX idx_fx_signals_date ON fx_signals(date DESC);
+        CREATE INDEX idx_fx_signals_type ON fx_signals(signal_type, date DESC);
+        """
+
+        self.execute_sql(sql_indexes, "Creating indexes on fx_signals")
+
+        # Step 3: Add comment
+        sql_comment = """
+        COMMENT ON TABLE fx_signals IS 'FX trading signals generated from exchange rate analysis (regular table)';
+        """
+
+        self.execute_sql(sql_comment, "Adding comment to fx_signals")
+
+    def create_ticker_fundamentals_hypertable(self):
+        """Create ticker_fundamentals hypertable (fundamental data)"""
+
+        # Step 1: Create regular table
+        sql_create_table = """
+        CREATE TABLE ticker_fundamentals (
+            id BIGSERIAL,
+            ticker VARCHAR(20) NOT NULL,
+            region VARCHAR(2) NOT NULL,
+            date DATE NOT NULL,
+            period_type VARCHAR(20) NOT NULL,
+
+            -- Basic metrics
+            shares_outstanding BIGINT,
+            market_cap BIGINT,
+            close_price NUMERIC(15, 4),
+
+            -- Valuation metrics
+            per NUMERIC(10, 4),
+            pbr NUMERIC(10, 4),
+            psr NUMERIC(10, 4),
+            pcr NUMERIC(10, 4),
+            ev BIGINT,
+            ev_ebitda NUMERIC(10, 4),
+
+            -- Dividend metrics
+            dividend_yield NUMERIC(10, 4),
+            dividend_per_share NUMERIC(10, 4),
+
+            -- Metadata
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            data_source VARCHAR(50),
+
+            PRIMARY KEY (ticker, region, date, period_type),
+            FOREIGN KEY (ticker, region) REFERENCES tickers(ticker, region)
+        );
+        """
+
+        self.execute_sql(sql_create_table, "Creating ticker_fundamentals table")
+
+        # Step 2: Convert to hypertable (3 month chunks for quarterly data)
+        sql_hypertable = """
+        SELECT create_hypertable('ticker_fundamentals', 'date',
+            chunk_time_interval => INTERVAL '3 months',
+            if_not_exists => TRUE
+        );
+        """
+
+        self.execute_sql(sql_hypertable, "Converting ticker_fundamentals to hypertable")
+
+        # Step 3: Create indexes
+        sql_indexes = """
+        CREATE INDEX idx_ticker_fundamentals_ticker ON ticker_fundamentals(ticker, region, date DESC);
+        CREATE INDEX idx_ticker_fundamentals_date ON ticker_fundamentals(date DESC);
+        CREATE INDEX idx_ticker_fundamentals_period ON ticker_fundamentals(period_type, date DESC);
+        CREATE INDEX idx_ticker_fundamentals_per ON ticker_fundamentals(per) WHERE per IS NOT NULL;
+        CREATE INDEX idx_ticker_fundamentals_pbr ON ticker_fundamentals(pbr) WHERE pbr IS NOT NULL;
+        """
+
+        self.execute_sql(sql_indexes, "Creating indexes on ticker_fundamentals")
+
+        # Step 4: Enable compression (segment by ticker/region, order by date)
+        sql_compression = """
+        ALTER TABLE ticker_fundamentals SET (
+            timescaledb.compress,
+            timescaledb.compress_segmentby = 'ticker, region, period_type',
+            timescaledb.compress_orderby = 'date DESC'
+        );
+        """
+
+        self.execute_sql(sql_compression, "Enabling compression on ticker_fundamentals")
+
+        # Step 5: Add compression policy (1 year)
+        sql_compression_policy = """
+        SELECT add_compression_policy('ticker_fundamentals', INTERVAL '1 year');
+        """
+
+        self.execute_sql(sql_compression_policy, "Adding compression policy to ticker_fundamentals")
+
+        # Step 6: Add comment
+        sql_comment = """
+        COMMENT ON TABLE ticker_fundamentals IS 'Fundamental data (PER, PBR, dividends) with quarterly/annual periods (hypertable, 1-year compression)';
+        """
+
+        self.execute_sql(sql_comment, "Adding comment to ticker_fundamentals")
 
     def create_factor_scores_hypertable(self):
         """Create factor_scores hypertable (multi-factor analysis)"""
@@ -667,7 +853,13 @@ class PostgresSchemaInitializer:
             # Hypertables (time-series optimized)
             logger.info("\n=== Creating Hypertables ===")
             self.create_ohlcv_data_hypertable()
+            self.create_exchange_rates_hypertable()
+            self.create_ticker_fundamentals_hypertable()
             self.create_factor_scores_hypertable()
+
+            # Regular tables (non-time-series)
+            logger.info("\n=== Creating Regular Tables ===")
+            self.create_fx_signals_table()
 
             # Continuous aggregates (pre-computed views)
             logger.info("\n=== Creating Continuous Aggregates ===")

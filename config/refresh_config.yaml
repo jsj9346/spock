@@ -1,0 +1,390 @@
+# Database Refresh System Configuration
+# Created: 2025-11-04
+# Purpose: Configuration for multi-region database refresh system
+
+# Global settings
+global:
+  log_level: INFO
+  max_workers: 4
+  checkpoint_enabled: true
+  checkpoint_dir: data/checkpoints
+
+# Region settings
+regions:
+  # Supported regions and their configurations
+  enabled:
+    - KR
+    - US
+    - HK
+    - JP
+    - CN
+    - VN
+
+  # Region-specific API rate limits (requests per second)
+  rate_limits:
+    KR: 100  # pykrx
+    US: 5    # yfinance
+    HK: 10   # yfinance
+    JP: 10   # yfinance
+    CN: 10   # yfinance
+    VN: 10   # custom adapter
+
+# Ticker refresh settings
+ticker_refresh:
+  # Asset types to include
+  asset_types:
+    - STOCK
+    - ETF
+
+  # Exclude OTC markets
+  exclude_otc: true
+
+  # OTC exchange identifiers to exclude (US)
+  otc_exchanges:
+    - OTCMKTS
+    - PINK
+    - OTCQB
+    - OTCQX
+
+  # Validation rules
+  validation:
+    min_ticker_length: 1
+    max_ticker_length: 10
+
+    # Region-specific patterns
+    patterns:
+      KR: "^\\d{6}$"  # 6-digit numbers
+      US: "^[A-Z]{1,5}$"  # 1-5 uppercase letters
+
+# OHLCV update settings
+ohlcv_update:
+  # Incremental update settings
+  incremental:
+    enabled: true
+    lookback_days: 1  # Days to look back from last date
+    max_history_days: 1825  # 5 years for new tickers
+
+  # Batch processing
+  batch_size: 100
+  batch_delay_seconds: 1
+
+  # Technical indicators to calculate
+  indicators:
+    moving_averages:
+      - 20
+      - 50
+      - 200
+
+    rsi:
+      period: 14
+
+    macd:
+      fast: 12
+      slow: 26
+      signal: 9
+
+    bollinger_bands:
+      period: 20
+      std: 2
+
+  # Backfill settings
+  backfill:
+    enabled: true
+    min_records_required: 200  # Minimum records for MA200
+    batch_size: 50
+
+# Exchange rate tracking settings
+fx_tracking:
+  # Base currency for conversions
+  base_currency: KRW
+
+  # Currencies to track
+  currencies:
+    - USD
+    - EUR
+    - JPY
+    - CNY
+    - HKD
+    - VND
+
+  # Update frequency
+  update_frequency: daily
+
+  # FX data sources (priority order)
+  sources:
+    - name: kis_api
+      priority: 1
+      rate_limit: 20
+
+    - name: exchangerate_api
+      priority: 2
+      rate_limit: 1500  # per month
+
+    - name: openexchangerates
+      priority: 3
+      rate_limit: 1000  # per month
+
+  # Valuation metrics
+  valuation:
+    periods: [5, 20, 60, 120]  # days
+    volatility_window: 20
+
+# Stock classification settings
+classification:
+  # Sector/industry classification
+  enabled: true
+
+  # Classification sources (priority order)
+  sources:
+    - name: pykrx  # KR only
+      priority: 1
+      regions: [KR]
+
+    - name: yfinance
+      priority: 2
+      regions: [US, HK, JP, CN, VN]
+
+    - name: fmp_api
+      priority: 3
+      regions: [US]
+
+  # SPAC detection keywords
+  spac_keywords:
+    - SPAC
+    - Acquisition Corp
+    - Acquisition Co
+    - Acquisition Company
+    - 스팩
+    - 기업인수목적
+
+  # Preferred stock detection patterns
+  preferred_patterns:
+    KR:
+      - 우선주
+      - 우선
+      - 우
+
+    US:
+      - "-P"
+      - "Pfd"
+      - "Preferred"
+      - "Pref"
+
+# Fundamentals update settings
+fundamentals_update:
+  # Data sources by region
+  sources:
+    KR:
+      - name: dart_api
+        priority: 1
+        rate_limit: 1  # requests per second
+        fields:
+          - financial_statements
+          - dividends
+          - pe_ratio
+          - pb_ratio
+          - ev_ebitda
+
+      - name: pykrx
+        priority: 2
+        rate_limit: 100
+        fields:
+          - market_cap
+          - shares_outstanding
+
+    US:
+      - name: yfinance
+        priority: 1
+        rate_limit: 5
+        fields:
+          - all
+
+  # Update frequency
+  update_frequency:
+    annual: quarterly  # Annual reports
+    quarterly: monthly  # Quarterly reports
+    realtime: daily  # Market cap, shares, etc.
+
+  # Backfill settings
+  backfill:
+    enabled: true
+    years_back: 5
+    batch_size: 50
+
+# ETF data settings
+etf_update:
+  # ETF details to track
+  details:
+    - name
+    - expense_ratio
+    - inception_date
+    - aum
+    - index_tracked
+    - provider
+
+  # Holdings settings
+  holdings:
+    enabled: true
+    update_frequency: weekly
+    top_n_holdings: 50
+
+    # Holdings sources
+    sources:
+      KR:
+        - name: etfcheck
+          priority: 1
+
+        - name: pykrx
+          priority: 2
+
+      US:
+        - name: yfinance
+          priority: 1
+
+  # Backfill settings
+  backfill:
+    enabled: true
+    batch_size: 20
+
+# Data validation settings
+validation:
+  # Price anomaly detection
+  price_anomalies:
+    enabled: true
+    max_daily_change: 10.0  # 1000% change flag
+    min_price: 0.01
+
+    # OHLC relationship checks
+    ohlc_checks:
+      - low <= open <= high
+      - low <= close <= high
+      - high >= low
+
+  # Volume validation
+  volume:
+    min_volume: 0
+    max_zero_volume_days: 10  # consecutive days
+
+  # Data completeness
+  completeness:
+    min_required_fields: 0.8  # 80% of fields must be non-NULL
+
+    # Required fields by table
+    required_fields:
+      ohlcv_data:
+        - date
+        - open
+        - high
+        - low
+        - close
+        - volume
+
+      ticker_fundamentals:
+        - date
+        - market_cap
+        - shares_outstanding
+
+# Error handling settings
+error_handling:
+  # Retry configuration
+  max_retries: 3
+  retry_delay_seconds: 5
+  retry_backoff_multiplier: 2
+
+  # Error thresholds
+  thresholds:
+    max_consecutive_failures: 5
+    max_failure_rate: 0.1  # 10%
+
+  # Recovery options
+  recovery:
+    checkpoint_enabled: true
+    skip_failed_tickers: true
+    continue_on_error: true
+
+# Performance settings
+performance:
+  # Database connection pool
+  db_pool:
+    min_connections: 2
+    max_connections: 10
+    connection_timeout: 30
+
+  # Query optimization
+  query:
+    fetch_size: 1000
+    batch_insert_size: 500
+
+  # Caching
+  cache:
+    enabled: true
+    ttl_seconds: 3600
+    max_size_mb: 500
+
+# Monitoring settings
+monitoring:
+  # Metrics to track
+  metrics:
+    - refresh_duration
+    - records_processed
+    - error_rate
+    - api_calls
+    - db_queries
+
+  # Alerts
+  alerts:
+    enabled: true
+    channels:
+      - log
+      - file
+
+    # Alert thresholds
+    thresholds:
+      error_rate: 0.1  # 10%
+      refresh_duration: 3600  # 1 hour
+      api_failures: 5
+
+# Schedule settings (for spock_refresh.py)
+schedule:
+  # Preset modes
+  presets:
+    quick:
+      description: "Quick refresh (5 minutes)"
+      duration_estimate: 300
+      steps:
+        - ohlcv_update
+        - fx_tracking
+      options:
+        incremental: true
+        lookback_days: 7
+
+    full:
+      description: "Full refresh (30 minutes)"
+      duration_estimate: 1800
+      steps:
+        - ticker_refresh
+        - ohlcv_update
+        - fx_tracking
+        - classification
+        - fundamentals_update
+        - etf_update
+      options:
+        incremental: true
+        backfill: true
+
+    incremental:
+      description: "Incremental refresh (10 minutes)"
+      duration_estimate: 600
+      steps:
+        - ohlcv_update
+        - fundamentals_update
+        - etf_update
+      options:
+        incremental: true
+        backfill: false
+
+  # Auto-schedule recommendations
+  auto_schedule:
+    daily: quick
+    weekly: full
+    monthly: full

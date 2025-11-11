@@ -1507,8 +1507,11 @@ class PostgresDatabaseManager:
                     shares_outstanding, market_cap, close_price,
                     per, pbr, psr, pcr, ev, ev_ebitda,
                     dividend_yield, dividend_per_share,
+                    capital_stock, capital_surplus, retained_earnings, treasury_stock,
+                    other_comprehensive_income, non_controlling_interest,
+                    unappropriated_retained_earnings, legal_reserve,
                     created_at, data_source
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (ticker, region, date, period_type) DO UPDATE SET
                     shares_outstanding = EXCLUDED.shares_outstanding,
                     market_cap = EXCLUDED.market_cap,
@@ -1521,6 +1524,14 @@ class PostgresDatabaseManager:
                     ev_ebitda = EXCLUDED.ev_ebitda,
                     dividend_yield = EXCLUDED.dividend_yield,
                     dividend_per_share = EXCLUDED.dividend_per_share,
+                    capital_stock = EXCLUDED.capital_stock,
+                    capital_surplus = EXCLUDED.capital_surplus,
+                    retained_earnings = EXCLUDED.retained_earnings,
+                    treasury_stock = EXCLUDED.treasury_stock,
+                    other_comprehensive_income = EXCLUDED.other_comprehensive_income,
+                    non_controlling_interest = EXCLUDED.non_controlling_interest,
+                    unappropriated_retained_earnings = EXCLUDED.unappropriated_retained_earnings,
+                    legal_reserve = EXCLUDED.legal_reserve,
                     data_source = EXCLUDED.data_source
             """, (
                 fund_data['ticker'],
@@ -1538,6 +1549,14 @@ class PostgresDatabaseManager:
                 fund_data.get('ev_ebitda'),
                 fund_data.get('dividend_yield'),
                 fund_data.get('dividend_per_share'),
+                fund_data.get('capital_stock'),
+                fund_data.get('capital_surplus'),
+                fund_data.get('retained_earnings'),
+                fund_data.get('treasury_stock'),
+                fund_data.get('other_comprehensive_income'),
+                fund_data.get('non_controlling_interest'),
+                fund_data.get('unappropriated_retained_earnings'),
+                fund_data.get('legal_reserve'),
                 datetime.now(),
                 fund_data.get('data_source')
             ), commit=True)

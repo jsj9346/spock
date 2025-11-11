@@ -63,13 +63,15 @@ from .low_vol_factors import (
     MaxDrawdownFactor
 )
 
-# Value Factors (Phase 2 - Placeholders)
+# Value Factors (Phase 2 - PostgreSQL Implementation)
 from .value_factors import (
-    PERatioFactor,
-    PBRatioFactor,
-    EVToEBITDAFactor,
-    DividendYieldFactor
+    DividendYieldFactorPostgres,
+    EVToEBITDAFactorPostgres,
+    CompositeValueFactor
 )
+# Legacy placeholders commented out (replaced by PostgreSQL versions)
+# PERatioFactor,
+# PBRatioFactor,
 
 # Quality Factors (Phase 2A - 9 Core Factors Implemented)
 from .quality_factors import (
@@ -130,11 +132,10 @@ __all__ = [
     'BetaFactor',
     'MaxDrawdownFactor',
 
-    # Value factors (Phase 2)
-    'PERatioFactor',
-    'PBRatioFactor',
-    'EVToEBITDAFactor',
-    'DividendYieldFactor',
+    # Value factors (Phase 2 - PostgreSQL)
+    'DividendYieldFactorPostgres',
+    'EVToEBITDAFactorPostgres',
+    'CompositeValueFactor',
 
     # Quality factors (Phase 2A)
     'ROEFactor',

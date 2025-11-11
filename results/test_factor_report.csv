@@ -1,0 +1,2 @@
+factor_name,start_date,end_date,total_return,sharpe_ratio,max_drawdown,total_trades,win_rate,execution_time,engine
+12M_Momentum,2024-09-01,2024-10-22,0.19960828183776103,3.3595462769561766,-0.07991075098137979,2,1.0,1.767354965209961,vectorbt

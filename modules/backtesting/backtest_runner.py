@@ -230,18 +230,39 @@ class BacktestRunner:
 
     def _run_custom(self) -> Dict[str, Any]:
         """Run backtest with custom event-driven engine."""
+        # Check if StrategyRunner is available
+        if self.custom_engine.strategy_runner is None:
+            raise ValueError(
+                "Custom engine requires StrategyRunner with SQLite database. "
+                "StrategyRunner is not available with PostgreSQL. "
+                "Please use 'vectorbt' engine instead, or switch to SQLite database. "
+                "This is a known limitation that will be addressed in a future refactor."
+            )
+
         logger.info("Running backtest with custom event-driven engine...")
 
         start_time = time.time()
-        result = self.custom_engine.run()
+        result_obj = self.custom_engine.run()
         execution_time = time.time() - start_time
 
-        result['execution_time'] = execution_time
+        # Convert BacktestResult dataclass to dict for compatibility
+        result = {
+            'config': result_obj.config,
+            'metrics': result_obj.metrics,
+            'trades': result_obj.trades,
+            'equity_curve': result_obj.equity_curve,
+            'pattern_metrics': result_obj.pattern_metrics,
+            'region_metrics': result_obj.region_metrics,
+            'execution_time_seconds': result_obj.execution_time_seconds,
+            'final_portfolio_value': result_obj.final_portfolio_value,
+            'total_profit': result_obj.total_profit,
+            'execution_time': execution_time  # Additional field for backward compatibility
+        }
 
         logger.info(
             f"Custom engine completed in {execution_time:.3f}s: "
-            f"trades={len(result.get('trades', []))}, "
-            f"final_value=${result.get('final_portfolio_value', 0):,.2f}"
+            f"trades={len(result['trades'])}, "
+            f"final_value=${result['final_portfolio_value']:,.2f}"
         )
 
         return result

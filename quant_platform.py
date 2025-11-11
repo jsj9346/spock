@@ -15,7 +15,8 @@ Usage:
     python3 quant_platform.py auth login               # Login
     python3 quant_platform.py auth logout              # Logout
     python3 quant_platform.py auth status              # Check auth status
-    python3 quant_platform.py backtest run             # Run backtest (future)
+    python3 quant_platform.py query --top 20           # Query stocks (Sprint 1)
+    python3 quant_platform.py backtest run             # Run backtest (Sprint 3)
 
 Author: Quant Platform Development Team
 Date: 2025-10-22
@@ -32,6 +33,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from cli.utils.config_loader import get_config
 from cli.utils.output_formatter import print_error, print_info
 from cli.commands import setup, auth
+from cli.commands.query import add_query_arguments, run_query_sync
+from cli.commands.backtest import add_backtest_arguments, run_backtest_sync
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -54,8 +57,17 @@ Examples:
   python3 quant_platform.py auth logout
   python3 quant_platform.py auth status
 
-  # Backtesting (future)
-  python3 quant_platform.py backtest run --strategy momentum_value
+  # Stock Queries (Sprint 1 - Available Now!)
+  python3 quant_platform.py query --top 20
+  python3 quant_platform.py query --with-fundamentals --filter "f.per < 15" --top 20
+  python3 quant_platform.py query --with-fundamentals --filter "f.pbr < 1" --csv value_stocks.csv
+
+  # Backtesting (Sprint 3 - Available Now!)
+  python3 quant_platform.py backtest --tickers 005930 --start 2020-01-01 --end 2023-12-31 --strategy buy-hold
+  python3 quant_platform.py backtest --tickers 005930 000660 --start 2022-01-01 --end 2024-12-31 --strategy ma-crossover
+
+  # Interactive Shell (Sprint 5 - Available Now!)
+  python3 quant_platform.py shell
 
 For more information, visit: https://github.com/quant-platform
         """
@@ -107,19 +119,25 @@ For more information, visit: https://github.com/quant-platform
     auth_subparsers.add_parser('logout', help='Logout and clear session')
     auth_subparsers.add_parser('status', help='Show authentication status')
 
-    # Backtest command (placeholder for future implementation)
+    # Query command (Sprint 1)
+    query_parser = subparsers.add_parser(
+        'query',
+        help='Query and screen stocks with filters'
+    )
+    add_query_arguments(query_parser)
+
+    # Backtest command (Sprint 3)
     backtest_parser = subparsers.add_parser(
         'backtest',
-        help='Backtesting commands (future)'
+        help='Run backtests on trading strategies'
     )
+    add_backtest_arguments(backtest_parser)
 
-    backtest_subparsers = backtest_parser.add_subparsers(dest='backtest_command', help='Backtest subcommands')
-
-    run_parser = backtest_subparsers.add_parser('run', help='Run backtest')
-    run_parser.add_argument('--strategy', type=str, help='Strategy name')
-    run_parser.add_argument('--start', type=str, help='Start date (YYYY-MM-DD)')
-    run_parser.add_argument('--end', type=str, help='End date (YYYY-MM-DD)')
-    run_parser.add_argument('--initial-capital', type=float, default=100000000, help='Initial capital')
+    # Shell command (Sprint 5)
+    shell_parser = subparsers.add_parser(
+        'shell',
+        help='Start interactive shell mode'
+    )
 
     return parser
 
@@ -163,15 +181,17 @@ def main():
             elif args.auth_command == 'status':
                 auth.status()
 
-        elif args.command == 'backtest':
-            if not args.backtest_command:
-                parser.parse_args(['backtest', '--help'])
-                sys.exit(0)
+        elif args.command == 'query':
+            exit_code = run_query_sync(args)
+            sys.exit(exit_code)
 
-            if args.backtest_command == 'run':
-                print_info("Backtest functionality coming soon!")
-                print_info("Implementation planned for P1.2 (Week 3-4)")
-                sys.exit(0)
+        elif args.command == 'backtest':
+            exit_code = run_backtest_sync(args)
+            sys.exit(exit_code)
+
+        elif args.command == 'shell':
+            from cli.shell import run_shell
+            run_shell()
 
         else:
             print_error(f"Unknown command: {args.command}")

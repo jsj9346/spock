@@ -23,8 +23,10 @@ statsmodels==0.14.0           # Econometric models, statistical testing
 # Database (PostgreSQL + TimescaleDB)
 # ============================================================================
 
-psycopg2-binary==2.9.7        # PostgreSQL adapter for Python
+psycopg2-binary==2.9.7        # PostgreSQL adapter for Python (sync)
+asyncpg==0.29.0               # PostgreSQL async adapter (CLI backend)
 # Note: Use psycopg2-binary for development, psycopg2 for production
+# asyncpg is required for CLI async operations with connection pooling
 
 # ============================================================================
 # Backtesting Engines
@@ -59,6 +61,13 @@ uvicorn==0.23.2               # ASGI server for FastAPI
 pydantic==2.4.2               # Data validation for FastAPI
 
 # ============================================================================
+# CLI Framework & Terminal UI
+# ============================================================================
+
+rich==13.7.0                  # Beautiful terminal formatting, tables, progress bars
+Jinja2==3.1.2                 # HTML template engine for backtest reports
+
+# ============================================================================
 # Visualization
 # ============================================================================
 
@@ -88,6 +97,17 @@ requests>=2.31.0              # HTTP client (reused from Spock)
 
 psutil==5.9.5                 # System resource monitoring
 tqdm==4.67.1                  # Progress bars (migration, data processing)
+
+# ============================================================================
+# Database Refresh System
+# ============================================================================
+
+colorama==0.4.6               # Cross-platform colored terminal output (optional)
+pykrx==1.0.46                 # Korean market data (KOSPI, KOSDAQ)
+yfinance==0.2.31              # Yahoo Finance data (US, global markets)
+exchangerates==0.2.0          # Exchange rate data
+# pandas-ta (defined above)  # Technical indicators
+# pyyaml (defined above)     # Configuration files
 prometheus-client==0.23.1     # Metrics export for monitoring
 
 # ============================================================================
@@ -110,9 +130,13 @@ finance-datareader>=0.9.50    # FinanceDataReader (fallback)
 # ============================================================================
 
 # pytest==7.4.2               # Testing framework
+# pytest-asyncio==0.21.1      # Async test support for CLI backend
 # pytest-cov==4.1.0           # Code coverage
+# pexpect==4.9.0              # Terminal automation testing (shell auto-completion)
 # black==23.9.1               # Code formatter
+# isort==5.12.0               # Import sorter
 # flake8==6.1.0               # Linter
+# pylint==3.0.2               # Advanced linter
 # mypy==1.5.1                 # Type checker
 
 # ============================================================================
@@ -144,8 +168,31 @@ finance-datareader>=0.9.50    # FinanceDataReader (fallback)
 # Tested on: macOS Sonoma 14.x, Ubuntu 22.04 LTS
 
 # ============================================================================
-# Total Dependencies: 28 packages
+# Total Dependencies: 31 packages (core) + 6 optional (testing)
 # Estimated Install Time: 5-10 minutes
 # Estimated Disk Space: ~500 MB (with dependencies)
 # ============================================================================
-scipy
+
+# ============================================================================
+# CLI-Specific Dependencies Summary
+# ============================================================================
+# Core CLI (Required):
+#   - asyncpg==0.29.0         (async PostgreSQL, connection pooling)
+#   - rich==13.7.0            (terminal formatting, tables, progress bars)
+#   - Jinja2==3.1.2           (HTML report templates)
+#   - pandas (already included) (DataFrame operations)
+#   - plotly (already included) (interactive charts)
+#
+# Backtesting (Sprint 3+):
+#   - vectorbt==0.26.2        (fast vectorized backtesting)
+#   - numba (vectorbt dependency for performance)
+#
+# Testing (Optional):
+#   - pytest-asyncio==0.21.1  (async test support)
+#   - pexpect==4.9.0          (shell auto-completion testing)
+# ============================================================================
+
+# Web scraping dependencies (ETF data collection)
+aiohttp>=3.11.14
+beautifulsoup4==4.12.2
+lxml==4.9.3

@@ -1,19 +1,36 @@
 #!/usr/bin/env python3
 """
-Phase 1.5 - Day 1: DART Fundamental Data Backfill for KR Market
+Phase 2: DART Annual Fundamental Data Backfill for KR Market
 
-Backfills ticker_fundamentals table with financial statement data from DART API.
+Backfills ticker_fundamentals table with ANNUAL financial statement data from DART API.
+Collects multi-year historical data (2022-2024) for accurate ROE and YOY growth calculations.
 Extracts: ROE, ROA, Debt Ratio, Revenue, Operating Profit, Net Income, Total Assets/Liabilities/Equity
 
 Target Coverage: >80% of KR market (1,091+ stocks out of 1,364)
 Data Source: DART (Korea Financial Supervisory Service)
+Period Type: ANNUAL (11011) - consolidated financial statements only
 
 Usage:
-    # Full backfill
+    # Gap-Aware Backfill (Recommended for Incremental Updates - Phase 3)
+    python3 scripts/backfill_fundamentals_dart.py --use-gap-analysis --limit 100
+
+    # Gap-Aware Dry Run (Preview gap analysis + backfill targets)
+    python3 scripts/backfill_fundamentals_dart.py --use-gap-analysis --dry-run --limit 10
+
+    # Gap-Aware with Custom Columns
+    python3 scripts/backfill_fundamentals_dart.py --use-gap-analysis \
+        --target-columns capital_stock capital_surplus retained_earnings treasury_stock
+
+    # ====== Legacy Mode (Backward Compatibility) ======
+
+    # Full backfill (2022-2024 annual data)
     python3 scripts/backfill_fundamentals_dart.py
 
     # Dry run (preview only)
-    python3 scripts/backfill_fundamentals_dart.py --dry-run
+    python3 scripts/backfill_fundamentals_dart.py --dry-run --limit 5
+
+    # Custom year range
+    python3 scripts/backfill_fundamentals_dart.py --start-year 2020 --end-year 2024
 
     # Incremental update (only missing data)
     python3 scripts/backfill_fundamentals_dart.py --incremental
@@ -24,7 +41,13 @@ Usage:
     # Rate limiting (requests per hour)
     python3 scripts/backfill_fundamentals_dart.py --rate-limit 1.0  # 1 req/sec
 
-Author: Quant Investment Platform - Phase 1.5
+Expected Results:
+    - ~3,273 records (1,091 tickers × 3 years)
+    - ROE accuracy: 7-15% (vs 1.28% with SEMI-ANNUAL data)
+    - Flexible mode screening: 30-50 stocks (vs 0 before)
+    - Strict mode screening: 5-10 stocks (vs 0 before)
+
+Author: Quant Investment Platform - Phase 2
 """
 
 import sys
@@ -42,6 +65,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from modules.db_manager_postgres import PostgresDatabaseManager
 from modules.dart_api_client import DARTApiClient
+from modules.backfill.orchestrator import BackfillOrchestrator
+from modules.backfill.gap_analyzer import GapAnalyzer
+from modules.backfill.data_structures import GapPriority
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -67,7 +93,8 @@ class DARTFundamentalBackfiller:
     """DART fundamental data backfill orchestrator"""
 
     def __init__(self, db: PostgresDatabaseManager, dart: DARTApiClient,
-                 dry_run: bool = False, rate_limit_delay: float = 1.0):
+                 dry_run: bool = False, rate_limit_delay: float = 1.0,
+                 start_year: int = 2022, end_year: int = 2024):
         """
         Initialize backfiller
 
@@ -76,11 +103,15 @@ class DARTFundamentalBackfiller:
             dart: DART API client
             dry_run: If True, preview operations without database writes
             rate_limit_delay: Delay between API calls in seconds (default: 1.0 = 1 req/sec)
+            start_year: Start year for historical data collection (default: 2022)
+            end_year: End year for historical data collection (default: 2024)
         """
         self.db = db
         self.dart = dart
         self.dry_run = dry_run
         self.rate_limit_delay = rate_limit_delay
+        self.start_year = start_year
+        self.end_year = end_year
 
         # Statistics
         self.stats = {
@@ -88,10 +119,12 @@ class DARTFundamentalBackfiller:
             'tickers_success': 0,
             'tickers_skipped_no_corp_code': 0,
             'tickers_skipped_no_data': 0,
+            'tickers_skipped_listing_date': 0,  # New: Filtered by listing_date
             'tickers_failed': 0,
             'api_calls': 0,
             'records_inserted': 0,
-            'records_updated': 0
+            'records_updated': 0,
+            'records_processed': 0  # Total year records processed (tickers × years)
         }
 
         # Load corp code mapping
@@ -156,46 +189,116 @@ class DARTFundamentalBackfiller:
         logger.warning("⚠️ No corp code mapping available - will skip most tickers")
         return {}
 
-    def get_kr_tickers_for_backfill(self, incremental: bool = False, limit: Optional[int] = None) -> List[Dict]:
+    def _get_earliest_backfill_date(self) -> date:
+        """
+        Get earliest date for backfill filtering
+
+        Returns:
+            Earliest backfill date (start_year-01-01)
+        """
+        return date(self.start_year, 1, 1)
+
+    def _filter_by_listing_date(self, tickers: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
+        """
+        Filter tickers by listing date relative to backfill period
+
+        Args:
+            tickers: List of ticker dicts with listing_date field
+
+        Returns:
+            Tuple of (valid_tickers, skipped_tickers)
+        """
+        earliest_date = self._get_earliest_backfill_date()
+        valid = []
+        skipped = []
+
+        for ticker in tickers:
+            listing_date = ticker.get('listing_date')
+
+            # Include if: no listing_date OR listed before/on backfill start date
+            if not listing_date or listing_date <= earliest_date:
+                valid.append(ticker)
+            else:
+                skipped.append(ticker)
+                logger.debug(
+                    f"Skipping {ticker['ticker']} ({ticker['name']}) - "
+                    f"listed after backfill period "
+                    f"(listing_date: {listing_date}, earliest: {earliest_date})"
+                )
+
+        return valid, skipped
+
+    def get_kr_tickers_for_backfill(self, incremental: bool = False, limit: Optional[int] = None,
+                                     ticker_file: Optional[str] = None) -> List[Dict]:
         """
         Query KR tickers that need fundamental data backfill
 
         Args:
             incremental: If True, only fetch tickers missing recent data
             limit: Maximum number of tickers to return (for testing)
+            ticker_file: CSV file path with ticker list (ticker,name,volume_rank columns)
 
         Returns:
             List of ticker dicts with ticker, name, corp_code
         """
-        if incremental:
-            # Incremental: Only tickers with no data in last 90 days
-            query = """
-            SELECT DISTINCT t.ticker, t.name
-            FROM tickers t
-            LEFT JOIN ticker_fundamentals tf ON t.ticker = tf.ticker
-                AND t.region = tf.region
-                AND tf.date >= NOW() - INTERVAL '90 days'
-            WHERE t.region = 'KR'
-              AND t.asset_type = 'STOCK'
-              AND t.is_active = TRUE
-              AND tf.id IS NULL
-            ORDER BY t.ticker
-            """
+        # Option 1: Load from CSV file (priority)
+        if ticker_file:
+            logger.info(f"📁 Loading tickers from file: {ticker_file}")
+            import csv
+
+            results = []
+            try:
+                with open(ticker_file, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        results.append({
+                            'ticker': row['ticker'],
+                            'name': row['name']
+                        })
+
+                logger.info(f"✅ Loaded {len(results)} tickers from CSV file")
+
+            except Exception as e:
+                logger.error(f"❌ Failed to load ticker file: {e}")
+                return []
+
+        # Option 2: Query from database
         else:
-            # Full backfill: All KR stocks
-            query = """
-            SELECT DISTINCT t.ticker, t.name
-            FROM tickers t
-            WHERE t.region = 'KR'
-              AND t.asset_type = 'STOCK'
-              AND t.is_active = TRUE
-            ORDER BY t.ticker
-            """
+            earliest_date = self._get_earliest_backfill_date()
 
-        if limit:
-            query += f" LIMIT {limit}"
+            if incremental:
+                # Incremental: Only tickers with no data in last 90 days
+                query = """
+                SELECT DISTINCT t.ticker, t.name, t.listing_date
+                FROM tickers t
+                LEFT JOIN ticker_fundamentals tf ON t.ticker = tf.ticker
+                    AND t.region = tf.region
+                    AND tf.date >= NOW() - INTERVAL '90 days'
+                WHERE t.region = 'KR'
+                  AND t.asset_type = 'STOCK'
+                  AND t.is_active = TRUE
+                  AND (t.listing_date IS NULL OR t.listing_date <= %s)
+                  AND tf.id IS NULL
+                ORDER BY t.ticker
+                """
+                params = [earliest_date]
+            else:
+                # Full backfill: All KR stocks (exclude recently listed)
+                query = """
+                SELECT DISTINCT t.ticker, t.name, t.listing_date
+                FROM tickers t
+                WHERE t.region = 'KR'
+                  AND t.asset_type = 'STOCK'
+                  AND t.is_active = TRUE
+                  AND (t.listing_date IS NULL OR t.listing_date <= %s)
+                ORDER BY t.ticker
+                """
+                params = [earliest_date]
 
-        results = self.db.execute_query(query)
+            if limit:
+                query += f" LIMIT {limit}"
+
+            results = self.db.execute_query(query, params)
 
         # Look up corp_code from config file for each ticker
         tickers_with_codes = []
@@ -218,40 +321,56 @@ class DARTFundamentalBackfiller:
         logger.info(f"📊 Found {len(tickers_with_codes)} KR stocks with DART corp codes (from {len(results)} total)")
         return tickers_with_codes
 
-    def fetch_dart_fundamental_data(self, ticker: str, corp_code: str) -> Optional[Dict]:
+    def fetch_dart_historical_fundamentals(self, ticker: str, corp_code: str,
+                                           start_year: int, end_year: int) -> List[Dict]:
         """
-        Fetch fundamental metrics from DART API
+        Fetch historical ANNUAL fundamental data for multiple years
 
         Args:
             ticker: Stock ticker (e.g., '005930')
             corp_code: DART corporate code (8-digit)
+            start_year: Start year for data collection (e.g., 2022)
+            end_year: End year for data collection (e.g., 2024)
 
         Returns:
-            Dict with fundamental metrics or None on failure
+            List of dicts with annual fundamental metrics (one per year)
         """
         try:
             # Rate limiting
             time.sleep(self.rate_limit_delay)
             self.stats['api_calls'] += 1
 
-            # Call DART API
-            metrics = self.dart.get_fundamental_metrics(ticker=ticker, corp_code=corp_code)
+            # Call DART API for historical data (ANNUAL reports only)
+            metrics_list = self.dart.get_historical_fundamentals(
+                ticker=ticker,
+                corp_code=corp_code,
+                start_year=start_year,
+                end_year=end_year
+            )
 
-            if not metrics:
-                logger.warning(f"⚠️ [{ticker}] No fundamental data available from DART")
-                return None
+            if not metrics_list:
+                logger.warning(f"⚠️ [{ticker}] No historical data available ({start_year}-{end_year})")
+                return []
 
-            # Validate required fields
-            if 'ticker' not in metrics or 'date' not in metrics:
-                logger.warning(f"⚠️ [{ticker}] Invalid metrics structure")
-                return None
+            # Validate each year's data
+            validated_metrics = []
+            for metrics in metrics_list:
+                if 'ticker' in metrics and 'date' in metrics and 'fiscal_year' in metrics:
+                    validated_metrics.append(metrics)
+                else:
+                    year = metrics.get('fiscal_year', 'Unknown')
+                    logger.warning(f"⚠️ [{ticker}] Invalid metrics structure for year {year}")
 
-            logger.debug(f"✅ [{ticker}] DART data fetched: {metrics.get('data_source', 'Unknown')}")
-            return metrics
+            if validated_metrics:
+                logger.info(f"✅ [{ticker}] DART historical data: {len(validated_metrics)} years ({start_year}-{end_year})")
+            else:
+                logger.warning(f"⚠️ [{ticker}] No valid annual reports found")
+
+            return validated_metrics
 
         except Exception as e:
             logger.error(f"❌ [{ticker}] DART API call failed: {e}")
-            return None
+            return []
 
     def get_latest_price(self, ticker: str, as_of_date: Optional[date] = None) -> Optional[Decimal]:
         """
@@ -416,10 +535,50 @@ class DARTFundamentalBackfiller:
                 'pbr': ratios.get('pbr'),
                 'psr': ratios.get('psr'),
                 'market_cap': ratios.get('market_cap'),
-                'shares_outstanding': metrics.get('shares_outstanding')
+                'shares_outstanding': metrics.get('shares_outstanding'),
+
+                # Phase 2: Manufacturing Industry Indicators (6)
+                'cogs': metrics.get('cogs'),
+                'gross_profit': metrics.get('gross_profit'),
+                'pp_e': metrics.get('pp_e'),
+                'depreciation': metrics.get('depreciation'),
+                'accounts_receivable': metrics.get('accounts_receivable'),
+                'accumulated_depreciation': metrics.get('accumulated_depreciation'),
+
+                # Phase 2: Retail/E-Commerce Industry Indicators (3)
+                'sga_expense': metrics.get('sga_expense'),
+                'rd_expense': metrics.get('rd_expense'),
+                'operating_expense': metrics.get('operating_expense'),
+
+                # Phase 2: Financial Industry Indicators (5)
+                'interest_income': metrics.get('interest_income'),
+                'interest_expense': metrics.get('interest_expense'),
+                'loan_portfolio': metrics.get('loan_portfolio'),
+                'npl_amount': metrics.get('npl_amount'),
+                'nim': metrics.get('nim'),
+
+                # Phase 2: Common Indicators (4)
+                'investing_cf': metrics.get('investing_cf'),
+                'financing_cf': metrics.get('financing_cf'),
+                'ebitda': metrics.get('ebitda'),
+                'ebitda_margin': metrics.get('ebitda_margin'),
+
+                # Phase 3: Equity Account Breakdown (8 columns)
+                'capital_stock': metrics.get('capital_stock'),
+                'capital_surplus': metrics.get('capital_surplus'),
+                'retained_earnings': metrics.get('retained_earnings'),
+                'treasury_stock': metrics.get('treasury_stock'),
+                'other_comprehensive_income': metrics.get('other_comprehensive_income'),
+                'non_controlling_interest': metrics.get('non_controlling_interest'),
+                'unappropriated_retained_earnings': metrics.get('unappropriated_retained_earnings'),
+                'legal_reserve': metrics.get('legal_reserve'),
+
+                # Phase 3: Equity Validation (2 columns)
+                'equity_validation_passed': metrics.get('equity_validation_passed'),
+                'equity_validation_error_pct': metrics.get('equity_validation_error_pct')
             }
 
-            # UPSERT query (Phase 2: 36 existing + 18 new columns)
+            # UPSERT query (Phase 2: 36 existing + 18 new + Phase 3: 10 equity columns = 64 columns)
             query = """
             INSERT INTO ticker_fundamentals (
                 ticker, region, date, period_type,
@@ -432,6 +591,10 @@ class DARTFundamentalBackfiller:
                 sga_expense, rd_expense, operating_expense,
                 interest_income, interest_expense, loan_portfolio, npl_amount, nim,
                 investing_cf, financing_cf, ebitda, ebitda_margin,
+                capital_stock, capital_surplus, retained_earnings, treasury_stock,
+                other_comprehensive_income, non_controlling_interest,
+                unappropriated_retained_earnings, legal_reserve,
+                equity_validation_passed, equity_validation_error_pct,
                 fiscal_year,
                 data_source, created_at
             )
@@ -446,6 +609,10 @@ class DARTFundamentalBackfiller:
                 %s, %s, %s,
                 %s, %s, %s, %s, %s,
                 %s, %s, %s, %s,
+                %s, %s, %s, %s,
+                %s, %s,
+                %s, %s,
+                %s, %s,
                 %s,
                 %s, NOW()
             )
@@ -484,11 +651,21 @@ class DARTFundamentalBackfiller:
                 financing_cf = EXCLUDED.financing_cf,
                 ebitda = EXCLUDED.ebitda,
                 ebitda_margin = EXCLUDED.ebitda_margin,
+                capital_stock = EXCLUDED.capital_stock,
+                capital_surplus = EXCLUDED.capital_surplus,
+                retained_earnings = EXCLUDED.retained_earnings,
+                treasury_stock = EXCLUDED.treasury_stock,
+                other_comprehensive_income = EXCLUDED.other_comprehensive_income,
+                non_controlling_interest = EXCLUDED.non_controlling_interest,
+                unappropriated_retained_earnings = EXCLUDED.unappropriated_retained_earnings,
+                legal_reserve = EXCLUDED.legal_reserve,
+                equity_validation_passed = EXCLUDED.equity_validation_passed,
+                equity_validation_error_pct = EXCLUDED.equity_validation_error_pct,
                 fiscal_year = EXCLUDED.fiscal_year,
                 data_source = EXCLUDED.data_source
             """
 
-            # Convert data dict to tuple in correct order (36 existing + 18 new = 54 columns)
+            # Convert data dict to tuple in correct order (36 existing + 18 Phase2 + 10 Phase3 = 64 columns)
             params = (
                 data['ticker'], data['region'], data['date'], data['period_type'],
                 data['shares_outstanding'], data['market_cap'], data['close_price'],
@@ -506,6 +683,12 @@ class DARTFundamentalBackfiller:
                 data.get('npl_amount'), data.get('nim'),
                 # Phase 2: Common (4)
                 data.get('investing_cf'), data.get('financing_cf'), data.get('ebitda'), data.get('ebitda_margin'),
+                # Phase 3: Equity Account Breakdown (8)
+                data.get('capital_stock'), data.get('capital_surplus'), data.get('retained_earnings'), data.get('treasury_stock'),
+                data.get('other_comprehensive_income'), data.get('non_controlling_interest'),
+                data.get('unappropriated_retained_earnings'), data.get('legal_reserve'),
+                # Phase 3: Equity Validation (2)
+                data.get('equity_validation_passed'), data.get('equity_validation_error_pct'),
                 # Metadata
                 data.get('fiscal_year'),
                 data['data_source']
@@ -563,22 +746,24 @@ class DARTFundamentalBackfiller:
             logger.error(f"❌ [KR:{ticker}] Duplicate check failed: {e}")
             return False
 
-    def process_ticker(self, ticker_info: Dict) -> bool:
+    def process_ticker(self, ticker_info: Dict, start_year: int, end_year: int) -> bool:
         """
-        Process single ticker: fetch DART data, calculate ratios, insert to database
+        Process single ticker: fetch DART historical data, calculate ratios, insert to database
 
         Args:
             ticker_info: Dict with ticker, name, corp_code
+            start_year: Start year for historical data
+            end_year: End year for historical data
 
         Returns:
-            True if successful, False otherwise
+            True if at least one year was successfully processed, False otherwise
         """
         ticker = ticker_info['ticker']
         name = ticker_info.get('name', 'Unknown')
         corp_code = ticker_info.get('corp_code')
 
         logger.info(f"{'='*60}")
-        logger.info(f"Processing {ticker} ({name})")
+        logger.info(f"Processing {ticker} ({name}) - Years {start_year}-{end_year}")
         logger.info(f"{'='*60}")
 
         # Validate corp_code
@@ -587,63 +772,84 @@ class DARTFundamentalBackfiller:
             self.stats['tickers_skipped_no_corp_code'] += 1
             return False
 
-        # Step 1: Fetch DART fundamental data
-        metrics = self.fetch_dart_fundamental_data(ticker, corp_code)
-        if not metrics:
+        # Step 1: Fetch DART historical fundamental data (multiple years)
+        metrics_list = self.fetch_dart_historical_fundamentals(ticker, corp_code, start_year, end_year)
+        if not metrics_list:
             self.stats['tickers_skipped_no_data'] += 1
             return False
 
-        # Check for duplicates (will still update if exists via UPSERT)
-        target_date = metrics.get('date')
-        period_type = metrics.get('period_type', 'ANNUAL')
-        if target_date and self.check_duplicate_exists(ticker, target_date, period_type):
-            logger.info(f"🔄 [KR:{ticker}] Data exists for {target_date} ({period_type}), will update with latest")
+        # Process each year's data
+        years_processed = 0
+        for metrics in metrics_list:
+            fiscal_year = metrics.get('fiscal_year', 'Unknown')
+            target_date = metrics.get('date')
+            period_type = metrics.get('period_type', 'ANNUAL')
 
-        # Step 2: Get latest price
-        price = self.get_latest_price(ticker)
-        if not price:
-            logger.warning(f"⚠️ [{ticker}] No price data - skipping ratio calculations")
-            self.stats['tickers_skipped_no_data'] += 1
-            return False
+            logger.info(f"\n📅 [{ticker}] Processing fiscal year {fiscal_year}...")
 
-        # Step 3: Calculate valuation ratios
-        ratios = self.calculate_valuation_ratios(ticker, metrics, price)
+            # Check for duplicates (will still update if exists via UPSERT)
+            if target_date and self.check_duplicate_exists(ticker, target_date, period_type):
+                logger.info(f"🔄 [KR:{ticker}] Data exists for {target_date} ({period_type}), will update")
 
-        # Step 4: Insert/update database
-        success = self.insert_or_update_fundamental_data(ticker, metrics, ratios, price)
+            # Step 2: Get historical price (as of report date)
+            price = self.get_latest_price(ticker, as_of_date=target_date)
+            if not price:
+                logger.warning(f"⚠️ [{ticker}] No price data for {target_date} - skipping year {fiscal_year}")
+                continue
 
-        if success:
+            # Step 3: Calculate valuation ratios
+            ratios = self.calculate_valuation_ratios(ticker, metrics, price)
+
+            # Step 4: Insert/update database
+            success = self.insert_or_update_fundamental_data(ticker, metrics, ratios, price)
+
+            if success:
+                years_processed += 1
+                self.stats['records_processed'] += 1
+                logger.info(f"✅ [{ticker}] Year {fiscal_year} processed successfully")
+            else:
+                logger.warning(f"⚠️ [{ticker}] Year {fiscal_year} failed to insert/update")
+
+        # Mark ticker as successful if at least one year was processed
+        if years_processed > 0:
             self.stats['tickers_success'] += 1
+            logger.info(f"✅ [{ticker}] Completed: {years_processed}/{len(metrics_list)} years processed")
             return True
         else:
             self.stats['tickers_failed'] += 1
+            logger.warning(f"❌ [{ticker}] Failed: No years successfully processed")
             return False
 
-    def run_backfill(self, incremental: bool = False, limit: Optional[int] = None) -> Dict:
+    def run_backfill(self, incremental: bool = False, limit: Optional[int] = None,
+                     ticker_file: Optional[str] = None) -> Dict:
         """
         Run full backfill process
 
         Args:
             incremental: If True, only fetch missing data
             limit: Maximum tickers to process (for testing)
+            ticker_file: CSV file with ticker list
 
         Returns:
             Statistics dict
         """
         start_time = datetime.now()
         logger.info("="*80)
-        logger.info("PHASE 1.5 - DAY 1: DART FUNDAMENTAL DATA BACKFILL")
+        logger.info("PHASE 1: DART FUNDAMENTAL DATA BACKFILL - TOP 100 LIQUID TICKERS")
         logger.info("="*80)
         logger.info(f"Start Time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        logger.info(f"Mode: {'INCREMENTAL' if incremental else 'FULL BACKFILL'}")
+        logger.info(f"Mode: {'TICKER FILE' if ticker_file else ('INCREMENTAL' if incremental else 'FULL BACKFILL')}")
         logger.info(f"Dry Run: {self.dry_run}")
         logger.info(f"Rate Limit: {self.rate_limit_delay} sec/request")
+        if ticker_file:
+            logger.info(f"Ticker File: {ticker_file}")
         if limit:
             logger.info(f"Limit: {limit} tickers")
         logger.info("="*80)
 
         # Get tickers for backfill
-        tickers = self.get_kr_tickers_for_backfill(incremental=incremental, limit=limit)
+        tickers = self.get_kr_tickers_for_backfill(incremental=incremental, limit=limit,
+                                                    ticker_file=ticker_file)
 
         if not tickers:
             logger.warning("⚠️ No tickers to process")
@@ -663,7 +869,7 @@ class DARTFundamentalBackfiller:
             logger.info(f"\n[{idx}/{len(tickers)}] Processing {ticker}...")
 
             try:
-                self.process_ticker(ticker_info)
+                self.process_ticker(ticker_info, self.start_year, self.end_year)
 
             except Exception as e:
                 import traceback
@@ -685,15 +891,20 @@ class DARTFundamentalBackfiller:
         logger.info("="*80)
         logger.info(f"End Time: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
         logger.info(f"Duration: {duration}")
+        logger.info(f"Year Range: {self.start_year}-{self.end_year} ({self.end_year - self.start_year + 1} years)")
         logger.info(f"\nStatistics:")
         logger.info(f"  Tickers Processed: {self.stats['tickers_processed']}")
         logger.info(f"  ✅ Success: {self.stats['tickers_success']}")
         logger.info(f"  ⚠️ Skipped (No Corp Code): {self.stats['tickers_skipped_no_corp_code']}")
         logger.info(f"  ⚠️ Skipped (No Data): {self.stats['tickers_skipped_no_data']}")
+        logger.info(f"  📅 Skipped (Listing Date): {self.stats['tickers_skipped_listing_date']}")
         logger.info(f"  ❌ Failed: {self.stats['tickers_failed']}")
         logger.info(f"\nDatabase Operations:")
+        logger.info(f"  Year Records Processed: {self.stats['records_processed']} (across all tickers)")
         logger.info(f"  Records Inserted: {self.stats['records_inserted']}")
         logger.info(f"  Records Updated: {self.stats['records_updated']}")
+        avg_years = self.stats['records_processed'] / max(self.stats['tickers_success'], 1)
+        logger.info(f"  Avg Years per Ticker: {avg_years:.2f}")
         logger.info(f"\nAPI Metrics:")
         logger.info(f"  Total API Calls: {self.stats['api_calls']}")
         logger.info(f"  Avg Time per Call: {duration.total_seconds() / max(self.stats['api_calls'], 1):.2f} sec")
@@ -757,11 +968,27 @@ class DARTFundamentalBackfiller:
 
 def main():
     """Main entry point"""
-    parser = argparse.ArgumentParser(description='DART Fundamental Data Backfill (Phase 1.5 - Day 1)')
+    parser = argparse.ArgumentParser(description='DART Fundamental Data Backfill (Phase 2 - Annual Data)')
     parser.add_argument('--dry-run', action='store_true', help='Preview operations without database writes')
     parser.add_argument('--incremental', action='store_true', help='Only fetch missing data (last 90 days)')
     parser.add_argument('--limit', type=int, help='Limit number of tickers (for testing)')
+    parser.add_argument('--ticker-file', type=str, help='CSV file with ticker list (ticker,name,volume_rank columns)')
     parser.add_argument('--rate-limit', type=float, default=1.0, help='Delay between API calls in seconds (default: 1.0)')
+    parser.add_argument('--start-year', type=int, default=2022, help='Start year for historical data (default: 2022)')
+    parser.add_argument('--end-year', type=int, default=2024, help='End year for historical data (default: 2024)')
+
+    # Gap Analysis Options (Phase 3)
+    parser.add_argument(
+        '--use-gap-analysis',
+        action='store_true',
+        help='Use gap analysis for optimized backfill (recommended for incremental updates)'
+    )
+    parser.add_argument(
+        '--target-columns',
+        nargs='+',
+        default=['capital_stock', 'capital_surplus', 'retained_earnings'],
+        help='Columns to check for gaps (default: equity account columns)'
+    )
 
     args = parser.parse_args()
 
@@ -770,31 +997,82 @@ def main():
         db = PostgresDatabaseManager()
         logger.info("✅ Connected to PostgreSQL database")
 
-        # Initialize DART API client
-        dart = DARTApiClient(rate_limit_delay=args.rate_limit * 36.0)  # Convert to 36-sec delay
-        logger.info("✅ DART API client initialized")
+        # ========================================================================
+        # Path Selection: Gap-Aware vs Legacy Mode
+        # ========================================================================
 
-        # Run backfill
-        backfiller = DARTFundamentalBackfiller(
-            db=db,
-            dart=dart,
-            dry_run=args.dry_run,
-            rate_limit_delay=args.rate_limit
-        )
+        if args.use_gap_analysis:
+            # ✅ NEW: Gap-Aware Backfill using BackfillOrchestrator
+            logger.info("🔍 Gap-Aware 모드: BackfillOrchestrator 사용")
 
-        stats = backfiller.run_backfill(
-            incremental=args.incremental,
-            limit=args.limit
-        )
+            # Initialize components
+            gap_analyzer = GapAnalyzer(db)
+            orchestrator = BackfillOrchestrator(
+                db=db,
+                gap_analyzer=gap_analyzer,
+                dry_run=args.dry_run
+            )
 
-        # Exit code based on success rate
-        success_rate = stats['tickers_success'] / max(stats['tickers_processed'], 1) * 100
-        if success_rate >= 70:
-            logger.info(f"✅ Backfill completed successfully (success rate: {success_rate:.1f}%)")
-            sys.exit(0)
+            # Execute gap-aware backfill
+            result = orchestrator.execute_backfill(
+                backfill_type='equity',
+                target_columns=args.target_columns,
+                region='KR',
+                limit=args.limit,
+                backfill_start_date=date(args.start_year, 1, 1)
+            )
+
+            # Print summary
+            if result.success:
+                summary = result.get_summary()
+                logger.info("=" * 80)
+                logger.info("📊 Gap-Aware Backfill 완료 요약:")
+                logger.info(f"  Gap Analysis:")
+                for key, value in summary['gap_analysis'].items():
+                    logger.info(f"    - {key}: {value}")
+                logger.info(f"  Backfill Stats:")
+                for key, value in summary['backfill_stats'].items():
+                    logger.info(f"    - {key}: {value}")
+                logger.info("=" * 80)
+
+                # Exit code based on success
+                sys.exit(0)
+            else:
+                logger.error(f"❌ Gap-Aware Backfill 실패: {result.error_message}")
+                sys.exit(1)
+
         else:
-            logger.warning(f"⚠️ Backfill completed with low success rate: {success_rate:.1f}%")
-            sys.exit(1)
+            # ✅ LEGACY: Original DARTFundamentalBackfiller (Backward Compatibility)
+            logger.info("📦 Legacy 모드: DARTFundamentalBackfiller 사용")
+
+            # Initialize DART API client
+            dart = DARTApiClient(rate_limit_delay=args.rate_limit * 36.0)  # Convert to 36-sec delay
+            logger.info("✅ DART API client initialized")
+
+            # Run backfill
+            backfiller = DARTFundamentalBackfiller(
+                db=db,
+                dart=dart,
+                dry_run=args.dry_run,
+                rate_limit_delay=args.rate_limit,
+                start_year=args.start_year,
+                end_year=args.end_year
+            )
+
+            stats = backfiller.run_backfill(
+                incremental=args.incremental,
+                limit=args.limit,
+                ticker_file=args.ticker_file
+            )
+
+            # Exit code based on success rate
+            success_rate = stats['tickers_success'] / max(stats['tickers_processed'], 1) * 100
+            if success_rate >= 70:
+                logger.info(f"✅ Backfill completed successfully (success rate: {success_rate:.1f}%)")
+                sys.exit(0)
+            else:
+                logger.warning(f"⚠️ Backfill completed with low success rate: {success_rate:.1f}%")
+                sys.exit(1)
 
     except KeyboardInterrupt:
         logger.info("\n⚠️ Backfill interrupted by user")

@@ -58,7 +58,9 @@ backup_*.sql
 # Logs
 logs/
 *.log
+*.log.gz
 log_*.txt
+logs_backup_*.tar.gz
 
 # Data Files (large datasets)
 data/*.csv
@@ -76,12 +78,14 @@ data/backups/*.sql
 *.temp
 *.bak
 *.backup
+*.backup_*
 *~
 .DS_Store
 
 # IDE / Editor
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 *~
@@ -96,6 +100,7 @@ data/backups/*.sql
 # Testing
 .pytest_cache/
 .coverage
+coverage.json
 htmlcov/
 .tox/
 .nox/
@@ -157,3 +162,10 @@ models/*.h5
 
 # Dashboard (keep in git)
 # dashboard/
+
+# Token cache files
+data/.kis_token_cache.json
+*.token_cache.json
+
+# DART API Data Files (downloaded from API, not source code)
+config/dart_corp_codes.xml

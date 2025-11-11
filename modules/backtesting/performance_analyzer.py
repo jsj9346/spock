@@ -278,6 +278,14 @@ class PerformanceAnalyzer:
         Returns:
             Dictionary with total_return, annualized_return, cagr
         """
+        # Handle empty equity curve (no trades)
+        if len(self.equity_curve) == 0:
+            return {
+                "total_return": 0.0,
+                "annualized_return": 0.0,
+                "cagr": 0.0,
+            }
+
         final_value = self.equity_curve.iloc[-1]
         total_return = (final_value - self.initial_capital) / self.initial_capital
 
@@ -305,6 +313,18 @@ class PerformanceAnalyzer:
         Returns:
             Dictionary with risk metrics
         """
+        # Handle empty equity curve (no trades)
+        if len(self.equity_curve) == 0:
+            return {
+                "sharpe_ratio": 0.0,
+                "sortino_ratio": 0.0,
+                "calmar_ratio": 0.0,
+                "max_drawdown": 0.0,
+                "max_drawdown_duration_days": 0,
+                "std_returns": 0.0,
+                "downside_deviation": 0.0,
+            }
+
         # Calculate daily returns
         daily_returns = self.equity_curve.pct_change().dropna()
 

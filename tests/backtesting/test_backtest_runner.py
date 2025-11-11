@@ -233,9 +233,10 @@ class TestComparison:
         assert 'sharpe' in comparison.metrics_match
         assert 'max_drawdown' in comparison.metrics_match
 
-        # All values should be boolean
+        # All values should be boolean (accept both Python bool and numpy bool_)
+        import numpy as np
         for key, value in comparison.metrics_match.items():
-            assert isinstance(value, bool)
+            assert isinstance(value, (bool, np.bool_))
 
     def test_speedup_factor_positive(self, runner):
         """Test speedup factor is positive."""
@@ -305,9 +306,10 @@ class TestValidation:
         assert hasattr(report, 'recommendations')
         assert hasattr(report, 'timestamp')
 
-        # Check types
-        assert isinstance(report.validation_passed, bool)
-        assert isinstance(report.consistency_score, float)
+        # Check types (accept both Python and numpy types)
+        import numpy as np
+        assert isinstance(report.validation_passed, (bool, np.bool_))
+        assert isinstance(report.consistency_score, (float, np.floating))
         assert isinstance(report.discrepancies, dict)
         assert isinstance(report.recommendations, list)
 

@@ -268,6 +268,11 @@ class VectorbtAdapter:
         # 2. Generate signals using signal_generator
         logger.info("Step 2/4: Generating signals...")
         close = data['close']
+
+        # Set Series name to ticker (for signal generators that need ticker identification)
+        if len(self.config.tickers) == 1:
+            close.name = self.config.tickers[0]
+
         entries, exits = self.signal_generator(close, **signal_kwargs)
 
         # Log signal statistics

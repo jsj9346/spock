@@ -337,7 +337,7 @@ class FactorBase(ABC):
         """
 
         try:
-            with db_manager.get_connection() as conn:
+            with db_manager._get_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.executemany(query, [
                         (r['ticker'], r['region'], r['date'], r['factor_name'], r['score'], r['percentile'])
@@ -391,7 +391,7 @@ class FactorBase(ABC):
         query += " ORDER BY tf.date DESC"
 
         try:
-            with db_manager.get_connection() as conn:
+            with db_manager._get_connection() as conn:
                 df = pd.read_sql_query(query, conn, params=params)
                 logger.info(f"✅ Loaded {len(df)} fundamental records for {region}")
                 return df

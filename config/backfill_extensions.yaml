@@ -1,0 +1,97 @@
+# Auto-Backfill Extensions Configuration
+#
+# Control optional Phase 2-3 features.
+# All extensions are disabled by default for zero performance impact.
+#
+# Author: Spock Quant Platform
+# Date: 2025-10-29
+# Version: 1.0.0
+
+# Phase 2: Performance Optimizations
+extensions:
+  phase2:
+    # Real-Time Data Streaming (Phase 2.1)
+    streaming:
+      enabled: false
+      class: "modules.backtesting.data_providers.extensions.streaming.DataStreamManager"
+      config:
+        websocket_url: "wss://kis-api.com/stream"
+        reconnect_interval: 5  # seconds
+        buffer_size: 1000      # max buffered messages
+        timeout: 30            # connection timeout
+
+    # Fundamental Data Backfill (Phase 2.2)
+    fundamentals:
+      enabled: false
+      class: "modules.backtesting.data_providers.extensions.fundamentals.FundamentalBackfiller"
+      config:
+        dart_api_key: "${DART_API_KEY}"  # Environment variable
+        kis_api_key: "${KIS_API_KEY}"    # Environment variable
+        rate_limit: 0.027  # DART API limit (100 calls/hour)
+
+    # Multi-Threaded Batch Optimization (Phase 2.3)
+    batch_optimization:
+      enabled: false
+      class: "modules.backtesting.data_providers.extensions.batch.BatchOptimizer"
+      config:
+        max_workers: 4      # concurrent threads
+        batch_size: 50      # tickers per batch
+        timeout: 60         # timeout per ticker (seconds)
+
+    # Grafana Monitoring Integration (Phase 2.4)
+    monitoring:
+      enabled: false
+      class: "modules.backtesting.data_providers.extensions.monitoring.MonitoringAdapter"
+      config:
+        prometheus_host: "localhost"
+        prometheus_port: 9090
+        metrics_prefix: "backfill_"
+        pushgateway_url: "http://localhost:9091"  # For batch jobs
+
+  # Phase 3: Advanced Features
+  phase3:
+    # ML-Based Quality Scoring (Phase 3.1)
+    quality_scoring:
+      enabled: false
+      class: "modules.backtesting.data_providers.extensions.quality.QualityScorer"
+      config:
+        model_path: "models/data_quality_model.pkl"
+        quality_threshold: 0.8    # 0.0-1.0
+        anomaly_threshold: 3.0    # Z-score threshold
+
+    # Predictive Caching (Phase 3.2)
+    predictive_cache:
+      enabled: false
+      class: "modules.backtesting.data_providers.extensions.cache.PredictiveCache"
+      config:
+        prediction_model: "models/query_prediction_model.pkl"
+        max_prefetch: 10           # max queries to pre-fetch
+        confidence_threshold: 0.7  # min confidence for pre-fetch
+
+    # Distributed Caching with Redis (Phase 3.3)
+    distributed_cache:
+      enabled: false
+      class: "modules.backtesting.data_providers.extensions.cache.DistributedCache"
+      config:
+        redis_host: "localhost"
+        redis_port: 6379
+        redis_db: 0
+        default_ttl: 3600     # 1 hour cache TTL
+        compression: true      # LZ4 compression for large DataFrames
+        max_memory: "2gb"      # Redis max memory
+
+# Usage Example:
+#
+# To enable an extension:
+# 1. Set enabled: true
+# 2. Configure required parameters (API keys, hosts, etc.)
+# 3. Restart application
+#
+# Example - Enable streaming:
+# ```yaml
+# phase2:
+#   streaming:
+#     enabled: true
+#     config:
+#       websocket_url: "wss://your-kis-api.com/stream"
+# ```

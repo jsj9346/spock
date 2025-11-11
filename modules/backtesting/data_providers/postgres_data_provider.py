@@ -60,13 +60,21 @@ class PostgresDataProvider(BaseDataProvider):
         >>> data = provider.get_ohlcv_batch(tickers, 'KR', date(2024,1,1), date(2024,12,31))
     """
 
-    def __init__(self, db_manager: PostgresDatabaseManager, cache_enabled: bool = True):
+    def __init__(
+        self,
+        db_manager: PostgresDatabaseManager,
+        cache_enabled: bool = True,
+        backfill_enabled: bool = True,
+        backfill_threshold: float = 0.8
+    ):
         """
-        Initialize PostgreSQL data provider.
+        Initialize PostgreSQL data provider with auto-backfill capability.
 
         Args:
             db_manager: PostgresDatabaseManager instance with connection pooling
             cache_enabled: Enable in-memory caching (default: True)
+            backfill_enabled: Enable automatic data backfilling from external APIs (default: True)
+            backfill_threshold: Minimum data coverage to trigger backfill (default: 0.8 = 80%)
 
         Raises:
             ValueError: If db_manager is None or invalid
@@ -79,6 +87,16 @@ class PostgresDataProvider(BaseDataProvider):
 
         self.db = db_manager
 
+        # Auto-backfill configuration
+        self.backfill_enabled = backfill_enabled
+        self.backfill_threshold = backfill_threshold
+
+        # Initialize BackfillOrchestrator if enabled
+        if backfill_enabled:
+            from .backfill_orchestrator import BackfillOrchestrator
+            self.backfill_orchestrator = BackfillOrchestrator(db_manager)
+            logger.info(f"✅ Auto-backfill enabled (threshold: {backfill_threshold:.0%})")
+
         # Test database connection
         try:
             if not self.db.test_connection():
@@ -89,7 +107,8 @@ class PostgresDataProvider(BaseDataProvider):
 
         logger.info(
             f"PostgresDataProvider initialized "
-            f"(host={self.db.host}, database={self.db.database}, cache_enabled={cache_enabled})"
+            f"(host={self.db.host}, database={self.db.database}, "
+            f"cache_enabled={cache_enabled}, backfill_enabled={backfill_enabled})"
         )
 
     def get_ohlcv(
@@ -178,6 +197,40 @@ class PostgresDataProvider(BaseDataProvider):
             else:
                 # Return empty DataFrame with correct schema
                 df = pd.DataFrame(columns=required_cols)
+
+            # STEP 3: Auto-backfill if data coverage is insufficient
+            if self.backfill_enabled:
+                expected_days = self._calculate_expected_trading_days(
+                    start_date, end_date, region
+                )
+                actual_days = len(df)
+                coverage = actual_days / expected_days if expected_days > 0 else 0
+
+                if coverage < self.backfill_threshold:
+                    logger.info(
+                        f"🔄 Auto-backfill triggered: {ticker} ({region}) "
+                        f"coverage={coverage:.1%} < {self.backfill_threshold:.1%} "
+                        f"({actual_days}/{expected_days:.0f} days)"
+                    )
+
+                    # Attempt backfill
+                    backfilled_df = self.backfill_orchestrator.backfill_ohlcv(
+                        ticker=ticker,
+                        region=region,
+                        start_date=start_date,
+                        end_date=end_date,
+                        timeframe=timeframe,
+                        existing_data=df
+                    )
+
+                    # Use backfilled data if successful
+                    if backfilled_df is not None and len(backfilled_df) > len(df):
+                        logger.info(
+                            f"✅ Backfill success: {ticker} "
+                            f"{len(df)} → {len(backfilled_df)} records "
+                            f"(+{len(backfilled_df) - len(df)} added)"
+                        )
+                        df = backfilled_df
 
             # Cache result
             if self.cache_enabled:
@@ -596,13 +649,66 @@ class PostgresDataProvider(BaseDataProvider):
             logger.error(f"Failed to get available tickers for {region}: {e}")
             return []
 
+    def _calculate_expected_trading_days(
+        self,
+        start_date: date,
+        end_date: date,
+        region: str
+    ) -> float:
+        """
+        Calculate expected number of trading days for given date range.
+
+        Uses business days (Monday-Friday) as baseline and adjusts for
+        regional holidays. Simplified implementation for auto-backfill.
+
+        Args:
+            start_date: Start date
+            end_date: End date
+            region: Market region code
+
+        Returns:
+            Expected number of trading days (float to account for holidays)
+        """
+        # Calculate business days (Mon-Fri)
+        business_days = pd.bdate_range(start_date, end_date)
+        total_business_days = len(business_days)
+
+        # Regional holiday adjustments (simplified)
+        # Typical holidays: ~10-15 days per year
+        if region == 'KR':
+            # Korean market: ~15 holidays/year
+            holiday_factor = 0.94  # 94% of business days are trading days
+        elif region == 'US':
+            # US market: ~10 holidays/year
+            holiday_factor = 0.96
+        elif region in ['CN', 'HK']:
+            # Chinese markets: ~11-12 holidays/year
+            holiday_factor = 0.95
+        elif region == 'JP':
+            # Japanese market: ~16 holidays/year
+            holiday_factor = 0.93
+        else:
+            # Default: assume ~12 holidays/year
+            holiday_factor = 0.95
+
+        expected_trading_days = total_business_days * holiday_factor
+
+        logger.debug(
+            f"Expected trading days: {expected_trading_days:.0f} "
+            f"({total_business_days} business days × {holiday_factor:.0%})"
+        )
+
+        return expected_trading_days
+
     def __repr__(self) -> str:
         """String representation of provider."""
+        backfill_status = f", backfill={self.backfill_enabled}" if hasattr(self, 'backfill_enabled') else ""
         return (
             f"PostgresDataProvider("
             f"host={self.db.host}, "
             f"database={self.db.database}, "
             f"cache_enabled={self.cache_enabled}, "
             f"cache_size={len(self.cache)}"
+            f"{backfill_status}"
             f")"
         )

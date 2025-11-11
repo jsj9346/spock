@@ -400,6 +400,8 @@ class BacktestResult:
     @property
     def final_portfolio_value(self) -> float:
         """Get final portfolio value."""
+        if len(self.equity_curve) == 0:
+            return self.config.initial_capital
         return self.equity_curve.iloc[-1]
 
     @property

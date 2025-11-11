@@ -117,21 +117,24 @@ class BacktestEngine:
         # Initialize StrategyRunner
         # Note: StrategyRunner still needs db for LayeredScoringEngine/KellyCalculator
         # This will be refactored in a future task
-        if self.db is not None:
+        if self.db is not None and hasattr(self.db, 'db_path'):
+            # Only initialize StrategyRunner for SQLite databases
             self.strategy_runner = StrategyRunner(config, self.db)
+            logger.info("StrategyRunner initialized with SQLite database")
         else:
-            # For PostgreSQL: Try to extract db from data_provider
-            if hasattr(data_provider, 'db') and hasattr(data_provider.db, 'db_path'):
-                # PostgresDataProvider doesn't have db_path, so this will fail
+            # For PostgreSQL or no database: Skip StrategyRunner
+            # Custom engine will not work without StrategyRunner
+            # Vectorbt engine will still work (uses signal_generator)
+            self.strategy_runner = None
+            if self.db is not None:
                 logger.warning(
                     "StrategyRunner requires SQLite db_path for LayeredScoringEngine/KellyCalculator. "
-                    "Strategy execution may fail with non-SQLite providers. "
+                    "Custom engine will not work with PostgreSQL. "
+                    "Use vectorbt engine instead. "
                     "This is a known limitation that will be addressed in a future refactor."
                 )
-                self.strategy_runner = None  # Will fail if strategy_runner is used
             else:
-                logger.warning("Cannot initialize StrategyRunner without SQLite database")
-                self.strategy_runner = None
+                logger.info("No database provided - StrategyRunner not initialized")
 
         provider_type = type(data_provider).__name__
         logger.info(

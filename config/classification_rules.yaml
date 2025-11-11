@@ -1,0 +1,178 @@
+# Classification Rules for Stock Classifier
+# Author: Spock Quant Platform
+# Date: 2025-11-05
+
+# SPAC Detection Rules
+spac_detection:
+  enabled: true
+  patterns:
+    - name: "Direct SPAC mention"
+      regex: "SPAC"
+      case_sensitive: false
+      weight: 1.0
+
+    - name: "Korean SPAC term"
+      regex: "특수목적인수"
+      case_sensitive: true
+      weight: 1.0
+
+    - name: "SPAC numbering (Korean)"
+      regex: "제\\d+호"
+      case_sensitive: true
+      weight: 0.9
+
+    - name: "Purpose acquisition company"
+      regex: "purpose\\s+acquisition"
+      case_sensitive: false
+      weight: 1.0
+
+    - name: "Blank check company"
+      regex: "blank\\s+check"
+      case_sensitive: false
+      weight: 0.9
+
+# Preferred Stock Detection Rules
+preferred_detection:
+  enabled: true
+
+  # Korean Market Rules
+  KR:
+    ticker_patterns:
+      - name: "Ticker suffix 2-9"
+        regex: "\\d{6}[2-9]$"
+        weight: 1.0
+        description: "Korean preferred stocks use ticker suffix 2-9 (e.g., 005932)"
+
+    name_patterns:
+      - name: "Preferred stock keyword"
+        regex: "우선주"
+        weight: 1.0
+
+      - name: "First preferred B"
+        regex: "1우B"
+        weight: 1.0
+
+      - name: "Second preferred B"
+        regex: "2우B"
+        weight: 1.0
+
+      - name: "Numbered preferred"
+        regex: "[1-3]우"
+        weight: 0.9
+        description: "1st, 2nd, 3rd preferred stocks"
+
+  # US Market Rules
+  US:
+    ticker_patterns:
+      - name: "Series format"
+        regex: "\\.PR[A-Z]$"
+        weight: 1.0
+        description: "e.g., BAC.PRA, JPM.PRD"
+
+      - name: "Hyphen format"
+        regex: "-P[A-Z]?$"
+        weight: 1.0
+        description: "e.g., BAC-PA, JPM-PD"
+
+      - name: "Underscore format"
+        regex: "_p[A-Z]?$"
+        weight: 0.8
+        description: "Alternative format"
+
+# Sector Classification Rules (Keyword-based fallback)
+sector_classification:
+  enabled: true
+  method: "keyword_matching"
+
+  # Korean Market Keywords
+  KR:
+    Technology:
+      keywords: ["전자", "반도체", "소프트웨어", "IT", "통신", "디스플레이"]
+      weight: 1.0
+
+    Finance:
+      keywords: ["은행", "증권", "보험", "금융", "카드", "자산운용"]
+      weight: 1.0
+
+    Healthcare:
+      keywords: ["제약", "바이오", "의료", "병원", "헬스케어"]
+      weight: 1.0
+
+    Consumer:
+      keywords: ["식품", "유통", "화장품", "패션", "의류", "소비재"]
+      weight: 0.9
+
+    Industrial:
+      keywords: ["건설", "철강", "화학", "조선", "기계", "자동차"]
+      weight: 0.9
+
+    Energy:
+      keywords: ["전력", "가스", "에너지", "석유", "발전"]
+      weight: 1.0
+
+    Materials:
+      keywords: ["화학", "철강", "금속", "시멘트", "제지"]
+      weight: 0.9
+
+    "Real Estate":
+      keywords: ["건설", "부동산", "리츠"]
+      weight: 0.8
+
+  # US Market Keywords (Future implementation)
+  US:
+    Technology:
+      keywords: ["software", "semiconductor", "technology", "IT", "telecom"]
+      weight: 1.0
+
+    Finance:
+      keywords: ["bank", "insurance", "financial", "investment", "capital"]
+      weight: 1.0
+
+    Healthcare:
+      keywords: ["pharma", "biotech", "healthcare", "medical", "hospital"]
+      weight: 1.0
+
+# Classification Thresholds
+thresholds:
+  spac_confidence: 0.8
+  preferred_confidence: 0.9
+  sector_confidence: 0.7
+
+# Validation Rules
+validation:
+  require_name: true
+  require_ticker: true
+  allow_multiple_sectors: false
+
+  # Skip classification for certain asset types
+  skip_asset_types:
+    - "ETF"
+    - "INDEX"
+    - "CRYPTO"
+
+# External Data Source Configuration (Future implementation)
+external_sources:
+  KR:
+    krx_enabled: false
+    krx_api_url: "https://data.krx.co.kr"
+    krx_timeout: 10
+
+  US:
+    yfinance_enabled: false
+    yfinance_timeout: 5
+    sec_enabled: false
+    sec_api_url: "https://data.sec.gov"
+
+# Logging Configuration
+logging:
+  log_classification: true
+  log_level: "INFO"
+  log_errors: true
+  log_warnings: true
+
+# Performance Settings
+performance:
+  batch_size: 100
+  cache_enabled: true
+  cache_ttl: 3600  # 1 hour
+  parallel_processing: false

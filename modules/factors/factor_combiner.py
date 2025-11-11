@@ -358,11 +358,152 @@ class OptimizationCombiner(FactorCombinerBase):
 
         logger.info(f"Initialized OptimizationCombiner with db_path={db_path}")
 
+    def _get_historical_factor_returns(
+        self,
+        factor_names: List[str],
+        start_date: str,
+        end_date: str,
+        region: str = 'KR'
+    ) -> pd.DataFrame:
+        """
+        Extract historical factor returns from database
+
+        Strategy:
+        1. Query factor_scores for specified date range
+        2. For each factor, create quintile portfolios (Top 20% vs Bottom 20%)
+        3. Calculate daily long-short returns (top quintile - bottom quintile)
+        4. Return time series of factor returns
+
+        Args:
+            factor_names: List of factor names to extract
+            start_date: Start date (YYYY-MM-DD)
+            end_date: End date (YYYY-MM-DD)
+            region: Region filter (default: 'KR')
+
+        Returns:
+            DataFrame with columns = factor names, index = dates, values = daily returns
+        """
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+
+        logger.info(f"Extracting historical factor returns: {start_date} to {end_date}")
+
+        # Connect to PostgreSQL
+        import os
+        conn = psycopg2.connect(
+            dbname="quant_platform",
+            user=os.getenv("USER", "13ruce"),  # Use current system user
+            host="localhost",
+            port=5432
+        )
+
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Query to calculate quintile-based factor returns
+                query = """
+                WITH factor_quintiles AS (
+                    SELECT
+                        fs.date,
+                        fs.ticker,
+                        fs.region,
+                        fs.factor_name,
+                        fs.score,
+                        fs.percentile,
+                        CASE
+                            WHEN fs.percentile >= 80 THEN 'Q5'  -- Top quintile
+                            WHEN fs.percentile <= 20 THEN 'Q1'  -- Bottom quintile
+                            ELSE 'MID'
+                        END AS quintile_group
+                    FROM factor_scores fs
+                    WHERE fs.factor_name = ANY(%s)
+                      AND fs.region = %s
+                      AND fs.date >= %s::date
+                      AND fs.date <= %s::date
+                ),
+                price_returns AS (
+                    SELECT
+                        fq.date,
+                        fq.ticker,
+                        fq.factor_name,
+                        fq.quintile_group,
+                        ohlcv.close,
+                        LAG(ohlcv.close) OVER (
+                            PARTITION BY fq.ticker
+                            ORDER BY fq.date
+                        ) AS prev_close,
+                        CASE
+                            WHEN LAG(ohlcv.close) OVER (
+                                PARTITION BY fq.ticker
+                                ORDER BY fq.date
+                            ) IS NOT NULL
+                            THEN (ohlcv.close - LAG(ohlcv.close) OVER (
+                                PARTITION BY fq.ticker
+                                ORDER BY fq.date
+                            )) / LAG(ohlcv.close) OVER (
+                                PARTITION BY fq.ticker
+                                ORDER BY fq.date
+                            )
+                            ELSE NULL
+                        END AS daily_return
+                    FROM factor_quintiles fq
+                    JOIN ohlcv_data ohlcv
+                        ON fq.ticker = ohlcv.ticker
+                        AND fq.region = ohlcv.region
+                        AND fq.date = ohlcv.date
+                    WHERE fq.quintile_group IN ('Q1', 'Q5')
+                ),
+                quintile_avg_returns AS (
+                    SELECT
+                        date,
+                        factor_name,
+                        quintile_group,
+                        AVG(daily_return) AS avg_return
+                    FROM price_returns
+                    WHERE daily_return IS NOT NULL
+                    GROUP BY date, factor_name, quintile_group
+                )
+                SELECT
+                    date,
+                    factor_name,
+                    MAX(CASE WHEN quintile_group = 'Q5' THEN avg_return END) -
+                    MAX(CASE WHEN quintile_group = 'Q1' THEN avg_return END) AS factor_return
+                FROM quintile_avg_returns
+                GROUP BY date, factor_name
+                HAVING MAX(CASE WHEN quintile_group = 'Q5' THEN avg_return END) IS NOT NULL
+                   AND MAX(CASE WHEN quintile_group = 'Q1' THEN avg_return END) IS NOT NULL
+                ORDER BY date, factor_name;
+                """
+
+                cur.execute(query, (factor_names, region, start_date, end_date))
+                rows = cur.fetchall()
+
+        finally:
+            conn.close()
+
+        if not rows:
+            logger.warning(f"No historical factor data found for period {start_date} to {end_date}")
+            return pd.DataFrame()
+
+        # Convert to DataFrame
+        df = pd.DataFrame(rows)
+
+        # Pivot to have factors as columns
+        pivot_df = df.pivot_table(
+            index='date',
+            columns='factor_name',
+            values='factor_return'
+        ).fillna(0.0)  # Fill missing values with 0 return
+
+        logger.info(f"Extracted {len(pivot_df)} days x {len(pivot_df.columns)} factors")
+
+        return pivot_df
+
     def fit(
         self,
-        start_date: str = '2018-01-01',
-        end_date: str = '2023-12-31',
-        objective: str = 'max_sharpe'
+        start_date: str = '2021-01-01',
+        end_date: str = '2024-12-31',
+        objective: str = 'max_sharpe',
+        region: str = 'KR'
     ):
         """
         Calculate optimal weights from historical factor returns
@@ -374,6 +515,7 @@ class OptimizationCombiner(FactorCombinerBase):
                 'max_sharpe' - Maximize Sharpe ratio (default)
                 'min_variance' - Minimize portfolio variance
                 'max_return' - Maximize expected return
+            region: Region filter (default: 'KR')
 
         Raises:
             ValueError: If insufficient data or optimization fails
@@ -382,78 +524,99 @@ class OptimizationCombiner(FactorCombinerBase):
 
         logger.info(f"Fitting OptimizationCombiner: {start_date} to {end_date}, objective={objective}")
 
-        # TODO: Replace with actual DB query when historical factor data available
-        # For now, use equal weights as fallback
-        logger.warning("Historical factor data not yet available - using equal weights")
+        # Get all available factors
+        factor_names = [
+            '12M_Momentum', '1M_Momentum', 'RSI_Momentum',
+            'PE_Ratio', 'PB_Ratio',
+            'ROE_Proxy', 'Earnings_Quality', 'Operating_Profit_Margin', 'Book_Value_Quality',
+            'Current_Ratio', 'Debt_Ratio', 'Dividend_Stability'
+        ]
 
-        # Placeholder: Equal weights
-        all_factors = list(FACTOR_CATEGORY_MAP.keys())
-        self.optimal_weights = {factor: 1.0/len(all_factors) for factor in all_factors}
+        # Extract historical factor returns
+        historical_data = self._get_historical_factor_returns(
+            factor_names=factor_names,
+            start_date=start_date,
+            end_date=end_date,
+            region=region
+        )
+
+        if historical_data.empty or len(historical_data) < 20:
+            logger.warning(f"Insufficient historical data ({len(historical_data)} days). Using equal weights.")
+            all_factors = list(FACTOR_CATEGORY_MAP.keys())
+            self.optimal_weights = {factor: 1.0/len(all_factors) for factor in all_factors}
+            self._is_fitted = True
+            return
+
+        # Calculate mean returns and covariance matrix
+        mean_returns = historical_data.mean()
+        cov_matrix = historical_data.cov()
+
+        # Optimization objective functions
+        def sharpe_ratio(weights):
+            portfolio_return = np.dot(weights, mean_returns)
+            portfolio_std = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
+            if portfolio_std == 0:
+                return 0
+            return -portfolio_return / portfolio_std  # Negative for minimization
+
+        def portfolio_variance(weights):
+            return np.dot(weights.T, np.dot(cov_matrix, weights))
+
+        def negative_return(weights):
+            return -np.dot(weights, mean_returns)
+
+        # Select objective
+        obj_funcs = {
+            'max_sharpe': sharpe_ratio,
+            'min_variance': portfolio_variance,
+            'max_return': negative_return
+        }
+
+        if objective not in obj_funcs:
+            raise ValueError(f"Invalid objective: {objective}. Must be one of {list(obj_funcs.keys())}")
+
+        # Constraints and bounds
+        n = len(mean_returns)
+        constraints = [
+            {'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0}  # Weights sum to 1
+        ]
+        bounds = [(0, 0.5) for _ in range(n)]  # Non-negative, max 50% per factor
+
+        # Initial guess: equal weights
+        x0 = np.ones(n) / n
+
+        # Optimize
+        logger.info(f"Running optimization with {objective} objective...")
+        result = minimize(
+            obj_funcs[objective],
+            x0=x0,
+            method='SLSQP',
+            bounds=bounds,
+            constraints=constraints,
+            options={'maxiter': 1000, 'ftol': 1e-9}
+        )
+
+        if not result.success:
+            logger.warning(f"Optimization failed: {result.message}. Using equal weights.")
+            self.optimal_weights = dict(zip(mean_returns.index, x0))
+            self._is_fitted = True
+            return
+
+        # Store optimal weights
+        self.optimal_weights = dict(zip(mean_returns.index, result.x))
         self._is_fitted = True
 
-        logger.info(f"Optimization complete: {len(self.optimal_weights)} factors")
-        return
+        # Log results
+        sharpe_value = -result.fun if objective == 'max_sharpe' else None
+        logger.info(f"Optimization successful!")
+        if sharpe_value:
+            logger.info(f"Portfolio Sharpe Ratio: {sharpe_value:.3f}")
 
-        # # Real implementation (uncomment when DB data ready):
-        # historical_data = self._fetch_historical_factor_returns(start_date, end_date)
-        #
-        # if historical_data.empty or len(historical_data) < 12:
-        #     raise ValueError(f"Insufficient historical data: {len(historical_data)} months")
-        #
-        # # Calculate mean returns and covariance matrix
-        # mean_returns = historical_data.mean()
-        # cov_matrix = historical_data.cov()
-        #
-        # # Optimization objective functions
-        # def sharpe_ratio(weights):
-        #     portfolio_return = np.dot(weights, mean_returns)
-        #     portfolio_std = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
-        #     return -portfolio_return / portfolio_std  # Negative for minimization
-        #
-        # def portfolio_variance(weights):
-        #     return np.dot(weights.T, np.dot(cov_matrix, weights))
-        #
-        # def negative_return(weights):
-        #     return -np.dot(weights, mean_returns)
-        #
-        # # Select objective
-        # obj_funcs = {
-        #     'max_sharpe': sharpe_ratio,
-        #     'min_variance': portfolio_variance,
-        #     'max_return': negative_return
-        # }
-        #
-        # if objective not in obj_funcs:
-        #     raise ValueError(f"Invalid objective: {objective}")
-        #
-        # # Constraints and bounds
-        # n = len(mean_returns)
-        # constraints = [
-        #     {'type': 'eq', 'fun': lambda w: np.sum(w) - 1}  # Weights sum to 1
-        # ]
-        # bounds = [(0, 1) for _ in range(n)]  # Non-negative weights
-        #
-        # # Initial guess: equal weights
-        # x0 = np.ones(n) / n
-        #
-        # # Optimize
-        # result = minimize(
-        #     obj_funcs[objective],
-        #     x0=x0,
-        #     method='SLSQP',
-        #     bounds=bounds,
-        #     constraints=constraints,
-        #     options={'maxiter': 1000}
-        # )
-        #
-        # if not result.success:
-        #     raise ValueError(f"Optimization failed: {result.message}")
-        #
-        # # Store optimal weights
-        # self.optimal_weights = dict(zip(mean_returns.index, result.x))
-        # self._is_fitted = True
-        #
-        # logger.info(f"Optimization successful: Sharpe={-result.fun:.3f}")
+        # Log top 5 weighted factors
+        sorted_weights = sorted(self.optimal_weights.items(), key=lambda x: -x[1])
+        logger.info("Top 5 factor weights:")
+        for factor, weight in sorted_weights[:5]:
+            logger.info(f"  {factor}: {weight:.2%}")
 
     def combine(self, factor_scores: Dict[str, float]) -> float:
         """

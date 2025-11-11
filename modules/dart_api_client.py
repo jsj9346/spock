@@ -454,6 +454,211 @@ class DARTApiClient:
         logger.debug(f"📊 Report priority (month {current_month}): {[name for _, _, name in priority_list]}")
         return priority_list
 
+    def _extract_equity_accounts(self, item_lookup: Dict[str, float]) -> Dict[str, Optional[float]]:
+        """
+        Extract detailed equity account breakdown from DART financial statements.
+
+        Uses fuzzy matching with priority-ordered patterns to handle account name
+        variations across different companies.
+
+        Args:
+            item_lookup: Dictionary mapping account names to amounts
+
+        Returns:
+            Dict with 8 equity account keys:
+                - capital_stock: 자본금 (common + preferred stock)
+                - capital_surplus: 자본잉여금 (paid-in capital above par)
+                - retained_earnings: 이익잉여금 (accumulated profits)
+                - treasury_stock: 자기주식 (repurchased shares, negative)
+                - other_comprehensive_income: 기타포괄손익누계액
+                - non_controlling_interest: 비지배지분 (minority interest)
+                - unappropriated_retained_earnings: 미처분이익잉여금
+                - legal_reserve: 이익준비금
+
+        Note:
+            - Treasury stock is normalized to negative (deduction account)
+            - Returns None for missing accounts (graceful degradation)
+            - Patterns ordered by priority (most common first)
+        """
+        # Priority-ordered fuzzy matching patterns
+        # Each account has multiple variations to handle different company naming conventions
+        EQUITY_ACCOUNT_PATTERNS = {
+            'capital_stock': [
+                '자본금',
+                '보통주자본금',
+                '우선주자본금',
+                '자 본 금',  # With spaces
+                '자본금(보통주)',  # With parentheses
+            ],
+            'capital_surplus': [
+                '자본잉여금',
+                '주식발행초과금',
+                '자본 잉여금',  # With space
+                '자본잉여금(주식발행초과금)',  # With parentheses
+            ],
+            'retained_earnings': [
+                '이익잉여금',
+                '이익잉여금(결손금)',  # With deficit notation
+                '이 익 잉 여 금',  # With spaces
+                '이익잉여금(미처분)',  # With unappropriated notation
+            ],
+            'treasury_stock': [
+                '자기주식',
+                '자기주식처분손익',
+                '자 기 주 식',  # With spaces
+                '자기주식취득',
+            ],
+            'other_comprehensive_income': [
+                '기타포괄손익누계액',
+                '기타자본구성요소',
+                '기타자본항목',
+                '기타포괄손익',
+            ],
+            'non_controlling_interest': [
+                '비지배지분',
+                '소수주주지분',  # Alternative term
+                '비지배주주지분',
+            ],
+            'unappropriated_retained_earnings': [
+                '미처분이익잉여금',
+                '미처분이익잉여금(미처리결손금)',
+            ],
+            'legal_reserve': [
+                '이익준비금',
+                '법정적립금',
+            ],
+        }
+
+        equity_accounts = {}
+
+        # Extract each equity account using fuzzy matching
+        for account_key, patterns in EQUITY_ACCOUNT_PATTERNS.items():
+            value = None
+
+            # Try each pattern in priority order
+            for pattern in patterns:
+                if pattern in item_lookup:
+                    value = item_lookup[pattern]
+                    break
+
+            # Special handling: Treasury stock must be negative (deduction account)
+            if account_key == 'treasury_stock' and value is not None and value > 0:
+                logger.warning(
+                    f"Treasury stock has positive value ({value}), normalizing to negative"
+                )
+                value = -value
+
+            equity_accounts[account_key] = value
+
+        return equity_accounts
+
+    def _validate_equity_breakdown(
+        self,
+        total_equity: float,
+        equity_accounts: Dict[str, Optional[float]],
+        tolerance: float = 0.05
+    ) -> Dict[str, any]:
+        """
+        Validate equity account breakdown accuracy.
+
+        Checks if sum of equity components matches total_equity within tolerance.
+
+        Args:
+            total_equity: Total equity from financial statements (자본총계)
+            equity_accounts: Dict with detailed equity account breakdown
+            tolerance: Acceptable percentage difference (default: 5%)
+
+        Returns:
+            Dict with validation results:
+                - passed: True if within tolerance, False otherwise, None if cannot validate
+                - calculated_equity: Sum of equity components
+                - error_amount: Absolute difference
+                - error_percentage: Percentage difference (0-100)
+                - message: Human-readable validation message
+
+        Logic:
+            calculated_equity = capital_stock + capital_surplus + retained_earnings +
+                               treasury_stock (negative) + other_comprehensive_income +
+                               non_controlling_interest
+
+            error_percentage = |total_equity - calculated_equity| / |total_equity| * 100
+
+            passed = error_percentage <= tolerance * 100
+        """
+        # Extract components (skip sub-accounts: unappropriated_retained_earnings, legal_reserve)
+        capital_stock = equity_accounts.get('capital_stock')
+        capital_surplus = equity_accounts.get('capital_surplus')
+        retained_earnings = equity_accounts.get('retained_earnings')
+        treasury_stock = equity_accounts.get('treasury_stock')
+        other_comprehensive_income = equity_accounts.get('other_comprehensive_income')
+        non_controlling_interest = equity_accounts.get('non_controlling_interest')
+
+        # Check if we have enough data to validate
+        # Require at least capital_stock + retained_earnings (core components)
+        if capital_stock is None and retained_earnings is None:
+            return {
+                'passed': None,
+                'calculated_equity': None,
+                'error_amount': None,
+                'error_percentage': None,
+                'message': 'Insufficient data: missing both capital_stock and retained_earnings'
+            }
+
+        # Calculate equity from components (sum only non-None values)
+        components = [
+            capital_stock,
+            capital_surplus,
+            retained_earnings,
+            treasury_stock,  # Already normalized to negative
+            other_comprehensive_income,
+            non_controlling_interest,
+        ]
+
+        calculated_equity = sum(v for v in components if v is not None)
+
+        # Calculate error
+        if total_equity == 0:
+            # Special case: total_equity is zero
+            if calculated_equity == 0:
+                return {
+                    'passed': True,
+                    'calculated_equity': 0,
+                    'error_amount': 0,
+                    'error_percentage': 0.0,
+                    'message': 'Both total_equity and calculated_equity are zero (valid)'
+                }
+            else:
+                return {
+                    'passed': False,
+                    'calculated_equity': calculated_equity,
+                    'error_amount': abs(calculated_equity),
+                    'error_percentage': None,  # Cannot calculate percentage when denominator is zero
+                    'message': f'total_equity is zero but calculated_equity is {calculated_equity}'
+                }
+
+        error_amount = abs(total_equity - calculated_equity)
+        error_percentage = (error_amount / abs(total_equity)) * 100
+
+        passed = error_percentage <= (tolerance * 100)
+
+        # Generate message
+        if passed:
+            message = f'Validation passed: {error_percentage:.2f}% error (within {tolerance*100}% tolerance)'
+        else:
+            message = f'Validation FAILED: {error_percentage:.2f}% error (outside {tolerance*100}% tolerance)'
+            logger.warning(
+                f"Equity validation failed: total={total_equity}, "
+                f"calculated={calculated_equity}, error={error_percentage:.2f}%"
+            )
+
+        return {
+            'passed': passed,
+            'calculated_equity': calculated_equity,
+            'error_amount': error_amount,
+            'error_percentage': error_percentage,
+            'message': message
+        }
+
     def _parse_financial_statements(self, ticker: str, items: List[Dict],
                                    year: int, reprt_code: str) -> Dict:
         """
@@ -482,9 +687,9 @@ class DARTApiClient:
         }
         period_type = period_type_map.get(reprt_code, 'ANNUAL')
 
-        # Include fiscal year and report type in data_source field
-        # Format: "DART-YYYY-REPCODE" (e.g., "DART-2025-11012")
-        data_source = f"DART-{year}-{reprt_code}"
+        # Option B Pattern: Use simple categorical data_source identifier
+        # Changed from detailed format "DART-YYYY-CODE" to simple "DART"
+        data_source = 'DART'
 
         # Map report codes to proper fiscal period end dates
         if reprt_code == '11011':  # Annual report
@@ -528,12 +733,22 @@ class DARTApiClient:
 
         # Extract key financial items
         # Note: Account names may vary slightly across companies
-        # This is a basic implementation - production would need fuzzy matching
+        # Phase 2: Now using fuzzy matching for equity accounts
 
         # Balance sheet items
         total_assets = item_lookup.get('자산총계', 0)
         total_liabilities = item_lookup.get('부채총계', 0)
         total_equity = item_lookup.get('자본총계', 0)
+
+        # ============================================================
+        # Phase 2: Extract detailed equity account breakdown
+        # ============================================================
+        equity_accounts = self._extract_equity_accounts(item_lookup)
+
+        # Validate equity breakdown (5% tolerance)
+        equity_validation = self._validate_equity_breakdown(
+            total_equity, equity_accounts
+        )
         current_assets = item_lookup.get('유동자산', 0)
         current_liabilities = item_lookup.get('유동부채', 0)
         inventory = item_lookup.get('재고자산', 0)
@@ -587,6 +802,20 @@ class DARTApiClient:
         metrics['current_assets'] = current_assets
         metrics['current_liabilities'] = current_liabilities
         metrics['inventory'] = inventory
+
+        # Store detailed equity account breakdown (Phase 2)
+        metrics['capital_stock'] = equity_accounts.get('capital_stock')
+        metrics['capital_surplus'] = equity_accounts.get('capital_surplus')
+        metrics['retained_earnings'] = equity_accounts.get('retained_earnings')
+        metrics['treasury_stock'] = equity_accounts.get('treasury_stock')
+        metrics['other_comprehensive_income'] = equity_accounts.get('other_comprehensive_income')
+        metrics['non_controlling_interest'] = equity_accounts.get('non_controlling_interest')
+        metrics['unappropriated_retained_earnings'] = equity_accounts.get('unappropriated_retained_earnings')
+        metrics['legal_reserve'] = equity_accounts.get('legal_reserve')
+
+        # Store equity validation result
+        metrics['equity_validation_passed'] = equity_validation.get('passed')
+        metrics['equity_validation_error_pct'] = equity_validation.get('error_percentage')
 
         # ============================================================
         # Phase 2: Detailed Financial Statement Items (18 columns)
