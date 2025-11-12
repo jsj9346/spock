@@ -6,7 +6,7 @@
 
 ## 🎯 What is This Project?
 
-**Quant Investment Platform** is a systematic research platform for developing and validating data-driven investment strategies.
+**Spock - Quant Investment Platform** is a systematic research platform for developing and validating data-driven investment strategies.
 
 ### TL;DR (3 Key Points)
 

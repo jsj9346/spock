@@ -1,4 +1,4 @@
-# Contributing to Quant Investment Platform
+# Contributing to Spock - Quant Investment Platform
 
 **Thank you for your interest in contributing!**
 

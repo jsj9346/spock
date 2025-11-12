@@ -1,6 +1,6 @@
 # 문서 인덱스 (Documentation Index)
 
-**프로젝트 문서 통합 가이드 - 사용자 유형별 학습 경로**
+**Spock - Quant Investment Platform 문서 통합 가이드 - 사용자 유형별 학습 경로**
 
 ---
 
