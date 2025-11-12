@@ -23,6 +23,14 @@ A systematic quantitative research and portfolio management platform for evidenc
 
 ---
 
+## 🚀 Quick Links
+
+- **[👉 Getting Started Guide](GETTING_STARTED.md)** - ⭐ **New users start here!**
+- **[📚 Documentation Index](DOCUMENTATION_INDEX.md)** - Complete documentation roadmap
+- **[⚡ Quick Start](QUICKSTART.md)** - 5-minute setup guide
+
+---
+
 ## 🎯 Overview
 
 The Quant Investment Platform is a comprehensive research framework designed for systematic strategy development, backtesting, and portfolio optimization. The platform pivots from automated trading execution to focus on rigorous quantitative research and evidence-based decision making.
