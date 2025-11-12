@@ -253,6 +253,61 @@ class PostgresDatabaseManager:
             logger.error(f"❌ Execute update failed (connection): {e}")
             return False
 
+    def execute_many(self, query: str, records: List[tuple]) -> int:
+        """
+        Public method for batch INSERT/UPDATE/DELETE operations
+        Uses execute_batch() for optimal performance with bulk upserts
+
+        Args:
+            query: SQL query with %s placeholders (e.g., INSERT ... VALUES (%s, %s, %s))
+            records: List of tuples containing values for batch operation
+
+        Returns:
+            Number of rows affected
+
+        Example:
+            query = "INSERT INTO tickers (ticker, name) VALUES (%s, %s) ON CONFLICT ..."
+            records = [('005930', 'Samsung'), ('000660', 'SK Hynix')]
+            db.execute_many(query, records)
+        """
+        if not records:
+            logger.warning("⚠️ execute_many called with empty records list")
+            return 0
+
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                try:
+                    # Use execute_batch for optimal batch performance
+                    # execute_batch groups multiple execute() calls into batches
+                    # This is more efficient than individual executes while maintaining
+                    # compatibility with standard parameterized queries
+                    extras.execute_batch(cursor, query, records, page_size=1000)
+                    conn.commit()
+
+                    # Capture cursor state for backward compatibility
+                    self._last_rowcount = cursor.rowcount
+                    self._last_statusmessage = cursor.statusmessage or ""
+
+                    logger.info(f"✅ Batch operation completed: {cursor.rowcount} rows affected")
+                    return cursor.rowcount
+
+                except Exception as e:
+                    conn.rollback()
+                    logger.error(f"❌ Batch operation failed: {e}")
+                    logger.error(f"   Query template: {query[:200]}")
+                    logger.error(f"   Record count: {len(records)}")
+                    logger.error(f"   First record sample: {records[0] if records else 'N/A'}")
+                    import traceback
+                    logger.error(f"   Traceback: {traceback.format_exc()}")
+                    raise
+                finally:
+                    cursor.close()
+
+        except Exception as e:
+            logger.error(f"❌ Batch operation failed (connection): {e}")
+            raise
+
     @property
     def cursor(self):
         """
