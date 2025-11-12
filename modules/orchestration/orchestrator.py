@@ -22,6 +22,7 @@ from modules.db_manager_postgres import PostgresDatabaseManager
 from modules.orchestration.checkpoint import CheckpointManager
 from modules.orchestration.rate_limiter import MultiRateLimiter
 from modules.orchestration.validators import DataQualityValidator
+from modules.api_clients.yfinance_api import YFinanceAPI
 
 # Rich library for progress tracking (optional)
 try:
@@ -370,18 +371,210 @@ class DatabaseUpdateOrchestrator:
                     )
 
                 else:
-                    # Overseas markets
-                    logger.info(f"  [{region}] Overseas OHLCV collection not implemented")
-                    results[region] = {
-                        'success': False,
-                        'message': 'Overseas OHLCV collector not implemented'
-                    }
+                    # Overseas markets - use yfinance
+                    result = self._update_ohlcv_overseas(region, **kwargs)
+                    results[region] = result
+
+                    if result.get('success'):
+                        logger.info(
+                            f"  ✅ [{region}] {result.get('tickers_collected', 0)} tickers collected "
+                            f"in {result.get('duration', 0):.2f}s"
+                        )
 
             except Exception as e:
                 logger.error(f"  ❌ [{region}] Failed: {e}")
                 results[region] = {'success': False, 'error': str(e)}
 
         return results
+
+    def _update_ohlcv_overseas(self, region: str, **kwargs) -> Dict:
+        """
+        Update OHLCV data for overseas markets using yfinance
+
+        Args:
+            region: Region code (US, HK, JP, CN, VN)
+            **kwargs: Additional arguments
+                - dry_run: Preview only, no DB writes
+                - incremental: Only update missing data
+                - limit: Maximum number of tickers to process
+
+        Returns:
+            Result dict with success status and statistics
+        """
+        from datetime import datetime, timedelta
+
+        dry_run = kwargs.get('dry_run', False)
+        incremental = kwargs.get('incremental', True)
+        limit = self.config.get('limit')
+
+        logger.info(f"  [{region}] Collecting OHLCV using yfinance...")
+
+        start_time = time.time()
+        stats = {
+            'tickers_processed': 0,
+            'tickers_collected': 0,
+            'tickers_failed': 0,
+            'records_inserted': 0,
+            'success': True
+        }
+
+        try:
+            # Initialize yfinance API
+            yf_api = YFinanceAPI(rate_limit_per_second=1.0)
+
+            # Get ticker list from database
+            if incremental:
+                # Only tickers with missing or stale OHLCV data (last 7 days)
+                query = """
+                SELECT DISTINCT t.ticker, t.name, t.region
+                FROM tickers t
+                LEFT JOIN ohlcv_data o ON t.ticker = o.ticker
+                    AND t.region = o.region
+                    AND o.date >= NOW() - INTERVAL '7 days'
+                WHERE t.region = %s
+                  AND t.asset_type = 'STOCK'
+                  AND t.is_active = TRUE
+                  AND o.ticker IS NULL
+                ORDER BY t.ticker
+                """
+            else:
+                # All active tickers
+                query = """
+                SELECT ticker, name, region
+                FROM tickers
+                WHERE region = %s
+                  AND asset_type = 'STOCK'
+                  AND is_active = TRUE
+                ORDER BY ticker
+                """
+
+            if limit:
+                query += f" LIMIT {limit}"
+
+            tickers = self.db.execute_query(query, (region,))
+            ticker_list = [dict(row) for row in tickers]
+
+            if not ticker_list:
+                logger.info(f"  [{region}] No tickers to update")
+                stats['success'] = True
+                return stats
+
+            logger.info(f"  [{region}] Found {len(ticker_list)} tickers to update")
+
+            # Collect OHLCV data for each ticker
+            for i, ticker_info in enumerate(ticker_list, 1):
+                ticker = ticker_info['ticker']
+                stats['tickers_processed'] += 1
+
+                try:
+                    # Map ticker to yfinance format
+                    yf_symbol = self._map_ticker_to_yfinance(ticker, region)
+
+                    # Fetch OHLCV data (last 1 year)
+                    end_date = datetime.now()
+                    start_date = end_date - timedelta(days=365)
+
+                    df = yf_api.get_ohlcv(
+                        ticker=yf_symbol,
+                        start_date=start_date.strftime('%Y-%m-%d'),
+                        end_date=end_date.strftime('%Y-%m-%d')
+                    )
+
+                    if df is None or df.empty:
+                        logger.debug(f"  ⚠️ [{region}:{ticker}] No OHLCV data available")
+                        stats['tickers_failed'] += 1
+                        continue
+
+                    # Insert into database
+                    if not dry_run:
+                        for _, row in df.iterrows():
+                            self.db.execute_update(
+                                """
+                                INSERT INTO ohlcv_data
+                                (ticker, region, date, open, high, low, close, volume, timeframe)
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, '1d')
+                                ON CONFLICT (ticker, region, date, timeframe)
+                                DO UPDATE SET
+                                    open = EXCLUDED.open,
+                                    high = EXCLUDED.high,
+                                    low = EXCLUDED.low,
+                                    close = EXCLUDED.close,
+                                    volume = EXCLUDED.volume
+                                """,
+                                (
+                                    ticker,
+                                    region,
+                                    row['date'],
+                                    float(row['open']),
+                                    float(row['high']),
+                                    float(row['low']),
+                                    float(row['close']),
+                                    int(row['volume'])
+                                )
+                            )
+                        stats['records_inserted'] += len(df)
+
+                    stats['tickers_collected'] += 1
+
+                    if i % 10 == 0:
+                        logger.info(
+                            f"  [{region}] Progress: {i}/{len(ticker_list)} "
+                            f"({stats['tickers_collected']} success, {stats['tickers_failed']} failed)"
+                        )
+
+                except Exception as e:
+                    logger.warning(f"  ⚠️ [{region}:{ticker}] Failed: {e}")
+                    stats['tickers_failed'] += 1
+                    continue
+
+            stats['duration'] = time.time() - start_time
+            stats['success'] = True
+
+            logger.info(
+                f"  ✅ [{region}] OHLCV collection completed: "
+                f"{stats['tickers_collected']} success, {stats['tickers_failed']} failed, "
+                f"{stats['records_inserted']} records in {stats['duration']:.2f}s"
+            )
+
+            return stats
+
+        except Exception as e:
+            logger.error(f"  ❌ [{region}] OHLCV collection failed: {e}")
+            stats['success'] = False
+            stats['error'] = str(e)
+            return stats
+
+    def _map_ticker_to_yfinance(self, ticker: str, region: str) -> str:
+        """
+        Map database ticker to yfinance symbol format
+
+        Args:
+            ticker: Database ticker code
+            region: Region code
+
+        Returns:
+            yfinance-compatible symbol
+        """
+        # Ticker suffix mapping
+        suffixes = {
+            'US': '',       # No suffix
+            'JP': '.T',     # Tokyo Stock Exchange
+            'HK': '.HK',    # Hong Kong Stock Exchange
+            'CN': '',       # Already has .SS or .SZ suffix
+            'VN': '.VN'     # Vietnam Stock Exchange
+        }
+
+        # HK and CN already have suffixes in database
+        if region in ['HK', 'CN']:
+            return ticker
+
+        # US has no suffix
+        if region == 'US':
+            return ticker
+
+        # JP and VN need suffix appended
+        suffix = suffixes.get(region, '')
+        return f"{ticker}{suffix}"
 
     def _update_fundamentals(self, regions: List[str], **kwargs) -> Dict:
         """Update fundamental data for all regions"""
@@ -406,7 +599,8 @@ class DatabaseUpdateOrchestrator:
                         continue
 
                     # Initialize DART backfiller
-                    dart = DARTApiClient(api_key=dart_api_key)
+                    # Rate limit: 3.6s/request = 1000 req/hour (DART limit: 1000 req/day)
+                    dart = DARTApiClient(api_key=dart_api_key, rate_limit_delay=3.6)
                     backfiller = DARTFundamentalBackfiller(
                         self.db, dart,
                         dry_run=kwargs.get('dry_run', False),
@@ -431,12 +625,33 @@ class DatabaseUpdateOrchestrator:
                     results[region] = {'success': False, 'error': str(e)}
 
             else:
-                # Use yfinance for overseas markets (to be implemented)
-                logger.info(f"  [{region}] Overseas fundamental updater not implemented")
-                results[region] = {
-                    'success': False,
-                    'message': 'Overseas fundamental updater not implemented'
-                }
+                # Use yfinance for overseas markets
+                try:
+                    from scripts.backfill_fundamentals_yfinance import YFinanceFundamentalBackfiller
+
+                    backfiller = YFinanceFundamentalBackfiller(
+                        self.db,
+                        dry_run=kwargs.get('dry_run', False),
+                        rate_limit_delay=0.5  # 2 requests/second
+                    )
+
+                    # Run backfill for specific region
+                    result = backfiller.run_backfill(
+                        region=region,
+                        incremental=kwargs.get('incremental', True),
+                        limit=self.config.get('limit')
+                    )
+
+                    results[region] = result
+
+                    logger.info(
+                        f"  ✅ [{region}] {result.get('success', 0)} success, "
+                        f"{result.get('failed', 0)} failed"
+                    )
+
+                except Exception as e:
+                    logger.error(f"  ❌ [{region}] Failed: {e}")
+                    results[region] = {'success': False, 'error': str(e)}
 
         return results
 
