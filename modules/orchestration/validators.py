@@ -158,8 +158,8 @@ class DataQualityValidator:
         return result
 
     def _count_tickers(self, region: str) -> int:
-        """Count total tickers for region"""
-        query = "SELECT COUNT(*) as cnt FROM tickers WHERE region = %s"
+        """Count total active tickers for region"""
+        query = "SELECT COUNT(*) as cnt FROM tickers WHERE region = %s AND is_active = TRUE"
         result = self.db.execute_query(query, (region,))
         return result[0]['cnt'] if result else 0
 
@@ -180,12 +180,14 @@ class DataQualityValidator:
         if total_tickers == 0:
             return 0.0
 
-        # Tickers with OHLCV data in last N days
+        # Tickers with OHLCV data in last N days (only count active tickers)
         query = """
-        SELECT COUNT(DISTINCT ticker) as cnt
-        FROM ohlcv_data
-        WHERE region = %s
-          AND date >= NOW() - INTERVAL '%s days'
+        SELECT COUNT(DISTINCT o.ticker) as cnt
+        FROM ohlcv_data o
+        INNER JOIN tickers t ON o.ticker = t.ticker AND o.region = t.region
+        WHERE o.region = %s
+          AND o.date >= NOW() - INTERVAL '%s days'
+          AND t.is_active = TRUE
         """
 
         result = self.db.execute_query(query, (region, lookback_days))
@@ -207,7 +209,7 @@ class DataQualityValidator:
         query_total = """
         SELECT COUNT(*) as cnt
         FROM tickers
-        WHERE region = %s AND is_etf = FALSE
+        WHERE region = %s AND asset_type = 'STOCK'
         """
         result = self.db.execute_query(query_total, (region,))
         total_tickers = result[0]['cnt'] if result else 0
