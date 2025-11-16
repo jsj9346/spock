@@ -126,42 +126,105 @@ class KRPostgresOHLCVAdapter:
 
         return tickers
 
-    def _get_tickers_needing_update(self, incremental: bool = True, limit: Optional[int] = None) -> List[str]:
+    def _get_tickers_needing_update(self, incremental: bool = True, limit: Optional[int] = None,
+                                     force_refresh: bool = False, stale_days: int = 7) -> List[str]:
         """
-        Get tickers that need OHLCV updates
+        Get tickers that need OHLCV updates with smart date filtering
 
         Args:
             incremental: If True, only return tickers with stale/missing data
             limit: Optional limit on number of tickers
+            force_refresh: If True, update all tickers (ignores recency)
+            stale_days: Consider data stale if older than this many days (default: 7)
 
         Returns:
             List of ticker codes to update
+
+        Logic:
+        - No data: Full backfill needed
+        - Data older than stale_days: Incremental update needed
+        - Recent data: Skip (unless force_refresh)
+        - force_refresh: Update all tickers regardless of freshness
         """
         if not incremental:
             # Full refresh - return all active tickers
             return self._get_active_tickers(limit=limit)
 
-        # Incremental - only tickers with stale data (>3 days old) or no data
+        # Smart incremental - identify tickers needing updates
+        # 1. Tickers with no OHLCV data at all
+        # 2. Tickers with stale data (older than stale_days)
+        # 3. force_refresh: all tickers (for corrections)
+
+        if force_refresh:
+            logger.info(f"🔄 Force refresh mode: updating all tickers")
+            return self._get_active_tickers(limit=limit)
+
         query = """
-        SELECT DISTINCT t.ticker
+        WITH latest_data AS (
+            SELECT
+                ticker,
+                MAX(date) as last_date
+            FROM ohlcv_data
+            WHERE region = 'KR'
+            GROUP BY ticker
+        )
+        SELECT
+            t.ticker,
+            CASE WHEN ld.last_date IS NULL THEN 0 ELSE 1 END as has_data,
+            ld.last_date
         FROM tickers t
-        LEFT JOIN ohlcv_data o ON t.ticker = o.ticker
-            AND t.region = o.region
-            AND o.date >= CURRENT_DATE - INTERVAL '3 days'
+        LEFT JOIN latest_data ld ON t.ticker = ld.ticker
         WHERE t.region = 'KR'
           AND t.is_active = TRUE
           AND t.asset_type IN ('STOCK', 'ETF')
-          AND o.ticker IS NULL  -- No recent data
-        ORDER BY t.ticker
+          AND (
+              ld.last_date IS NULL  -- No data at all
+              OR ld.last_date < CURRENT_DATE - INTERVAL '%s days'  -- Stale data
+          )
+        ORDER BY
+            has_data ASC,  -- No data first (0 before 1)
+            ld.last_date ASC NULLS FIRST  -- Oldest data next
         """
 
         if limit:
             query += f" LIMIT {limit}"
 
-        rows = self.db.execute_query(query)
+        rows = self.db.execute_query(query % stale_days)
         tickers = [row['ticker'] for row in rows] if rows else []
 
+        # Count categories for logging
+        no_data_query = """
+        SELECT COUNT(DISTINCT t.ticker) as count
+        FROM tickers t
+        LEFT JOIN ohlcv_data o ON t.ticker = o.ticker AND t.region = o.region
+        WHERE t.region = 'KR'
+          AND t.is_active = TRUE
+          AND t.asset_type IN ('STOCK', 'ETF')
+          AND o.ticker IS NULL
+        """
+        no_data_count = self.db.execute_query(no_data_query)[0]['count'] if self.db.execute_query(no_data_query) else 0
+
+        stale_data_query = """
+        WITH latest_data AS (
+            SELECT ticker, MAX(date) as last_date
+            FROM ohlcv_data
+            WHERE region = 'KR'
+            GROUP BY ticker
+        )
+        SELECT COUNT(DISTINCT t.ticker) as count
+        FROM tickers t
+        INNER JOIN latest_data ld ON t.ticker = ld.ticker
+        WHERE t.region = 'KR'
+          AND t.is_active = TRUE
+          AND t.asset_type IN ('STOCK', 'ETF')
+          AND ld.last_date < CURRENT_DATE - INTERVAL '%s days'
+        """
+        stale_count = self.db.execute_query(stale_data_query % stale_days)[0]['count'] if self.db.execute_query(stale_data_query % stale_days) else 0
+
         logger.info(f"📋 Found {len(tickers)} KR tickers needing update (incremental mode)")
+        logger.info(f"   - No data: {no_data_count} tickers")
+        logger.info(f"   - Stale data (>{stale_days} days): {stale_count} tickers")
+        logger.info(f"   - Total to update: {len(tickers)}")
 
         return tickers
 
@@ -334,22 +397,28 @@ class KRPostgresOHLCVAdapter:
             logger.error(f"❌ {ticker}: Collection failed: {e}")
             return False
 
-    def run_collection(self, incremental: bool = True, limit: Optional[int] = None, days: int = 250) -> Dict:
+    def run_collection(self, incremental: bool = True, limit: Optional[int] = None, days: int = 250,
+                      force_refresh: bool = False, stale_days: int = 7) -> Dict:
         """
-        Run OHLCV collection workflow
+        Run OHLCV collection workflow with smart incremental updates
 
         Args:
             incremental: If True, only update tickers with stale data
             limit: Optional limit on number of tickers
             days: Number of days to collect per ticker
+            force_refresh: If True, update all tickers regardless of freshness
+            stale_days: Consider data stale if older than this many days (default: 7)
 
         Returns:
             Statistics dictionary
         """
+        mode_str = 'FORCE REFRESH' if force_refresh else ('INCREMENTAL' if incremental else 'FULL REFRESH')
         logger.info("="*80)
         logger.info("KR PostgreSQL OHLCV Collection")
         logger.info("="*80)
-        logger.info(f"Mode: {'INCREMENTAL' if incremental else 'FULL REFRESH'}")
+        logger.info(f"Mode: {mode_str}")
+        if incremental and not force_refresh:
+            logger.info(f"Stale threshold: >{stale_days} days")
         logger.info(f"Limit: {limit if limit else 'None'}")
         logger.info(f"Days per ticker: {days}")
         logger.info("="*80)
@@ -359,7 +428,12 @@ class KRPostgresOHLCVAdapter:
         try:
             # Get tickers to update
             if incremental:
-                tickers = self._get_tickers_needing_update(incremental=True, limit=limit)
+                tickers = self._get_tickers_needing_update(
+                    incremental=True,
+                    limit=limit,
+                    force_refresh=force_refresh,
+                    stale_days=stale_days
+                )
             else:
                 tickers = self._get_active_tickers(limit=limit)
 

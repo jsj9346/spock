@@ -370,7 +370,9 @@ class DatabaseUpdateOrchestrator:
                     result = adapter.run_collection(
                         incremental=kwargs.get('incremental', True),
                         limit=self.config.get('limit'),
-                        days=kwargs.get('days', 250)
+                        days=kwargs.get('days', 250),
+                        force_refresh=kwargs.get('force_refresh', False),
+                        stale_days=kwargs.get('stale_days', 7)
                     )
 
                     results[region] = result
@@ -398,13 +400,15 @@ class DatabaseUpdateOrchestrator:
 
     def _update_ohlcv_overseas(self, region: str, **kwargs) -> Dict:
         """
-        Update OHLCV data for overseas markets using yfinance
+        Update OHLCV data for overseas markets using yfinance with smart incremental updates
 
         Args:
             region: Region code (US, HK, JP, CN, VN)
             **kwargs: Additional arguments
                 - dry_run: Preview only, no DB writes
                 - incremental: Only update missing data
+                - force_refresh: Force update all tickers
+                - stale_days: Days threshold for stale data (default: 7)
                 - limit: Maximum number of tickers to process
 
         Returns:
@@ -414,9 +418,12 @@ class DatabaseUpdateOrchestrator:
 
         dry_run = kwargs.get('dry_run', False)
         incremental = kwargs.get('incremental', True)
+        force_refresh = kwargs.get('force_refresh', False)
+        stale_days = kwargs.get('stale_days', 7)
         limit = self.config.get('limit')
 
-        logger.info(f"  [{region}] Collecting OHLCV using yfinance...")
+        mode_str = 'FORCE REFRESH' if force_refresh else ('INCREMENTAL' if incremental else 'FULL REFRESH')
+        logger.info(f"  [{region}] Collecting OHLCV using yfinance ({mode_str})...")
 
         start_time = time.time()
         stats = {
@@ -431,23 +438,41 @@ class DatabaseUpdateOrchestrator:
             # Initialize yfinance API
             yf_api = YFinanceAPI(rate_limit_per_second=1.0)
 
-            # Get ticker list from database
-            if incremental:
-                # Only tickers with missing or stale OHLCV data (last 7 days)
+            # Get ticker list from database with smart incremental logic
+            if incremental and not force_refresh:
+                # Smart incremental - tickers with no data or stale data (>stale_days)
                 query = """
-                SELECT DISTINCT t.ticker, t.name, t.region
+                WITH latest_data AS (
+                    SELECT
+                        ticker,
+                        MAX(date) as last_date
+                    FROM ohlcv_data
+                    WHERE region = %s
+                    GROUP BY ticker
+                )
+                SELECT
+                    t.ticker,
+                    t.name,
+                    t.region,
+                    CASE WHEN ld.last_date IS NULL THEN 0 ELSE 1 END as has_data,
+                    ld.last_date
                 FROM tickers t
-                LEFT JOIN ohlcv_data o ON t.ticker = o.ticker
-                    AND t.region = o.region
-                    AND o.date >= NOW() - INTERVAL '7 days'
+                LEFT JOIN latest_data ld ON t.ticker = ld.ticker
                 WHERE t.region = %s
                   AND t.asset_type = 'STOCK'
                   AND t.is_active = TRUE
-                  AND o.ticker IS NULL
-                ORDER BY t.ticker
+                  AND (
+                      ld.last_date IS NULL  -- No data at all
+                      OR ld.last_date < CURRENT_DATE - INTERVAL '%s days'  -- Stale data
+                  )
+                ORDER BY
+                    has_data ASC,  -- No data first (0 before 1)
+                    ld.last_date ASC NULLS FIRST  -- Oldest data next
                 """
+                params = (region, region)
+                query = query % stale_days
             else:
-                # All active tickers
+                # All active tickers (full refresh or force refresh)
                 query = """
                 SELECT ticker, name, region
                 FROM tickers
@@ -456,11 +481,12 @@ class DatabaseUpdateOrchestrator:
                   AND is_active = TRUE
                 ORDER BY ticker
                 """
+                params = (region,)
 
             if limit:
                 query += f" LIMIT {limit}"
 
-            tickers = self.db.execute_query(query, (region,))
+            tickers = self.db.execute_query(query, params)
             ticker_list = [dict(row) for row in tickers]
 
             if not ticker_list:
@@ -468,7 +494,41 @@ class DatabaseUpdateOrchestrator:
                 stats['success'] = True
                 return stats
 
-            logger.info(f"  [{region}] Found {len(ticker_list)} tickers to update")
+            # Count categories for logging (only in incremental mode)
+            if incremental and not force_refresh:
+                no_data_query = """
+                SELECT COUNT(DISTINCT t.ticker) as count
+                FROM tickers t
+                LEFT JOIN ohlcv_data o ON t.ticker = o.ticker AND t.region = o.region
+                WHERE t.region = %s
+                  AND t.asset_type = 'STOCK'
+                  AND t.is_active = TRUE
+                  AND o.ticker IS NULL
+                """
+                no_data_count = self.db.execute_query(no_data_query, (region,))[0]['count']
+
+                stale_data_query = """
+                WITH latest_data AS (
+                    SELECT ticker, MAX(date) as last_date
+                    FROM ohlcv_data
+                    WHERE region = %s
+                    GROUP BY ticker
+                )
+                SELECT COUNT(DISTINCT t.ticker) as count
+                FROM tickers t
+                INNER JOIN latest_data ld ON t.ticker = ld.ticker
+                WHERE t.region = %s
+                  AND t.asset_type = 'STOCK'
+                  AND t.is_active = TRUE
+                  AND ld.last_date < CURRENT_DATE - INTERVAL '%s days'
+                """
+                stale_count = self.db.execute_query(stale_data_query % stale_days, (region, region))[0]['count']
+
+                logger.info(f"  [{region}] Found {len(ticker_list)} tickers to update")
+                logger.info(f"     - No data: {no_data_count} tickers")
+                logger.info(f"     - Stale data (>{stale_days} days): {stale_count} tickers")
+            else:
+                logger.info(f"  [{region}] Found {len(ticker_list)} tickers to update")
 
             # Collect OHLCV data for each ticker
             for i, ticker_info in enumerate(ticker_list, 1):
