@@ -16,11 +16,20 @@ Factor Interpretation:
 - Factor is negatively related to risk
 """
 
+import os
 from typing import Optional, List
 import pandas as pd
 import numpy as np
+import psycopg2
 from .factor_base import FactorBase, FactorResult, FactorCategory
 import logging
+
+# Import PostgreSQL database manager
+try:
+    from modules.db_manager_postgres import PostgresDatabaseManager
+    DB_MANAGER_AVAILABLE = True
+except ImportError:
+    DB_MANAGER_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -155,26 +164,154 @@ class BetaFactor(FactorBase):
             min_required_days=60
         )
 
-    def calculate(self, data: pd.DataFrame, ticker: str) -> Optional[FactorResult]:
+    def calculate(self, data: pd.DataFrame, ticker: str, region: str = 'KR') -> Optional[FactorResult]:
         """
-        Calculate beta factor
-
-        Note: This is a placeholder. Requires market index data for proper implementation.
-        Current implementation returns None (to be implemented in Phase 2).
+        Calculate beta factor using KOSPI index
 
         Args:
-            data: Historical OHLCV data with market index
+            data: Historical OHLCV data for the stock
             ticker: Stock ticker symbol
+            region: Market region (KR, US, etc.)
 
         Returns:
-            None (placeholder - requires market index integration)
+            FactorResult with beta score (negated for defensive ranking), or None
         """
-        logger.debug(f"{ticker} - {self.name}: Placeholder - requires market index data")
-        return None
+        # Validate stock data
+        is_valid, error_msg = self.validate_data(data)
+        if not is_valid:
+            logger.debug(f"{ticker} ({region}) - {self.name}: {error_msg}")
+            return None
+
+        try:
+            if len(data) < 60:
+                logger.debug(f"{ticker} ({region}) - {self.name}: Insufficient data ({len(data)} days)")
+                return None
+
+            # Sort by date
+            data = data.sort_values('date').reset_index(drop=True)
+
+            # Get date range for market index
+            start_date = data['date'].min()
+            end_date = data['date'].max()
+
+            # Fetch KOSPI index data from PostgreSQL
+            query = """
+                SELECT date, close_price
+                FROM global_market_indices
+                WHERE symbol = '^KS11'
+                  AND date BETWEEN %s AND %s
+                ORDER BY date ASC
+            """
+
+            # Use PostgresDatabaseManager if available
+            if DB_MANAGER_AVAILABLE:
+                db = PostgresDatabaseManager()
+                market_results = db.execute_query(query, (start_date, end_date))
+            else:
+                # Fallback to raw psycopg2
+                conn = psycopg2.connect(
+                    host='localhost',
+                    port=5432,
+                    database='quant_platform',
+                    user=os.getenv('USER')
+                )
+                cursor = conn.cursor()
+                cursor.execute(query, (start_date, end_date))
+                market_results = cursor.fetchall()
+                conn.close()
+
+            if not market_results or len(market_results) < 60:
+                logger.debug(f"{ticker} ({region}) - {self.name}: Insufficient market data ({len(market_results) if market_results else 0} days)")
+                return None
+
+            # Convert market data to DataFrame
+            market_df = pd.DataFrame(market_results, columns=['date', 'market_close'])
+            market_df['date'] = pd.to_datetime(market_df['date'])
+
+            # Merge stock and market data on date
+            merged = pd.merge(
+                data[['date', 'close']],
+                market_df,
+                on='date',
+                how='inner'
+            )
+
+            if len(merged) < 60:
+                logger.debug(f"{ticker} ({region}) - {self.name}: Insufficient aligned data ({len(merged)} days)")
+                return None
+
+            # Calculate returns
+            stock_returns = merged['close'].pct_change().dropna()
+            market_returns = merged['market_close'].pct_change().dropna()
+
+            # Align returns (both should have same length after pct_change)
+            min_length = min(len(stock_returns), len(market_returns))
+            stock_returns = stock_returns.iloc[-min_length:]
+            market_returns = market_returns.iloc[-min_length:]
+
+            if len(stock_returns) < 60:
+                logger.debug(f"{ticker} ({region}) - {self.name}: Insufficient return data ({len(stock_returns)} days)")
+                return None
+
+            # Calculate Beta = Covariance(stock, market) / Variance(market)
+            covariance = np.cov(stock_returns, market_returns)[0, 1]
+            market_variance = np.var(market_returns)
+
+            if market_variance == 0:
+                logger.debug(f"{ticker} ({region}) - {self.name}: Zero market variance")
+                return None
+
+            beta = covariance / market_variance
+
+            # Negate beta for defensive ranking (lower beta = higher score)
+            factor_value = -beta
+
+            # Calculate correlation for additional insight
+            correlation = np.corrcoef(stock_returns, market_returns)[0, 1]
+
+            # Beta categories
+            if beta < 0.8:
+                category = "Low Beta (Defensive)"
+            elif beta < 1.2:
+                category = "Market Beta"
+            else:
+                category = "High Beta (Aggressive)"
+
+            # Confidence calculation
+            null_ratio = self._calculate_null_ratio(merged, ['close', 'market_close'])
+            confidence = self._calculate_confidence(
+                data_length=len(stock_returns),
+                null_ratio=null_ratio,
+                additional_factors={
+                    'correlation_strength': float(abs(correlation))  # Higher correlation = more reliable beta
+                }
+            )
+
+            metadata = {
+                'beta': round(beta, 3),
+                'correlation': round(correlation, 3),
+                'category': category,
+                'data_points': len(stock_returns),
+                'market_index': 'KOSPI'
+            }
+
+            return FactorResult(
+                ticker=ticker,
+                factor_name=self.name,
+                raw_value=factor_value,  # Negated beta
+                z_score=0.0,
+                percentile=50.0,
+                confidence=confidence,
+                metadata=metadata
+            )
+
+        except (psycopg2.Error, Exception) as e:
+            logger.error(f"{ticker} ({region}) - {self.name}: {e}")
+            return None
 
     def get_required_columns(self) -> List[str]:
         """Required DataFrame columns"""
-        return ['date', 'close', 'market_close']  # Requires market index data
+        return ['date', 'close']  # Market data fetched from DB
 
 
 class MaxDrawdownFactor(FactorBase):

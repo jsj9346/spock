@@ -12,12 +12,19 @@ Author: Spock Quant Platform - Phase 2B Multi-Factor Expansion
 Date: 2025-10-24
 """
 
-import os
 import logging
+import os
 from typing import Optional, List
 from datetime import date
 import psycopg2
 from .factor_base import FactorBase, FactorResult, FactorCategory
+
+# Import PostgreSQL database manager
+try:
+    from modules.db_manager_postgres import PostgresDatabaseManager
+    DB_MANAGER_AVAILABLE = True
+except ImportError:
+    DB_MANAGER_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +40,7 @@ class RevenueGrowthFactor(FactorBase):
             min_required_days=1
         )
 
-    def calculate(self, data, ticker: str, region: str = 'US') -> Optional[FactorResult]:
+    def calculate(self, data, ticker: str, region: str = 'KR') -> Optional[FactorResult]:
         """
         Calculate YOY revenue growth rate
 
@@ -42,43 +49,49 @@ class RevenueGrowthFactor(FactorBase):
         Args:
             data: Unused (kept for interface compatibility)
             ticker: Stock ticker symbol
-            region: Market region (US, KR, etc.)
+            region: Market region (KR, US, etc.)
 
         Returns:
             FactorResult with revenue growth rate (%)
         """
+        query = """
+            SELECT
+                current.revenue AS current_revenue,
+                current.fiscal_year AS current_year,
+                previous.revenue AS previous_revenue,
+                previous.fiscal_year AS previous_year
+            FROM ticker_fundamentals current
+            LEFT JOIN ticker_fundamentals previous
+                ON current.ticker = previous.ticker
+                AND current.region = previous.region
+                AND current.fiscal_year = previous.fiscal_year + 1
+            WHERE current.ticker = %s
+              AND current.region = %s
+              AND current.revenue IS NOT NULL
+              AND previous.revenue IS NOT NULL
+              AND previous.revenue > 0
+            ORDER BY current.fiscal_year DESC
+            LIMIT 1
+        """
+
         try:
-            conn = psycopg2.connect(
-                host='localhost',
-                port=5432,
-                database='quant_platform',
-                user=os.getenv('USER')
-            )
-            cursor = conn.cursor()
-
-            # Get current and previous year revenue
-            cursor.execute("""
-                SELECT
-                    current.revenue AS current_revenue,
-                    current.fiscal_year AS current_year,
-                    previous.revenue AS previous_revenue,
-                    previous.fiscal_year AS previous_year
-                FROM ticker_fundamentals current
-                LEFT JOIN ticker_fundamentals previous
-                    ON current.ticker = previous.ticker
-                    AND current.region = previous.region
-                    AND current.fiscal_year = previous.fiscal_year + 1
-                WHERE current.ticker = %s
-                  AND current.region = %s
-                  AND current.revenue IS NOT NULL
-                  AND previous.revenue IS NOT NULL
-                  AND previous.revenue > 0
-                ORDER BY current.fiscal_year DESC
-                LIMIT 1
-            """, (ticker, region))
-
-            result = cursor.fetchone()
-            conn.close()
+            # Use PostgresDatabaseManager if available
+            if DB_MANAGER_AVAILABLE:
+                db = PostgresDatabaseManager()
+                results = db.execute_query(query, (ticker, region))
+                result = results[0] if results else None
+            else:
+                # Fallback to raw psycopg2
+                conn = psycopg2.connect(
+                    host='localhost',
+                    port=5432,
+                    database='quant_platform',
+                    user=os.getenv('USER')
+                )
+                cursor = conn.cursor()
+                cursor.execute(query, (ticker, region))
+                result = cursor.fetchone()
+                conn.close()
 
             if not result:
                 logger.debug(f"{ticker} ({region}) - {self.name}: No YOY data available")
@@ -105,7 +118,7 @@ class RevenueGrowthFactor(FactorBase):
                 }
             )
 
-        except Exception as e:
+        except (psycopg2.Error, Exception) as e:
             logger.error(f"{ticker} ({region}) - {self.name}: {e}")
             return None
 
@@ -125,7 +138,7 @@ class OperatingProfitGrowthFactor(FactorBase):
             min_required_days=1
         )
 
-    def calculate(self, data, ticker: str, region: str = 'US') -> Optional[FactorResult]:
+    def calculate(self, data, ticker: str, region: str = 'KR') -> Optional[FactorResult]:
         """
         Calculate YOY operating profit growth rate
 
@@ -134,42 +147,49 @@ class OperatingProfitGrowthFactor(FactorBase):
         Args:
             data: Unused
             ticker: Stock ticker symbol
-            region: Market region
+            region: Market region (KR, US, etc.)
 
         Returns:
             FactorResult with operating profit growth rate (%)
         """
+        query = """
+            SELECT
+                current.operating_profit AS current_op,
+                current.fiscal_year AS current_year,
+                previous.operating_profit AS previous_op,
+                previous.fiscal_year AS previous_year
+            FROM ticker_fundamentals current
+            LEFT JOIN ticker_fundamentals previous
+                ON current.ticker = previous.ticker
+                AND current.region = previous.region
+                AND current.fiscal_year = previous.fiscal_year + 1
+            WHERE current.ticker = %s
+              AND current.region = %s
+              AND current.operating_profit IS NOT NULL
+              AND previous.operating_profit IS NOT NULL
+              AND previous.operating_profit != 0
+            ORDER BY current.fiscal_year DESC
+            LIMIT 1
+        """
+
         try:
-            conn = psycopg2.connect(
-                host='localhost',
-                port=5432,
-                database='quant_platform',
-                user=os.getenv('USER')
-            )
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                SELECT
-                    current.operating_profit AS current_op,
-                    current.fiscal_year AS current_year,
-                    previous.operating_profit AS previous_op,
-                    previous.fiscal_year AS previous_year
-                FROM ticker_fundamentals current
-                LEFT JOIN ticker_fundamentals previous
-                    ON current.ticker = previous.ticker
-                    AND current.region = previous.region
-                    AND current.fiscal_year = previous.fiscal_year + 1
-                WHERE current.ticker = %s
-                  AND current.region = %s
-                  AND current.operating_profit IS NOT NULL
-                  AND previous.operating_profit IS NOT NULL
-                  AND previous.operating_profit != 0
-                ORDER BY current.fiscal_year DESC
-                LIMIT 1
-            """, (ticker, region))
-
-            result = cursor.fetchone()
-            conn.close()
+            # Use PostgresDatabaseManager if available
+            if DB_MANAGER_AVAILABLE:
+                db = PostgresDatabaseManager()
+                results = db.execute_query(query, (ticker, region))
+                result = results[0] if results else None
+            else:
+                # Fallback to raw psycopg2
+                conn = psycopg2.connect(
+                    host='localhost',
+                    port=5432,
+                    database='quant_platform',
+                    user=os.getenv('USER')
+                )
+                cursor = conn.cursor()
+                cursor.execute(query, (ticker, region))
+                result = cursor.fetchone()
+                conn.close()
 
             if not result:
                 logger.debug(f"{ticker} ({region}) - {self.name}: No YOY data available")
@@ -205,7 +225,7 @@ class OperatingProfitGrowthFactor(FactorBase):
                 }
             )
 
-        except Exception as e:
+        except (psycopg2.Error, Exception) as e:
             logger.error(f"{ticker} ({region}) - {self.name}: {e}")
             return None
 
@@ -225,7 +245,7 @@ class NetIncomeGrowthFactor(FactorBase):
             min_required_days=1
         )
 
-    def calculate(self, data, ticker: str, region: str = 'US') -> Optional[FactorResult]:
+    def calculate(self, data, ticker: str, region: str = 'KR') -> Optional[FactorResult]:
         """
         Calculate YOY net income growth rate
 
@@ -234,42 +254,49 @@ class NetIncomeGrowthFactor(FactorBase):
         Args:
             data: Unused
             ticker: Stock ticker symbol
-            region: Market region
+            region: Market region (KR, US, etc.)
 
         Returns:
             FactorResult with net income growth rate (%)
         """
+        query = """
+            SELECT
+                current.net_income AS current_ni,
+                current.fiscal_year AS current_year,
+                previous.net_income AS previous_ni,
+                previous.fiscal_year AS previous_year
+            FROM ticker_fundamentals current
+            LEFT JOIN ticker_fundamentals previous
+                ON current.ticker = previous.ticker
+                AND current.region = previous.region
+                AND current.fiscal_year = previous.fiscal_year + 1
+            WHERE current.ticker = %s
+              AND current.region = %s
+              AND current.net_income IS NOT NULL
+              AND previous.net_income IS NOT NULL
+              AND previous.net_income != 0
+            ORDER BY current.fiscal_year DESC
+            LIMIT 1
+        """
+
         try:
-            conn = psycopg2.connect(
-                host='localhost',
-                port=5432,
-                database='quant_platform',
-                user=os.getenv('USER')
-            )
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                SELECT
-                    current.net_income AS current_ni,
-                    current.fiscal_year AS current_year,
-                    previous.net_income AS previous_ni,
-                    previous.fiscal_year AS previous_year
-                FROM ticker_fundamentals current
-                LEFT JOIN ticker_fundamentals previous
-                    ON current.ticker = previous.ticker
-                    AND current.region = previous.region
-                    AND current.fiscal_year = previous.fiscal_year + 1
-                WHERE current.ticker = %s
-                  AND current.region = %s
-                  AND current.net_income IS NOT NULL
-                  AND previous.net_income IS NOT NULL
-                  AND previous.net_income != 0
-                ORDER BY current.fiscal_year DESC
-                LIMIT 1
-            """, (ticker, region))
-
-            result = cursor.fetchone()
-            conn.close()
+            # Use PostgresDatabaseManager if available
+            if DB_MANAGER_AVAILABLE:
+                db = PostgresDatabaseManager()
+                results = db.execute_query(query, (ticker, region))
+                result = results[0] if results else None
+            else:
+                # Fallback to raw psycopg2
+                conn = psycopg2.connect(
+                    host='localhost',
+                    port=5432,
+                    database='quant_platform',
+                    user=os.getenv('USER')
+                )
+                cursor = conn.cursor()
+                cursor.execute(query, (ticker, region))
+                result = cursor.fetchone()
+                conn.close()
 
             if not result:
                 logger.debug(f"{ticker} ({region}) - {self.name}: No YOY data available")
@@ -302,7 +329,7 @@ class NetIncomeGrowthFactor(FactorBase):
                 }
             )
 
-        except Exception as e:
+        except (psycopg2.Error, Exception) as e:
             logger.error(f"{ticker} ({region}) - {self.name}: {e}")
             return None
 

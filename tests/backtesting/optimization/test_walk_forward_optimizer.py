@@ -42,10 +42,10 @@ def sample_config():
     """Create sample backtest configuration."""
     return BacktestConfig(
         start_date=date(2024, 10, 10),  # Match available data range
-        end_date=date(2025, 10, 20),    # ticker 000020 has 261 days of data
+        end_date=date(2025, 10, 20),    # ticker 000100 has 261 days of data
         initial_capital=10000000,
         regions=['KR'],
-        tickers=['000020'],
+        tickers=['000100'],  # Changed from 000020 (was orphaned data)
         max_position_size=0.15,
         score_threshold=60.0,
         risk_profile='moderate',

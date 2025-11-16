@@ -78,6 +78,7 @@ class SpockMCPServer:
         from .adapters.system_adapter import SystemAdapter
         from .adapters.optimization_adapter import OptimizationAdapter
         from .adapters.screening_adapter import ScreeningAdapter
+        from .adapters.macro_adapter import MacroAdapter
         from modules.screening.etf_screening_adapter import ETFScreeningAdapter
 
         self.data_adapter = DataAdapter()
@@ -85,6 +86,7 @@ class SpockMCPServer:
         self.system_adapter = SystemAdapter()
         self.optimization_adapter = OptimizationAdapter()
         self.screening_adapter = ScreeningAdapter()
+        self.macro_adapter = MacroAdapter()
         self.etf_screening_adapter = ETFScreeningAdapter()
 
         # Register unified list_tools handler
@@ -100,6 +102,7 @@ class SpockMCPServer:
             from .tools.screening_tool import get_screening_tool_def
             from .tools.technical_tool import get_technical_tool_def
             from .tools.etf_tool import get_etf_screening_tool_def
+            from .tools.macro_tool import get_macro_tool_def
 
             tools = []
             tools.append(get_data_query_tool_def())
@@ -109,6 +112,7 @@ class SpockMCPServer:
             tools.append(get_screening_tool_def())
             tools.append(get_technical_tool_def())
             tools.append(get_etf_screening_tool_def())
+            tools.append(get_macro_tool_def())
 
             logger.info("tools_listed", tool_count=len(tools))
             return tools
@@ -143,10 +147,13 @@ class SpockMCPServer:
             elif name == "screen_etfs":
                 from .tools.etf_tool import handle_screen_etfs
                 return await handle_screen_etfs(self.etf_screening_adapter, arguments)
+            elif name == "analyze_macro_environment":
+                from .tools.macro_tool import handle_analyze_macro
+                return await handle_analyze_macro(self.macro_adapter, arguments)
             else:
                 raise ValueError(f"Unknown tool: {name}")
 
-        logger.debug("mcp_unified_handlers_registered", tool_count=8)
+        logger.debug("mcp_unified_handlers_registered", tool_count=9)
 
     async def run(self) -> None:
         """Run MCP server (async main loop)"""

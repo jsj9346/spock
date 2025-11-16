@@ -67,11 +67,13 @@ from .low_vol_factors import (
 from .value_factors import (
     DividendYieldFactorPostgres,
     EVToEBITDAFactorPostgres,
-    CompositeValueFactor
+    CompositeValueFactor,
+    # Backward compatibility (deprecated)
+    PERatioFactor,
+    PBRatioFactor,
+    EVToEBITDAFactor,
+    DividendYieldFactor
 )
-# Legacy placeholders commented out (replaced by PostgreSQL versions)
-# PERatioFactor,
-# PBRatioFactor,
 
 # Quality Factors (Phase 2A - 9 Core Factors Implemented)
 from .quality_factors import (
@@ -136,6 +138,11 @@ __all__ = [
     'DividendYieldFactorPostgres',
     'EVToEBITDAFactorPostgres',
     'CompositeValueFactor',
+    # Backward compatibility (deprecated)
+    'PERatioFactor',
+    'PBRatioFactor',
+    'EVToEBITDAFactor',
+    'DividendYieldFactor',
 
     # Quality factors (Phase 2A)
     'ROEFactor',

@@ -23,7 +23,7 @@ Usage:
 import time
 from dataclasses import dataclass, asdict
 from typing import Literal, Optional, Callable, Tuple, Dict, Any, Union
-from datetime import date
+from datetime import date, datetime
 import pandas as pd
 from loguru import logger
 
@@ -35,6 +35,7 @@ from modules.backtesting.backtest_engines.vectorbt_adapter import (
     VECTORBT_AVAILABLE
 )
 from modules.backtesting.data_providers.base_data_provider import BaseDataProvider
+from modules.db_manager_postgres import PostgresDatabaseManager
 
 
 @dataclass
@@ -506,3 +507,234 @@ class BacktestRunner:
         logger.info(f"Performance benchmark: {report}")
 
         return report
+
+    # ===================================================================
+    # Phase 2.1: Data Quality Validation & Cleanup
+    # ===================================================================
+
+    @staticmethod
+    def validate_data_quality(
+        db: PostgresDatabaseManager,
+        region: str = 'KR',
+        fix_duplicates: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Validate data quality for backtesting.
+
+        Checks:
+        1. Duplicate factor_scores
+        2. NULL values in critical columns
+        3. Data coverage (OHLCV, fundamentals, technical indicators)
+
+        Args:
+            db: PostgreSQL database manager
+            region: Market region (default: 'KR')
+            fix_duplicates: If True, automatically fix duplicate data
+
+        Returns:
+            Dict with validation results and recommendations
+        """
+        logger.info(f"🔍 Validating data quality for region: {region}")
+
+        results = {
+            'region': region,
+            'timestamp': datetime.now(),
+            'duplicates': {},
+            'null_values': {},
+            'coverage': {},
+            'warnings': [],
+            'passed': True
+        }
+
+        # 1. Check for duplicate factor_scores
+        duplicate_query = """
+            SELECT ticker, region, date, factor_name, COUNT(*) as count
+            FROM factor_scores
+            WHERE region = %s
+            GROUP BY ticker, region, date, factor_name
+            HAVING COUNT(*) > 1
+        """
+
+        duplicates = db.execute_query(duplicate_query, (region,))
+        if duplicates:
+            results['duplicates']['factor_scores'] = len(duplicates)
+            results['warnings'].append(
+                f"Found {len(duplicates)} duplicate entries in factor_scores"
+            )
+            results['passed'] = False
+
+            if fix_duplicates:
+                logger.warning("🔧 Fixing duplicate factor_scores...")
+                cleaned_count = BacktestRunner.clean_duplicate_factor_scores(db, region)
+                results['duplicates']['fixed'] = cleaned_count
+                logger.info(f"✅ Cleaned {cleaned_count} duplicate entries")
+
+        # 2. Check NULL values in OHLCV data
+        null_check_query = """
+            SELECT
+                COUNT(*) as total_records,
+                SUM(CASE WHEN close IS NULL THEN 1 ELSE 0 END) as null_close,
+                SUM(CASE WHEN volume IS NULL THEN 1 ELSE 0 END) as null_volume
+            FROM ohlcv_data
+            WHERE region = %s AND timeframe = '1d'
+        """
+
+        null_stats = db.execute_query(null_check_query, (region,))
+        if null_stats:
+            row = null_stats[0]
+            results['null_values'] = {
+                'total_records': row['total_records'],
+                'null_close': row['null_close'],
+                'null_volume': row['null_volume']
+            }
+
+            if row['null_close'] > 0:
+                results['warnings'].append(
+                    f"Found {row['null_close']} NULL close prices"
+                )
+                results['passed'] = False
+
+        # 3. Check data coverage
+        coverage_query = """
+            SELECT
+                COUNT(DISTINCT ticker) as total_tickers,
+                MIN(date) as min_date,
+                MAX(date) as max_date,
+                COUNT(*) as total_records
+            FROM ohlcv_data
+            WHERE region = %s AND timeframe = '1d'
+        """
+
+        coverage = db.execute_query(coverage_query, (region,))
+        if coverage:
+            results['coverage'] = {
+                'total_tickers': coverage[0]['total_tickers'],
+                'date_range': f"{coverage[0]['min_date']} ~ {coverage[0]['max_date']}",
+                'total_records': coverage[0]['total_records']
+            }
+
+        # Summary
+        if results['passed']:
+            logger.info("✅ Data quality validation PASSED")
+        else:
+            logger.warning(f"⚠️  Data quality validation FAILED with {len(results['warnings'])} warnings")
+
+        return results
+
+    @staticmethod
+    def clean_duplicate_factor_scores(
+        db: PostgresDatabaseManager,
+        region: str = 'KR'
+    ) -> int:
+        """
+        Remove duplicate entries from factor_scores table.
+
+        Keeps the entry with minimum ID (earliest insert) for each
+        (ticker, region, date, factor_name) combination.
+
+        Args:
+            db: PostgreSQL database manager
+            region: Market region (default: 'KR')
+
+        Returns:
+            Number of duplicate entries removed
+        """
+        logger.info(f"🔧 Cleaning duplicate factor_scores for region: {region}")
+
+        # Delete query - keeps earliest entry (MIN(id))
+        delete_query = """
+            DELETE FROM factor_scores
+            WHERE region = %s
+              AND id NOT IN (
+                  SELECT MIN(id)
+                  FROM factor_scores
+                  WHERE region = %s
+                  GROUP BY ticker, region, date, factor_name
+              )
+        """
+
+        # Execute deletion
+        cursor = db.conn.cursor()
+        cursor.execute(delete_query, (region, region))
+        deleted_count = cursor.rowcount
+        db.conn.commit()
+        cursor.close()
+
+        logger.info(f"✅ Removed {deleted_count} duplicate factor_scores entries")
+
+        return deleted_count
+
+    @staticmethod
+    def validate_backtest_results(
+        result: Union[Dict[str, Any], VectorbtResult],
+        min_trades: int = 10,
+        min_sharpe: float = -2.0,
+        max_drawdown: float = 0.9
+    ) -> Dict[str, Any]:
+        """
+        Validate backtest results for sanity checks.
+
+        Args:
+            result: Backtest result (dict or VectorbtResult)
+            min_trades: Minimum number of trades for statistical significance
+            min_sharpe: Minimum acceptable Sharpe ratio
+            max_drawdown: Maximum acceptable drawdown (e.g., 0.9 = 90%)
+
+        Returns:
+            Dict with validation status and warnings
+        """
+        logger.info("🔍 Validating backtest results...")
+
+        validation = {
+            'passed': True,
+            'warnings': [],
+            'metrics': {}
+        }
+
+        # Extract metrics based on result type
+        if isinstance(result, VectorbtResult):
+            total_trades = result.total_trades
+            sharpe_ratio = result.sharpe_ratio
+            max_dd = result.max_drawdown
+            total_return = result.total_return
+        else:
+            total_trades = len(result.get('trades', []))
+            sharpe_ratio = result.get('sharpe_ratio', 0.0)
+            max_dd = result.get('max_drawdown', 0.0)
+            total_return = result.get('total_return', 0.0)
+
+        validation['metrics'] = {
+            'total_trades': total_trades,
+            'sharpe_ratio': sharpe_ratio,
+            'max_drawdown': max_dd,
+            'total_return': total_return
+        }
+
+        # Check 1: Minimum trades for statistical significance
+        if total_trades < min_trades:
+            validation['warnings'].append(
+                f"Too few trades ({total_trades}) for statistical significance (min: {min_trades})"
+            )
+            validation['passed'] = False
+
+        # Check 2: Sharpe ratio sanity check
+        if sharpe_ratio < min_sharpe:
+            validation['warnings'].append(
+                f"Sharpe ratio ({sharpe_ratio:.2f}) below minimum threshold ({min_sharpe})"
+            )
+            validation['passed'] = False
+
+        # Check 3: Maximum drawdown sanity check
+        if abs(max_dd) > max_drawdown:
+            validation['warnings'].append(
+                f"Max drawdown ({abs(max_dd):.1%}) exceeds threshold ({max_drawdown:.1%})"
+            )
+            validation['passed'] = False
+
+        # Summary
+        if validation['passed']:
+            logger.info("✅ Backtest results validation PASSED")
+        else:
+            logger.warning(f"⚠️  Backtest results validation FAILED with {len(validation['warnings'])} warnings")
+
+        return validation

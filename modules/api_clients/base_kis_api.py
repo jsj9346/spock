@@ -161,7 +161,8 @@ class BaseKISAPI:
             self.token_cache_path.unlink(missing_ok=True)
 
         except ValueError as e:
-            logger.error(f"❌ Invalid cache data: {e}")
+            logger.warning(f"⚠️ Cache format outdated or invalid: {e}")
+            logger.info(f"ℹ️ Removing old cache, will request new token")
             self.token_cache_path.unlink(missing_ok=True)
 
         except Exception as e:

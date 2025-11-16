@@ -259,7 +259,13 @@ class PyKRXFundamentalBackfiller:
                 pbr = EXCLUDED.pbr,
                 dividend_yield = EXCLUDED.dividend_yield,
                 dividend_per_share = EXCLUDED.dividend_per_share,
-                data_source = EXCLUDED.data_source
+                data_source = EXCLUDED.data_source,
+                last_updated = NOW()
+            WHERE
+                ticker_fundamentals.per IS DISTINCT FROM EXCLUDED.per OR
+                ticker_fundamentals.pbr IS DISTINCT FROM EXCLUDED.pbr OR
+                ticker_fundamentals.dividend_yield IS DISTINCT FROM EXCLUDED.dividend_yield OR
+                ticker_fundamentals.dividend_per_share IS DISTINCT FROM EXCLUDED.dividend_per_share
             """
 
             # Convert data dict to tuple in correct order (9 params for 10 columns, NOW() handles created_at)

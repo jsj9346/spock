@@ -414,7 +414,7 @@ class ScreeningAdapter:
         Raises:
             ValidationError: Invalid region
         """
-        valid_regions = {"KR", "US"}
+        valid_regions = {"KR", "US", "HK", "JP", "CN", "VN"}
         if region not in valid_regions:
             raise ValidationError(
                 f"Invalid region: {region}",

@@ -156,7 +156,8 @@ For more information, see docs/DB_UPDATE_UNIFIED_SCRIPT_GUIDE.md
     parser.add_argument(
         '--steps',
         nargs='+',
-        choices=['tickers', 'ohlcv', 'fundamentals', 'dividend', 'quarterly', 'fx_tracking'],
+        choices=['tickers', 'ohlcv', 'fundamentals', 'daily_valuation',
+                 'technical_indicators', 'dividend', 'quarterly', 'fx_tracking'],
         help='Steps to execute (default: all except quarterly)'
     )
 

@@ -8,13 +8,23 @@ Categories:
 - Float: Free float percentage (institutional accessibility)
 
 Author: Spock Quant Platform - Phase 2 Complete
+Updated: PostgreSQL Migration
 """
 
-import sqlite3
 import logging
+import os
+import math
+import psycopg2
 import pandas as pd
 from typing import Optional, List
 from .factor_base import FactorBase, FactorResult, FactorCategory
+
+# Import PostgreSQL database manager
+try:
+    from modules.db_manager_postgres import PostgresDatabaseManager
+    DB_MANAGER_AVAILABLE = True
+except ImportError:
+    DB_MANAGER_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -27,47 +37,67 @@ class MarketCapFactor(FactorBase):
     Ranking: Negated for small-cap tilt (lower cap = higher score)
     """
 
-    def __init__(self, db_path: str = "./data/spock_local.db"):
+    def __init__(self):
         super().__init__(
-            name="Market Cap",
+            name="Market_Cap",
             category=FactorCategory.SIZE,
             lookback_days=1,
             min_required_days=1
         )
-        self.db_path = db_path
 
-    def calculate(self, data, ticker: str) -> Optional[FactorResult]:
+    def calculate(self, data, ticker: str, region: str = 'KR') -> Optional[FactorResult]:
         """
         Calculate market capitalization
 
         Negative factor value for small-cap tilt:
         - Lower market cap → Higher factor score (small-cap premium)
+
+        Args:
+            data: Unused (kept for interface compatibility)
+            ticker: Stock ticker symbol
+            region: Market region (KR, US, etc.)
+
+        Returns:
+            FactorResult with market cap score
         """
+        query = """
+            SELECT market_cap, shares_outstanding, close_price, fiscal_year
+            FROM ticker_fundamentals
+            WHERE ticker = %s
+              AND region = %s
+              AND market_cap IS NOT NULL
+              AND market_cap > 0
+            ORDER BY fiscal_year DESC
+            LIMIT 1
+        """
+
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                SELECT market_cap, shares_outstanding, close_price, fiscal_year
-                FROM ticker_fundamentals
-                WHERE ticker = ?
-                  AND market_cap IS NOT NULL
-                  AND market_cap > 0
-                ORDER BY fiscal_year DESC
-                LIMIT 1
-            """, (ticker,))
-
-            result = cursor.fetchone()
-            conn.close()
+            # Use PostgresDatabaseManager if available
+            if DB_MANAGER_AVAILABLE:
+                db = PostgresDatabaseManager()
+                results = db.execute_query(query, (ticker, region))
+                result = results[0] if results else None
+            else:
+                # Fallback to raw psycopg2
+                conn = psycopg2.connect(
+                    host='localhost',
+                    port=5432,
+                    database='quant_platform',
+                    user=os.getenv('USER')
+                )
+                cursor = conn.cursor()
+                cursor.execute(query, (ticker, region))
+                result = cursor.fetchone()
+                conn.close()
 
             if not result:
+                logger.debug(f"{ticker} ({region}) - {self.name}: No market cap data available")
                 return None
 
             market_cap, shares_out, close_price, fiscal_year = result
 
             # Negative for small-cap tilt: lower market cap = higher score
             # Use log scale to compress range
-            import math
             factor_value = -math.log10(market_cap / 1e12)  # Normalize to trillions of KRW
 
             # Market cap categories
@@ -89,12 +119,12 @@ class MarketCapFactor(FactorBase):
                     'market_cap': int(market_cap),
                     'market_cap_trillion': round(market_cap / 1e12, 2),
                     'category': category,
-                    'fiscal_year': fiscal_year
+                    'fiscal_year': int(fiscal_year)
                 }
             )
 
-        except Exception as e:
-            logger.error(f"{ticker} - {self.name}: {e}")
+        except (psycopg2.Error, Exception) as e:
+            logger.error(f"{ticker} ({region}) - {self.name}: {e}")
             return None
 
     def get_required_columns(self) -> List[str]:
@@ -110,16 +140,15 @@ class LiquidityFactor(FactorBase):
     Ranking: Positive (higher liquidity = higher score)
     """
 
-    def __init__(self, db_path: str = "./data/spock_local.db"):
+    def __init__(self):
         super().__init__(
             name="Liquidity",
             category=FactorCategory.SIZE,
             lookback_days=30,
             min_required_days=20
         )
-        self.db_path = db_path
 
-    def calculate(self, data: pd.DataFrame, ticker: str) -> Optional[FactorResult]:
+    def calculate(self, data: pd.DataFrame, ticker: str, region: str = 'KR') -> Optional[FactorResult]:
         """
         Calculate liquidity based on 30-day average trading volume
 
@@ -194,44 +223,58 @@ class FloatFactor(FactorBase):
     Ranking: Positive (higher float = higher score, better for institutions)
     """
 
-    def __init__(self, db_path: str = "./data/spock_local.db"):
+    def __init__(self):
         super().__init__(
-            name="Free Float",
+            name="Free_Float",
             category=FactorCategory.SIZE,
             lookback_days=1,
             min_required_days=1
         )
-        self.db_path = db_path
 
-    def calculate(self, data, ticker: str) -> Optional[FactorResult]:
+    def calculate(self, data, ticker: str, region: str = 'KR') -> Optional[FactorResult]:
         """
         Calculate free float percentage
 
         Args:
-            data: Unused (DB query)
-            ticker: Stock ticker
+            data: Unused (kept for interface compatibility)
+            ticker: Stock ticker symbol
+            region: Market region (KR, US, etc.)
 
         Returns:
             FactorResult with free float percentage
         """
+        query = """
+            SELECT free_float_percentage, shares_outstanding, fiscal_year
+            FROM ticker_fundamentals
+            WHERE ticker = %s
+              AND region = %s
+              AND free_float_percentage IS NOT NULL
+              AND free_float_percentage > 0
+            ORDER BY fiscal_year DESC
+            LIMIT 1
+        """
+
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                SELECT free_float_percentage, shares_outstanding, fiscal_year
-                FROM ticker_fundamentals
-                WHERE ticker = ?
-                  AND free_float_percentage IS NOT NULL
-                  AND free_float_percentage > 0
-                ORDER BY fiscal_year DESC
-                LIMIT 1
-            """, (ticker,))
-
-            result = cursor.fetchone()
-            conn.close()
+            # Use PostgresDatabaseManager if available
+            if DB_MANAGER_AVAILABLE:
+                db = PostgresDatabaseManager()
+                results = db.execute_query(query, (ticker, region))
+                result = results[0] if results else None
+            else:
+                # Fallback to raw psycopg2
+                conn = psycopg2.connect(
+                    host='localhost',
+                    port=5432,
+                    database='quant_platform',
+                    user=os.getenv('USER')
+                )
+                cursor = conn.cursor()
+                cursor.execute(query, (ticker, region))
+                result = cursor.fetchone()
+                conn.close()
 
             if not result:
+                logger.debug(f"{ticker} ({region}) - {self.name}: No float data available")
                 return None
 
             free_float_pct, shares_out, fiscal_year = result
@@ -254,12 +297,12 @@ class FloatFactor(FactorBase):
                 metadata={
                     'free_float_pct': round(free_float_pct, 2),
                     'category': category,
-                    'fiscal_year': fiscal_year
+                    'fiscal_year': int(fiscal_year)
                 }
             )
 
-        except Exception as e:
-            logger.error(f"{ticker} - {self.name}: {e}")
+        except (psycopg2.Error, Exception) as e:
+            logger.error(f"{ticker} ({region}) - {self.name}: {e}")
             return None
 
     def get_required_columns(self) -> List[str]:

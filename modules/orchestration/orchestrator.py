@@ -68,13 +68,15 @@ class DatabaseUpdateOrchestrator:
     # Step execution order
     STEP_ORDER = [
         'tickers',
-        'ticker_refresh',    # New: Multi-region ticker refresh with OTC filtering
-        'fx_tracking',       # New: Exchange rate tracking and FX signals
+        'ticker_refresh',      # New: Multi-region ticker refresh with OTC filtering
+        'fx_tracking',         # New: Exchange rate tracking and FX signals
         'ohlcv',
-        'fundamentals',
-        'classification',    # New: Stock classification (SPAC, preferred, sector/industry)
+        'fundamentals',        # DART annual financial statements
+        'daily_valuation',     # New: pykrx daily PER/PBR for valuation trend analysis
+        'technical_indicators', # New: MA, RSI, MACD, BB, ATR, Volume indicators
+        'classification',      # New: Stock classification (SPAC, preferred, sector/industry)
         'dividend',
-        'etf_data',          # New: ETF details and holdings
+        'etf_data',            # New: ETF details and holdings
         'quarterly'
     ]
 
@@ -206,13 +208,15 @@ class DatabaseUpdateOrchestrator:
         # Route to appropriate step executor
         step_executors = {
             'tickers': self._update_tickers,
-            'ticker_refresh': self._refresh_tickers,         # New step
-            'fx_tracking': self._track_exchange_rates,       # New step
+            'ticker_refresh': self._refresh_tickers,           # New step
+            'fx_tracking': self._track_exchange_rates,         # New step
             'ohlcv': self._update_ohlcv,
             'fundamentals': self._update_fundamentals,
-            'classification': self._classify_stocks,         # New step
+            'daily_valuation': self._update_daily_valuation,   # New: pykrx daily PER/PBR
+            'technical_indicators': self._update_technical_indicators, # New: Technical analysis
+            'classification': self._classify_stocks,           # New step
             'dividend': self._calculate_dividend,
-            'etf_data': self._update_etf_data,               # New step
+            'etf_data': self._update_etf_data,                 # New step
             'quarterly': self._update_quarterly_financials
         }
 
@@ -499,7 +503,14 @@ class DatabaseUpdateOrchestrator:
                                     high = EXCLUDED.high,
                                     low = EXCLUDED.low,
                                     close = EXCLUDED.close,
-                                    volume = EXCLUDED.volume
+                                    volume = EXCLUDED.volume,
+                                    last_updated = NOW()
+                                WHERE
+                                    ohlcv_data.open IS DISTINCT FROM EXCLUDED.open OR
+                                    ohlcv_data.high IS DISTINCT FROM EXCLUDED.high OR
+                                    ohlcv_data.low IS DISTINCT FROM EXCLUDED.low OR
+                                    ohlcv_data.close IS DISTINCT FROM EXCLUDED.close OR
+                                    ohlcv_data.volume IS DISTINCT FROM EXCLUDED.volume
                                 """,
                                 (
                                     ticker,
@@ -712,6 +723,281 @@ class DatabaseUpdateOrchestrator:
                 results[region] = {
                     'success': True,
                     'message': 'Not applicable for overseas markets'
+                }
+
+        return results
+
+    def _update_daily_valuation(self, regions: List[str], **kwargs) -> Dict:
+        """
+        Update daily valuation multiples (PER, PBR) from pykrx
+
+        Purpose: Enable historical valuation multiple trend analysis
+        Data Source: pykrx (KRX market data)
+        Update Frequency: Daily
+        """
+        logger.info("🔄 Updating daily valuation multiples (PER, PBR)...")
+
+        results = {}
+
+        for region in regions:
+            if region == 'KR':
+                try:
+                    from scripts.backfill_fundamentals_pykrx import PyKRXFundamentalBackfiller
+                    from datetime import date, timedelta
+
+                    # Initialize backfiller
+                    backfiller = PyKRXFundamentalBackfiller(
+                        self.db,
+                        dry_run=kwargs.get('dry_run', False),
+                        rate_limit_delay=0.5  # 2 requests/second
+                    )
+
+                    # Determine date range
+                    end_date = date.today()
+                    if kwargs.get('incremental', True):
+                        # Incremental: Last 7 days to catch up
+                        start_date = end_date - timedelta(days=7)
+                    else:
+                        # Full: Last 30 days
+                        start_date = end_date - timedelta(days=30)
+
+                    # Run backfill
+                    logger.info(f"  → Date range: {start_date} to {end_date}")
+                    stats = backfiller.run_backfill(
+                        start_date=start_date,
+                        end_date=end_date,
+                        incremental=kwargs.get('incremental', True),
+                        limit=self.config.get('limit')
+                    )
+
+                    results[region] = stats
+
+                    logger.info(
+                        f"  ✅ [{region}] {stats['tickers_success']} tickers, "
+                        f"{stats['dates_processed']} dates, "
+                        f"{stats['records_inserted']} inserted, "
+                        f"{stats['records_updated']} updated"
+                    )
+
+                except Exception as e:
+                    import traceback
+                    logger.error(f"  ❌ [{region}] Daily valuation update failed: {e}")
+                    logger.error(f"  Traceback: {traceback.format_exc()}")
+                    results[region] = {'success': False, 'error': str(e)}
+
+            else:
+                # Overseas markets: Daily valuation already handled by yfinance
+                logger.info(f"  [{region}] Daily valuation handled by yfinance fundamentals step")
+                results[region] = {
+                    'success': True,
+                    'message': 'Handled by yfinance in fundamentals step'
+                }
+
+        return results
+
+    def _update_technical_indicators(self, regions: List[str], **kwargs) -> Dict:
+        """
+        Update technical indicators (MA, RSI, MACD, Bollinger Bands, ATR, Volume)
+
+        Purpose: Calculate technical analysis indicators for trading strategies
+        Indicators: MA(5,20,50,100,200), RSI-14, MACD, BB, ATR, Volume ratios
+        Storage: Updates ohlcv_data table columns
+        """
+        logger.info("🔄 Updating technical indicators...")
+
+        results = {}
+
+        for region in regions:
+            if region == 'KR':
+                try:
+                    logger.info(f"  [{region}] Calculating technical indicators from ohlcv_data...")
+
+                    # Get list of tickers
+                    query = """
+                    SELECT DISTINCT ticker
+                    FROM tickers
+                    WHERE region = %s AND asset_type = 'STOCK' AND is_active = TRUE
+                    ORDER BY ticker
+                    """
+                    if self.config.get('limit'):
+                        query += f" LIMIT {self.config.get('limit')}"
+
+                    tickers = self.db.execute_query(query, (region,))
+
+                    if not tickers:
+                        logger.warning(f"  ⚠️ [{region}] No tickers found")
+                        results[region] = {'success': False, 'message': 'No tickers found'}
+                        continue
+
+                    # Calculate indicators for each ticker
+                    success_count = 0
+                    failed_count = 0
+
+                    for ticker_row in tickers:
+                        ticker = ticker_row['ticker']
+
+                        try:
+                            # Get OHLCV data (last 250 days for MA200)
+                            ohlcv_query = """
+                            SELECT date, open, high, low, close, volume
+                            FROM ohlcv_data
+                            WHERE ticker = %s AND region = %s
+                            ORDER BY date DESC
+                            LIMIT 250
+                            """
+                            ohlcv = self.db.execute_query(ohlcv_query, (ticker, region))
+
+                            if len(ohlcv) < 20:
+                                logger.debug(f"  [{ticker}] Insufficient data ({len(ohlcv)} days)")
+                                failed_count += 1
+                                continue
+
+                            # Convert to DataFrame
+                            import pandas as pd
+                            df = pd.DataFrame(ohlcv)
+                            df = df.sort_values('date')  # Ascending for calculation
+
+                            # Calculate using pandas_ta
+                            try:
+                                import pandas_ta as ta
+
+                                # Moving Averages
+                                df['ma5'] = ta.sma(df['close'], length=5)
+                                df['ma20'] = ta.sma(df['close'], length=20)
+                                df['ma50'] = ta.sma(df['close'], length=50)
+                                df['ma100'] = ta.sma(df['close'], length=100)
+                                df['ma200'] = ta.sma(df['close'], length=200)
+
+                                # RSI
+                                df['rsi_14'] = ta.rsi(df['close'], length=14)
+
+                                # MACD
+                                macd = ta.macd(df['close'], fast=12, slow=26, signal=9)
+                                if macd is not None and not macd.empty:
+                                    df['macd'] = macd['MACD_12_26_9']
+                                    df['macd_signal'] = macd['MACDs_12_26_9']
+                                    df['macd_hist'] = macd['MACDh_12_26_9']
+
+                                # Bollinger Bands
+                                bbands = ta.bbands(df['close'], length=20, std=2)
+                                if bbands is not None and not bbands.empty:
+                                    df['bb_upper'] = bbands['BBU_20_2.0']
+                                    df['bb_middle'] = bbands['BBM_20_2.0']
+                                    df['bb_lower'] = bbands['BBL_20_2.0']
+
+                                # ATR
+                                df['atr_14'] = ta.atr(df['high'], df['low'], df['close'], length=14)
+
+                                # Volume indicators
+                                df['volume_ma20'] = ta.sma(df['volume'], length=20)
+                                df['volume_ratio'] = df['volume'] / df['volume_ma20']
+
+                                # Update latest row only (most recent date)
+                                if not kwargs.get('dry_run', False):
+                                    latest = df.iloc[-1]
+
+                                    update_query = """
+                                    UPDATE ohlcv_data
+                                    SET
+                                        ma5 = %s, ma20 = %s, ma50 = %s, ma100 = %s, ma200 = %s,
+                                        rsi_14 = %s,
+                                        macd = %s, macd_signal = %s, macd_hist = %s,
+                                        bb_upper = %s, bb_middle = %s, bb_lower = %s,
+                                        atr_14 = %s,
+                                        volume_ma20 = %s, volume_ratio = %s,
+                                        last_updated = NOW()
+                                    WHERE ticker = %s AND region = %s AND date = %s
+                                    AND (
+                                        ma5 IS DISTINCT FROM %s OR
+                                        ma20 IS DISTINCT FROM %s OR
+                                        ma50 IS DISTINCT FROM %s OR
+                                        ma100 IS DISTINCT FROM %s OR
+                                        ma200 IS DISTINCT FROM %s OR
+                                        rsi_14 IS DISTINCT FROM %s OR
+                                        macd IS DISTINCT FROM %s OR
+                                        macd_signal IS DISTINCT FROM %s OR
+                                        macd_hist IS DISTINCT FROM %s OR
+                                        bb_upper IS DISTINCT FROM %s OR
+                                        bb_middle IS DISTINCT FROM %s OR
+                                        bb_lower IS DISTINCT FROM %s OR
+                                        atr_14 IS DISTINCT FROM %s OR
+                                        volume_ma20 IS DISTINCT FROM %s OR
+                                        volume_ratio IS DISTINCT FROM %s
+                                    )
+                                    """
+
+                                    params = (
+                                        # SET clause values (15)
+                                        latest.get('ma5'), latest.get('ma20'), latest.get('ma50'),
+                                        latest.get('ma100'), latest.get('ma200'),
+                                        latest.get('rsi_14'),
+                                        latest.get('macd'), latest.get('macd_signal'), latest.get('macd_hist'),
+                                        latest.get('bb_upper'), latest.get('bb_middle'), latest.get('bb_lower'),
+                                        latest.get('atr_14'),
+                                        latest.get('volume_ma20'), latest.get('volume_ratio'),
+                                        # WHERE identifiers (3)
+                                        ticker, region, latest['date'],
+                                        # WHERE comparison values (15) - same as SET values
+                                        latest.get('ma5'), latest.get('ma20'), latest.get('ma50'),
+                                        latest.get('ma100'), latest.get('ma200'),
+                                        latest.get('rsi_14'),
+                                        latest.get('macd'), latest.get('macd_signal'), latest.get('macd_hist'),
+                                        latest.get('bb_upper'), latest.get('bb_middle'), latest.get('bb_lower'),
+                                        latest.get('atr_14'),
+                                        latest.get('volume_ma20'), latest.get('volume_ratio')
+                                    )
+
+                                    self.db.execute_update(update_query, params)
+
+                                success_count += 1
+                                logger.debug(f"  ✅ [{ticker}] Indicators calculated")
+
+                            except ImportError:
+                                logger.error(f"  ❌ pandas_ta not installed - pip install pandas-ta")
+                                failed_count += 1
+                                break
+
+                        except Exception as e:
+                            logger.debug(f"  ❌ [{ticker}] Failed: {e}")
+                            failed_count += 1
+                            continue
+
+                    results[region] = {
+                        'success': True,
+                        'tickers_success': success_count,
+                        'tickers_failed': failed_count,
+                        'total_tickers': len(tickers)
+                    }
+
+                    logger.info(
+                        f"  ✅ [{region}] {success_count} tickers calculated, "
+                        f"{failed_count} failed"
+                    )
+
+                except Exception as e:
+                    import traceback
+                    logger.error(f"  ❌ [{region}] Technical indicators failed: {e}")
+                    logger.error(f"  Traceback: {traceback.format_exc()}")
+                    results[region] = {'success': False, 'error': str(e)}
+
+            elif region == 'HK':
+                # HK market: Use existing script if available
+                logger.info(f"  [{region}] Using HK technical indicators script...")
+                try:
+                    # Placeholder for HK script integration
+                    results[region] = {
+                        'success': False,
+                        'message': 'HK technical indicators script integration pending'
+                    }
+                except Exception as e:
+                    logger.error(f"  ❌ [{region}] Failed: {e}")
+                    results[region] = {'success': False, 'error': str(e)}
+
+            else:
+                logger.info(f"  [{region}] Technical indicators not yet implemented")
+                results[region] = {
+                    'success': False,
+                    'message': 'Not implemented for this region'
                 }
 
         return results
