@@ -319,6 +319,22 @@ def get_database_status():
         else:
             factor_count, latest_factor = 0, None
 
+        # Macro data - Global Market Indices
+        indices_result = db.execute_query("SELECT COUNT(*), MAX(date) FROM global_market_indices")
+        if indices_result:
+            indices_count = indices_result[0]['count']
+            latest_indices = indices_result[0]['max']
+        else:
+            indices_count, latest_indices = 0, None
+
+        # Macro data - Market Sentiment
+        sentiment_result = db.execute_query("SELECT COUNT(*), MAX(date) FROM market_sentiment")
+        if sentiment_result:
+            sentiment_count = sentiment_result[0]['count']
+            latest_sentiment = sentiment_result[0]['max']
+        else:
+            sentiment_count, latest_sentiment = 0, None
+
         db.close_pool()
 
         return {
@@ -329,7 +345,11 @@ def get_database_status():
             'fund_count': fund_count,
             'latest_fund': latest_fund,
             'factor_count': factor_count,
-            'latest_factor': latest_factor
+            'latest_factor': latest_factor,
+            'indices_count': indices_count,
+            'latest_indices': latest_indices,
+            'sentiment_count': sentiment_count,
+            'latest_sentiment': latest_sentiment
         }
     except Exception as e:
         return None
@@ -939,6 +959,37 @@ def print_status():
         print(f"\n  Fundamentals:   {colored(f'{status['fund_count']:,}', Fore.GREEN)} (latest: {status['latest_fund']})")
         print(f"  Factor Scores:  {colored(f'{status['factor_count']:,}', Fore.GREEN)} (latest: {status['latest_factor']})")
 
+        # Macro indicators
+        print(f"\n  {colored('Macro Indicators:', Fore.YELLOW + Style.BRIGHT)}")
+
+        # Global Market Indices
+        indices_count = status.get('indices_count', 0)
+        latest_indices = status.get('latest_indices')
+        if latest_indices:
+            days_old = (datetime.now().date() - latest_indices).days
+            status_color = Fore.GREEN if days_old == 0 else (Fore.YELLOW if days_old <= 3 else Fore.RED)
+            freshness = f"({days_old} days old)" if days_old > 0 else "(up to date)"
+        else:
+            status_color = Fore.RED
+            freshness = "(no data)"
+
+        print(f"    📊 Global Indices: {colored(f'{indices_count:,}', Fore.CYAN)} records | "
+              f"Latest: {colored(str(latest_indices), status_color)} {colored(freshness, status_color)}")
+
+        # Market Sentiment
+        sentiment_count = status.get('sentiment_count', 0)
+        latest_sentiment = status.get('latest_sentiment')
+        if latest_sentiment:
+            days_old = (datetime.now().date() - latest_sentiment).days
+            status_color = Fore.GREEN if days_old == 0 else (Fore.YELLOW if days_old <= 3 else Fore.RED)
+            freshness = f"({days_old} days old)" if days_old > 0 else "(up to date)"
+        else:
+            status_color = Fore.RED
+            freshness = "(no data)"
+
+        print(f"    📈 Market Sentiment: {colored(f'{sentiment_count:,}', Fore.CYAN)} records | "
+              f"Latest: {colored(str(latest_sentiment), status_color)} {colored(freshness, status_color)}")
+
         # Check overall freshness
         if status['latest_ohlcv']:
             days_old = (datetime.now().date() - status['latest_ohlcv']).days
@@ -1024,6 +1075,53 @@ def interactive_menu():
                 print(f"  {' | '.join(regional_status_parts[:3])}")
                 if len(regional_status_parts) > 3:
                     print(f"  {' | '.join(regional_status_parts[3:])}")
+
+            # Macro indicators summary
+            indices_count = status.get('indices_count', 0)
+            latest_indices = status.get('latest_indices')
+            sentiment_count = status.get('sentiment_count', 0)
+            latest_sentiment = status.get('latest_sentiment')
+
+            macro_parts = []
+
+            # Global Indices
+            if indices_count > 0:
+                if latest_indices:
+                    days_old = (datetime.now().date() - latest_indices).days
+                    status_color = Fore.GREEN if days_old == 0 else (Fore.YELLOW if days_old <= 3 else Fore.RED)
+                else:
+                    days_old = 999
+                    status_color = Fore.RED
+
+                if indices_count >= 1_000:
+                    count_str = f"{indices_count / 1_000:.1f}K"
+                else:
+                    count_str = str(indices_count)
+
+                macro_parts.append(
+                    f"📊 Indices: {colored(count_str, Fore.CYAN)} {colored(f'({days_old}d)', status_color)}"
+                )
+
+            # Market Sentiment
+            if sentiment_count > 0:
+                if latest_sentiment:
+                    days_old = (datetime.now().date() - latest_sentiment).days
+                    status_color = Fore.GREEN if days_old == 0 else (Fore.YELLOW if days_old <= 3 else Fore.RED)
+                else:
+                    days_old = 999
+                    status_color = Fore.RED
+
+                if sentiment_count >= 1_000:
+                    count_str = f"{sentiment_count / 1_000:.1f}K"
+                else:
+                    count_str = str(sentiment_count)
+
+                macro_parts.append(
+                    f"📈 Sentiment: {colored(count_str, Fore.CYAN)} {colored(f'({days_old}d)', status_color)}"
+                )
+
+            if macro_parts:
+                print(f"  {colored('Macro:', Fore.YELLOW)} {' | '.join(macro_parts)}")
         else:
             print(f"{colored('Current Status:', Fore.CYAN)} {colored('❌ Database not connected', Fore.RED)}")
 
