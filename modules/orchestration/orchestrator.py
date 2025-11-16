@@ -354,18 +354,23 @@ class DatabaseUpdateOrchestrator:
         for region in regions:
             try:
                 if region == 'KR':
-                    # Use OHLCV collector adapter for KR market
-                    from scripts.collect_ohlcv_orchestrated import OHLCVCollectorAdapter
+                    # Use KR PostgreSQL OHLCV adapter (direct PostgreSQL integration)
+                    from modules.collection.kr_postgres_ohlcv_adapter import KRPostgresOHLCVAdapter
 
-                    adapter = OHLCVCollectorAdapter(
-                        self.db,
-                        region=region,
-                        dry_run=kwargs.get('dry_run', False)
+                    adapter = KRPostgresOHLCVAdapter(
+                        db=self.db,
+                        config={
+                            'dry_run': kwargs.get('dry_run', False),
+                            'rate_limit': 0.05,  # 20 req/s
+                            'batch_size': 1000,
+                            'validation_threshold': 0.7
+                        }
                     )
 
                     result = adapter.run_collection(
                         incremental=kwargs.get('incremental', True),
-                        limit=self.config.get('limit')
+                        limit=self.config.get('limit'),
+                        days=kwargs.get('days', 250)
                     )
 
                     results[region] = result
