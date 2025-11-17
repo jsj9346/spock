@@ -59,7 +59,7 @@ def get_data_query_tool_def() -> Tool:
         name="query_ohlcv_data",
         description=(
             "Get OHLCV (Open, High, Low, Close, Volume) data for stock tickers. "
-            "Supports Korean (KR) and US markets with daily timeframe. "
+            "Supports CN (China), HK (Hong Kong), JP (Japan), KR (Korea), US (United States), and VN (Vietnam) markets with daily timeframe. "
             "Returns historical price and volume data for analysis."
         ),
         inputSchema={
@@ -70,8 +70,12 @@ def get_data_query_tool_def() -> Tool:
                     "items": {"type": "string"},
                     "description": (
                         "List of ticker symbols. "
+                        "CN format: Numeric.SZ (e.g., 100.SZ). "
+                        "HK format: 4-digit.HK (e.g., 0001.HK for CKH Holdings). "
+                        "JP format: 4-digit alphanumeric (e.g., 1301). "
                         "KR format: 6-digit numeric (e.g., 005930 for Samsung). "
                         "US format: 1-5 uppercase letters (e.g., AAPL for Apple). "
+                        "VN format: 2-4 uppercase letters (e.g., AAA). "
                         "Maximum 1000 tickers per request."
                     ),
                     "minItems": 1,
@@ -90,7 +94,7 @@ def get_data_query_tool_def() -> Tool:
                 "region": {
                     "type": "string",
                     "description": "Market region code",
-                    "enum": ["KR", "US"],
+                    "enum": ["CN", "HK", "JP", "KR", "US", "VN"],
                     "default": "KR"
                 },
                 "timeframe": {
@@ -198,7 +202,7 @@ def register_data_query_tools(server: Server) -> None:
                 name="query_ohlcv_data",
                 description=(
                     "Get OHLCV (Open, High, Low, Close, Volume) data for stock tickers. "
-                    "Supports Korean (KR) and US markets with daily timeframe. "
+                    "Supports CN (China), HK (Hong Kong), JP (Japan), KR (Korea), US (United States), and VN (Vietnam) markets with daily timeframe. "
                     "Returns historical price and volume data for analysis."
                 ),
                 inputSchema={
@@ -209,8 +213,12 @@ def register_data_query_tools(server: Server) -> None:
                             "items": {"type": "string"},
                             "description": (
                                 "List of ticker symbols. "
+                                "CN format: Numeric.SZ (e.g., 100.SZ). "
+                                "HK format: 4-digit.HK (e.g., 0001.HK for CKH Holdings). "
+                                "JP format: 4-digit alphanumeric (e.g., 1301). "
                                 "KR format: 6-digit numeric (e.g., 005930 for Samsung). "
                                 "US format: 1-5 uppercase letters (e.g., AAPL for Apple). "
+                                "VN format: 2-4 uppercase letters (e.g., AAA). "
                                 "Maximum 1000 tickers per request."
                             ),
                             "minItems": 1,
@@ -229,7 +237,7 @@ def register_data_query_tools(server: Server) -> None:
                         "region": {
                             "type": "string",
                             "description": "Market region code",
-                            "enum": ["KR", "US"],
+                            "enum": ["CN", "HK", "JP", "KR", "US", "VN"],
                             "default": "KR"
                         },
                         "timeframe": {

@@ -48,8 +48,8 @@ def register_system_tools(server: Server) -> None:
                     "properties": {
                         "region": {
                             "type": "string",
-                            "description": "Filter by market region code (KR, US, etc.)",
-                            "enum": ["KR", "US"]
+                            "description": "Filter by market region code",
+                            "enum": ["CN", "HK", "JP", "KR", "US", "VN"]
                         },
                         "ticker_type": {
                             "type": "string",

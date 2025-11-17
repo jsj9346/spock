@@ -51,7 +51,7 @@ def get_technical_tool_def() -> Tool:
                 },
                 "region": {
                     "type": "string",
-                    "enum": ["KR", "US"],
+                    "enum": ["CN", "HK", "JP", "KR", "US", "VN"],
                     "default": "KR",
                     "description": "Market region"
                 },

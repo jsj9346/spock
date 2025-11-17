@@ -49,7 +49,7 @@ def get_backtest_tool_def() -> Tool:
                 "tickers": {"type": "array", "items": {"type": "string"}},
                 "start_date": {"type": "string"},
                 "end_date": {"type": "string"},
-                "region": {"type": "string", "enum": ["KR", "US"], "default": "KR"},
+                "region": {"type": "string", "enum": ["CN", "HK", "JP", "KR", "US", "VN"], "default": "KR"},
                 "engine": {"type": "string", "enum": ["vectorbt", "custom"], "default": "vectorbt"}
             },
             "required": ["strategy_type", "tickers", "start_date", "end_date"],
@@ -104,7 +104,7 @@ def get_system_tool_defs() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "region": {"type": "string", "enum": ["KR", "US"]},
+                    "region": {"type": "string", "enum": ["CN", "HK", "JP", "KR", "US", "VN"]},
                     "limit": {"type": "number", "default": 100}
                 }
             }
@@ -152,7 +152,7 @@ def get_optimization_tool_def() -> Tool:
                 "tickers": {"type": "array", "items": {"type": "string"}},
                 "start_date": {"type": "string"},
                 "end_date": {"type": "string"},
-                "region": {"type": "string", "enum": ["KR", "US"], "default": "KR"}
+                "region": {"type": "string", "enum": ["CN", "HK", "JP", "KR", "US", "VN"], "default": "KR"}
             },
             "required": ["strategy_type", "tickers", "start_date", "end_date"]
         }

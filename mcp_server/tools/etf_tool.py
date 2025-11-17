@@ -115,9 +115,9 @@ def get_etf_screening_tool_def() -> Tool:
                 },
                 "region": {
                     "type": "string",
-                    "enum": ["KR", "US"],
+                    "enum": ["CN", "HK", "JP", "KR", "US", "VN"],
                     "default": "KR",
-                    "description": "Market region to screen (currently only KR supported)"
+                    "description": "Market region to screen"
                 },
                 "limit": {
                     "type": "number",

@@ -71,7 +71,7 @@ def register_optimization_tools(server: Server) -> None:
                         "region": {
                             "type": "string",
                             "description": "Market region code",
-                            "enum": ["KR", "US"],
+                            "enum": ["CN", "HK", "JP", "KR", "US", "VN"],
                             "default": "KR"
                         },
                         "param_grid": {

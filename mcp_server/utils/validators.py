@@ -20,7 +20,7 @@ def validate_tickers(tickers: List[str], region: str = "KR") -> None:
 
     Args:
         tickers: List of ticker symbols
-        region: Market region ("KR" or "US")
+        region: Market region ("CN", "HK", "JP", "KR", "US", or "VN")
 
     Raises:
         ValidationError: If any ticker is invalid
@@ -28,12 +28,17 @@ def validate_tickers(tickers: List[str], region: str = "KR") -> None:
     Validation Rules:
         - Must not be empty
         - Max 1000 tickers
+        - CN: Numeric.SZ format (e.g., "100.SZ", "11.SZ")
+        - HK: 4-digit.HK format (e.g., "0001.HK", "0002.HK")
+        - JP: 4-digit alphanumeric (e.g., "1301", "130A")
         - KR: 6-digit numeric (e.g., "005930")
         - US: 1-5 uppercase letters (e.g., "AAPL")
+        - VN: 2-4 uppercase letters (e.g., "AAA", "BXH")
 
     Examples:
         >>> validate_tickers(["005930"], "KR")  # OK
         >>> validate_tickers(["AAPL"], "US")  # OK
+        >>> validate_tickers(["0001.HK"], "HK")  # OK
         >>> validate_tickers(["INVALID"], "KR")  # Raises ValidationError
     """
     # Check if empty
@@ -51,17 +56,25 @@ def validate_tickers(tickers: List[str], region: str = "KR") -> None:
         )
 
     # Validate format based on region
-    if region == "KR":
-        pattern = r'^\d{6}$'
-        format_desc = "6-digit numeric"
-    elif region == "US":
-        pattern = r'^[A-Z]{1,5}$'
-        format_desc = "1-5 uppercase letters"
-    else:
+    region_patterns = {
+        "CN": (r'^\d+\.(SZ|SS)$', "Numeric.SZ or Numeric.SS (e.g., 100.SZ, 600710.SS)"),
+        "HK": (r'^\d{4}\.HK$', "4-digit.HK (e.g., 0001.HK)"),
+        "JP": (r'^[0-9A-Z]{4}$', "4-digit alphanumeric (e.g., 1301, 130A)"),
+        "KR": (r'^\d{6}$', "6-digit numeric (e.g., 005930)"),
+        "US": (r'^[A-Z]{1,5}$', "1-5 uppercase letters (e.g., AAPL)"),
+        "VN": (r'^[A-Z]{2,4}$', "2-4 uppercase letters (e.g., AAA, BXH)")
+    }
+
+    if region not in region_patterns:
         raise ValidationError(
             f"Invalid region: {region}",
-            {"provided_region": region, "allowed_regions": ["KR", "US"]}
+            {
+                "provided_region": region,
+                "allowed_regions": list(region_patterns.keys())
+            }
         )
+
+    pattern, format_desc = region_patterns[region]
 
     # Check each ticker
     invalid_tickers = []

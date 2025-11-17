@@ -94,7 +94,7 @@ def get_screening_tool_def() -> Tool:
                 },
                 "region": {
                     "type": "string",
-                    "enum": ["KR", "US"],
+                    "enum": ["CN", "HK", "JP", "KR", "US", "VN"],
                     "default": "KR",
                     "description": "Market region to screen"
                 },
