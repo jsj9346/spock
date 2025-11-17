@@ -73,6 +73,10 @@ data/processed/
 # Backup Directories
 data/backups/*.db
 data/backups/*.sql
+backups/
+
+# Backtest Results (generated files)
+backtest_results/
 
 # Temporary Files
 *.tmp
