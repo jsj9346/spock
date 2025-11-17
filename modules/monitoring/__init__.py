@@ -1,9 +1,13 @@
+#!/usr/bin/env python3
 """
-Monitoring Module
+Monitoring Module - Data Quality and Freshness Monitoring
 
-Prometheus metrics and monitoring infrastructure for the Quant Investment Platform.
+This module provides monitoring tools for data quality, freshness, and system health.
+
+Available Monitors:
+- DataFreshnessMonitor: Track data freshness for all data sources (OHLCV, macro, fundamentals)
 """
 
-from .postgres_metrics import PostgresMetricsCollector
+from modules.monitoring.data_freshness import DataFreshnessMonitor, FreshnessStatus
 
-__all__ = ['PostgresMetricsCollector']
+__all__ = ['DataFreshnessMonitor', 'FreshnessStatus']

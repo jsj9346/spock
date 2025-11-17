@@ -2248,14 +2248,15 @@ def print_macro_data_status():
 
 
 @with_lock('macro_data_update', timeout=600)
-def run_macro_data_update(start_date=None, end_date=None, components=None, dry_run=False):
+def run_macro_data_update(start_date=None, end_date=None, components=None, include_fx=True, dry_run=False):
     """
-    Run macro data collection using collect_macro_data.py
+    Run macro data collection using collect_macro_data.py + FX tracking
 
     Args:
         start_date: Start date (YYYY-MM-DD) or None for default (7 days ago)
         end_date: End date (YYYY-MM-DD) or None for default (today)
         components: List of components ['bonds', 'commodities'] or None for both
+        include_fx: If True, also update FX (exchange rate) data (default: True)
         dry_run: If True, only show what would be done
     """
     print(f"\n{colored('📈 Starting Macro Data Collection', Fore.CYAN + Style.BRIGHT)}")
@@ -2283,11 +2284,17 @@ def run_macro_data_update(start_date=None, end_date=None, components=None, dry_r
     # Display plan
     print(f"  Date Range:        {colored(f'{start_date} → {end_date}', Fore.CYAN)}")
     print(f"  Components:        {colored(components_str, Fore.CYAN)}")
+    if include_fx:
+        print(f"  FX Tracking:       {colored('✅ Enabled (JPY, HKD, USD, EUR, CNY)', Fore.GREEN)}")
+    else:
+        print(f"  FX Tracking:       {colored('❌ Disabled', Fore.YELLOW)}")
 
     if dry_run:
         print(f"  Mode:              {colored('DRY RUN (preview only)', Fore.YELLOW)}")
         print()
         print(f"  {colored('Command:', Fore.CYAN)} {' '.join(cmd)}")
+        if include_fx:
+            print(f"  {colored('FX Update:', Fore.CYAN)} Would update FX data for all supported currencies")
         print()
         print(f"  {colored('💡 This is a preview. No data will be collected.', Fore.YELLOW)}")
         print("=" * 70)
@@ -2305,10 +2312,10 @@ def run_macro_data_update(start_date=None, end_date=None, components=None, dry_r
         print(f"{colored('❌ Cancelled', Fore.YELLOW)}")
         return
 
-    # Run
+    # Run Phase 1: Bonds & Commodities
     try:
         start_time = datetime.now()
-        print(f"\n{colored('🚀 Collecting macro data...', Fore.GREEN)}")
+        print(f"\n{colored('Phase 1: Bonds & Commodities Collection', Fore.GREEN + Style.BRIGHT)}")
         print(f"  Started: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
         print()
 
@@ -2317,21 +2324,70 @@ def run_macro_data_update(start_date=None, end_date=None, components=None, dry_r
         elapsed = (datetime.now() - start_time).total_seconds()
         elapsed_str = f"{elapsed:.1f}s"
 
-        print(f"\n{colored('✅ Macro data collection completed successfully!', Fore.GREEN)}")
+        print(f"\n{colored('✅ Phase 1 completed successfully!', Fore.GREEN)}")
         print(f"  Duration: {elapsed_str}")
-        print()
-
-        # Show updated status
-        print(f"{colored('📊 Updated Status:', Fore.CYAN)}")
-        print_macro_data_status()
 
     except subprocess.CalledProcessError as e:
-        print(f"\n{colored('❌ Macro data collection failed!', Fore.RED)}")
+        print(f"\n{colored('❌ Phase 1 failed!', Fore.RED)}")
         print(f"{colored('Error:', Fore.RED)} {e}")
+        print(f"\n{colored('⚠️  Skipping FX tracking due to Phase 1 failure', Fore.YELLOW)}")
+        return
 
     except KeyboardInterrupt:
         print(f"\n{colored('⚠️  Interrupted by user', Fore.YELLOW)}")
         print(f"{colored('💡 Partial progress may have been saved to database', Fore.CYAN)}")
+        return
+
+    # Run Phase 2: FX Tracking
+    if include_fx:
+        try:
+            print(f"\n{colored('Phase 2: FX (Exchange Rate) Tracking', Fore.GREEN + Style.BRIGHT)}")
+            print("=" * 70)
+
+            # Build FX tracking command
+            fx_cmd = [
+                sys.executable,
+                'scripts/update_database.py',
+                '--regions', 'KR',  # FX tracking is region-agnostic but needs a region arg
+                '--steps', 'fx_tracking'
+            ]
+
+            # Collect FX data
+            fx_start = datetime.now()
+            print(f"  Started: {fx_start.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"  Currencies: USD, JPY, HKD, EUR, CNY")
+            print(f"  Command: {' '.join(fx_cmd)}")
+            print()
+
+            fx_result = subprocess.run(fx_cmd, check=True, capture_output=True, text=True)
+
+            fx_elapsed = (datetime.now() - fx_start).total_seconds()
+
+            print(f"\n{colored('✅ Phase 2 completed successfully!', Fore.GREEN)}")
+            print(f"  Duration: {fx_elapsed:.1f}s")
+
+        except subprocess.CalledProcessError as e:
+            fx_elapsed = (datetime.now() - fx_start).total_seconds()
+            print(f"\n{colored('❌ Phase 2 (FX tracking) failed!', Fore.RED)}")
+            print(f"{colored('Error:', Fore.RED)} {e}")
+            print(f"{colored('Duration:', Fore.YELLOW)} {fx_elapsed:.1f}s")
+            print(f"\n{colored('💡 Bonds & Commodities data was collected successfully', Fore.CYAN)}")
+
+        except Exception as e:
+            print(f"\n{colored('❌ Phase 2 (FX tracking) failed with unexpected error!', Fore.RED)}")
+            print(f"{colored('Error:', Fore.RED)} {e}")
+            print(f"\n{colored('💡 Bonds & Commodities data was collected successfully', Fore.CYAN)}")
+
+    # Show updated status
+    print(f"\n{colored('📊 Updated Status:', Fore.CYAN + Style.BRIGHT)}")
+    print("=" * 70)
+    print_macro_data_status()
+
+    # Overall summary
+    total_elapsed = (datetime.now() - start_time).total_seconds()
+    print(f"\n{colored('✅ Macro Data Update Complete!', Fore.GREEN + Style.BRIGHT)}")
+    print(f"  Total Duration: {total_elapsed:.1f}s")
+    print("=" * 70)
 
 
 def setup_macro_data_submenu():
@@ -3017,7 +3073,7 @@ For more options, see scripts/update_database.py --help
     if args.quick:
         cmd_args = [
             '--regions'] + regions + [
-            '--steps', 'ohlcv', 'fundamentals', 'dividend',
+            '--steps', 'ohlcv', 'fundamentals', 'dividend', 'fx_tracking',
             '--incremental'
         ]
         description = 'Quick Refresh'
@@ -3025,14 +3081,14 @@ For more options, see scripts/update_database.py --help
     elif args.full:
         cmd_args = [
             '--regions'] + regions + [
-            '--steps', 'tickers', 'ohlcv', 'fundamentals', 'dividend'
+            '--steps', 'tickers', 'ohlcv', 'fundamentals', 'dividend', 'fx_tracking'
         ]
         description = 'Full Refresh'
 
     elif args.incremental:
         cmd_args = [
             '--regions'] + regions + [
-            '--steps', 'tickers', 'ohlcv', 'fundamentals', 'dividend',
+            '--steps', 'tickers', 'ohlcv', 'fundamentals', 'dividend', 'fx_tracking',
             '--incremental'
         ]
         description = 'Incremental Refresh'

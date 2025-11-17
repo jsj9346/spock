@@ -70,6 +70,7 @@ class DatabaseUpdateOrchestrator:
         'tickers',
         'ticker_refresh',      # New: Multi-region ticker refresh with OTC filtering
         'fx_tracking',         # New: Exchange rate tracking and FX signals
+        'macro_data',          # New: Global market indices, bonds, commodities, sentiment
         'ohlcv',
         'fundamentals',        # DART annual financial statements
         'daily_valuation',     # New: pykrx daily PER/PBR for valuation trend analysis
@@ -181,6 +182,10 @@ class DatabaseUpdateOrchestrator:
             if self.config.get('validate', True) and not dry_run:
                 self._validate_data_quality(regions)
 
+            # Data freshness monitoring (always run - read-only, safe for dry-run)
+            if self.config.get('validate', True):
+                self._check_data_freshness()
+
         finally:
             # Finalize statistics
             self.stats['end_time'] = datetime.now()
@@ -210,6 +215,7 @@ class DatabaseUpdateOrchestrator:
             'tickers': self._update_tickers,
             'ticker_refresh': self._refresh_tickers,           # New step
             'fx_tracking': self._track_exchange_rates,         # New step
+            'macro_data': self._update_macro_data,             # New: Global market data
             'ohlcv': self._update_ohlcv,
             'fundamentals': self._update_fundamentals,
             'daily_valuation': self._update_daily_valuation,   # New: pykrx daily PER/PBR
@@ -440,8 +446,8 @@ class DatabaseUpdateOrchestrator:
 
             # Get ticker list from database with smart incremental logic
             if incremental and not force_refresh:
-                # Smart incremental - tickers with no data or stale data (>stale_days)
-                query = """
+                # Smart incremental - tickers with no data or stale data (>=stale_days)
+                query = f"""
                 WITH latest_data AS (
                     SELECT
                         ticker,
@@ -463,14 +469,13 @@ class DatabaseUpdateOrchestrator:
                   AND t.is_active = TRUE
                   AND (
                       ld.last_date IS NULL  -- No data at all
-                      OR ld.last_date < CURRENT_DATE - INTERVAL '%s days'  -- Stale data
+                      OR ld.last_date <= CURRENT_DATE - INTERVAL '{stale_days} days'  -- Stale data (>= stale_days old)
                   )
                 ORDER BY
                     has_data ASC,  -- No data first (0 before 1)
                     ld.last_date ASC NULLS FIRST  -- Oldest data next
                 """
                 params = (region, region)
-                query = query % stale_days
             else:
                 # All active tickers (full refresh or force refresh)
                 query = """
@@ -507,7 +512,7 @@ class DatabaseUpdateOrchestrator:
                 """
                 no_data_count = self.db.execute_query(no_data_query, (region,))[0]['count']
 
-                stale_data_query = """
+                stale_data_query = f"""
                 WITH latest_data AS (
                     SELECT ticker, MAX(date) as last_date
                     FROM ohlcv_data
@@ -520,9 +525,9 @@ class DatabaseUpdateOrchestrator:
                 WHERE t.region = %s
                   AND t.asset_type = 'STOCK'
                   AND t.is_active = TRUE
-                  AND ld.last_date < CURRENT_DATE - INTERVAL '%s days'
+                  AND ld.last_date <= CURRENT_DATE - INTERVAL '{stale_days} days'
                 """
-                stale_count = self.db.execute_query(stale_data_query % stale_days, (region, region))[0]['count']
+                stale_count = self.db.execute_query(stale_data_query, (region, region))[0]['count']
 
                 logger.info(f"  [{region}] Found {len(ticker_list)} tickers to update")
                 logger.info(f"     - No data: {no_data_count} tickers")
@@ -651,6 +656,84 @@ class DatabaseUpdateOrchestrator:
         # JP and VN need suffix appended
         suffix = suffixes.get(region, '')
         return f"{ticker}{suffix}"
+
+    def _update_macro_data(self, regions: List[str], **kwargs) -> Dict:
+        """
+        Update macro economic data (global market indices, bonds, commodities, sentiment)
+
+        Args:
+            regions: List of regions (not region-specific, but kept for API consistency)
+            **kwargs: Additional options:
+                - dry_run: Preview without database writes
+                - incremental: Update only recent data (default: True)
+                - days: Number of days to update (default: 30)
+                - components: List of components to update (default: ['indices', 'bonds'])
+
+        Returns:
+            Dictionary with execution results
+        """
+        logger.info("🔄 Updating macro economic data...")
+
+        try:
+            from modules.collection.macro_data_adapter import MacroDataAdapter
+
+            # Initialize adapter
+            adapter = MacroDataAdapter(
+                db=self.db,
+                config={
+                    'dry_run': kwargs.get('dry_run', False)
+                }
+            )
+
+            # Run collection
+            components = kwargs.get('components', ['indices', 'bonds'])
+            days = kwargs.get('days', 30)
+
+            result = adapter.run_collection(
+                components=components,
+                days=days
+            )
+
+            # Extract statistics
+            total_records = (
+                result.get('indices_records', 0) +
+                result.get('bonds_records', 0) +
+                result.get('commodities_records', 0) +
+                result.get('sentiment_records', 0)
+            )
+
+            total_success = (
+                result.get('indices_success', 0) +
+                result.get('bonds_success', 0) +
+                result.get('commodities_success', 0) +
+                result.get('sentiment_success', 0)
+            )
+
+            total_processed = (
+                result.get('indices_processed', 0) +
+                result.get('bonds_processed', 0) +
+                result.get('commodities_processed', 0) +
+                result.get('sentiment_processed', 0)
+            )
+
+            logger.info(
+                f"  ✅ Macro data updated: {total_success}/{total_processed} sources "
+                f"({total_records} records) in {result.get('duration', 0):.2f}s"
+            )
+
+            return {
+                'success': total_success == total_processed and total_processed > 0,
+                'total_records': total_records,
+                'components': components,
+                'duration': result.get('duration', 0)
+            }
+
+        except Exception as e:
+            logger.error(f"  ❌ Macro data update failed: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
 
     def _update_fundamentals(self, regions: List[str], **kwargs) -> Dict:
         """Update fundamental data for all regions"""
@@ -1078,6 +1161,38 @@ class DatabaseUpdateOrchestrator:
         # Store in stats
         self.stats['validation'] = validation_results
 
+    def _check_data_freshness(self) -> None:
+        """
+        Check data freshness across all data sources
+
+        This is a read-only operation, safe to run in dry-run mode.
+        Monitors OHLCV data, macro data (indices, bonds), and fundamentals.
+        """
+        try:
+            from modules.monitoring.data_freshness import DataFreshnessMonitor
+
+            monitor = DataFreshnessMonitor(db=self.db)
+            freshness_results = monitor.run_full_check(verbose=True)
+
+            # Store freshness results in stats
+            self.stats['freshness'] = freshness_results
+
+            # Log summary
+            summary = freshness_results.get('summary', {})
+            if summary.get('criticals', 0) > 0:
+                logger.warning(
+                    f"⚠️  Data freshness: {summary['criticals']} critical issues detected"
+                )
+            elif summary.get('warnings', 0) > 0:
+                logger.info(
+                    f"ℹ️  Data freshness: {summary['warnings']} warnings detected"
+                )
+            else:
+                logger.info("✅ Data freshness: All data sources are fresh")
+
+        except Exception as e:
+            logger.warning(f"⚠️  Data freshness check failed: {e}")
+
     def _print_header(self, regions, steps, dry_run, incremental, resume):
         """Print pipeline header"""
         print("\n" + "="*80)
@@ -1291,11 +1406,11 @@ class DatabaseUpdateOrchestrator:
             List of currency codes
         """
         region_to_currency = {
-            'KR': ['USD', 'JPY', 'CNY', 'EUR'],
-            'US': ['KRW', 'JPY', 'CNY', 'EUR'],
+            'KR': ['USD', 'JPY', 'CNY', 'EUR', 'HKD'],  # ✅ HKD 추가
+            'US': ['KRW', 'JPY', 'CNY', 'EUR', 'GBP'],
             'JP': ['USD', 'KRW', 'CNY', 'EUR'],
-            'CN': ['USD', 'KRW', 'JPY', 'EUR'],
-            'HK': ['USD', 'KRW', 'JPY', 'CNY'],
+            'CN': ['USD', 'KRW', 'JPY', 'EUR', 'HKD'],  # ✅ HKD 추가
+            'HK': ['USD', 'KRW', 'JPY', 'CNY', 'HKD'],  # ✅ HKD 추가 (자국 통화)
             'VN': ['USD', 'KRW', 'JPY', 'CNY']
         }
 

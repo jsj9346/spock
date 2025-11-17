@@ -44,12 +44,24 @@ class FXTracker:
 
     # Region-specific currency mappings
     REGION_CURRENCIES = {
-        'KR': {'USD', 'JPY', 'CNY', 'EUR'},  # Korean market cares about these
+        'KR': {'USD', 'JPY', 'CNY', 'EUR', 'HKD'},  # Korean market cares about these
         'US': {'KRW', 'EUR', 'JPY', 'GBP'},  # US market
         'JP': {'USD', 'EUR', 'CNY', 'KRW'},  # Japanese market
         'CN': {'USD', 'EUR', 'JPY', 'HKD'},  # Chinese market
-        'HK': {'USD', 'CNY', 'JPY', 'EUR'},  # Hong Kong
+        'HK': {'USD', 'CNY', 'JPY', 'EUR', 'HKD'},  # Hong Kong
         'VN': {'USD', 'CNY', 'JPY', 'KRW'},  # Vietnam
+    }
+
+    # Currency to region mapping (for fx_valuation_signals table)
+    CURRENCY_REGION_MAP = {
+        'USD': 'US',
+        'JPY': 'JP',
+        'CNY': 'CN',
+        'EUR': 'EU',
+        'GBP': 'UK',
+        'HKD': 'HK',
+        'KRW': 'KR',
+        'VND': 'VN'
     }
 
     # FX signal thresholds
@@ -106,8 +118,10 @@ class FXTracker:
 
             # 2. Insert into database (unless dry run)
             inserted = 0
+            valuation_inserted = 0
             if not dry_run and self.db:
                 inserted = self._insert_rates(rates)
+                valuation_inserted = self._insert_to_valuation_signals(rates)
 
             # 3. Calculate FX signals
             signals = self._calculate_signals(rates)
@@ -124,12 +138,14 @@ class FXTracker:
 
             self.logger.info(
                 f"✅ FX update complete: {inserted} rates inserted, "
+                f"{valuation_inserted} valuation signals updated, "
                 f"{len(signals)} signals generated, {signals_inserted} signals saved, "
                 f"{notifications_result.get('critical_sent', 0)} CRITICAL notifications sent"
             )
 
             return {
                 'updated': inserted,
+                'valuation_updated': valuation_inserted,
                 'signals': len(signals),
                 'signals_inserted': signals_inserted,
                 'notifications': notifications_result,
@@ -245,6 +261,257 @@ class FXTracker:
 
             self.logger.debug(f"Inserted {inserted} exchange rates")
             return inserted
+
+    def _insert_to_valuation_signals(self, rates: Dict[str, Decimal]) -> int:
+        """
+        Insert exchange rates into fx_valuation_signals table
+
+        Strategy: INSERT ... ON CONFLICT DO UPDATE
+        - fx_valuation_signals stores USD-normalized rates with derived metrics
+        - Updates existing records if date + currency + region already exists
+
+        Args:
+            rates: Dict mapping currency to rate (vs base_currency)
+
+        Returns:
+            Number of records inserted/updated
+        """
+        if not rates or not self.db:
+            return 0
+
+        # Step 1: Calculate USD-normalized rates
+        usd_rates = self._normalize_to_usd(rates)
+
+        # Step 2: Get historical data for trend calculation
+        historical_rates = self._get_historical_usd_rates(list(usd_rates.keys()), days=20)
+
+        query = """
+            INSERT INTO fx_valuation_signals (
+                currency, region, date, usd_rate,
+                trend_score, volatility, attractiveness_score,
+                data_quality, created_at, updated_at
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW()
+            )
+            ON CONFLICT (currency, region, date)
+            DO UPDATE SET
+                usd_rate = EXCLUDED.usd_rate,
+                trend_score = EXCLUDED.trend_score,
+                volatility = EXCLUDED.volatility,
+                attractiveness_score = EXCLUDED.attractiveness_score,
+                data_quality = EXCLUDED.data_quality,
+                updated_at = NOW()
+        """
+
+        today = date.today()
+
+        with self.db._get_connection() as conn:
+            cursor = conn.cursor()
+            inserted = 0
+
+            for currency, usd_rate in usd_rates.items():
+                # Get region for this currency
+                region = self.CURRENCY_REGION_MAP.get(currency)
+                if not region:
+                    self.logger.warning(f"No region mapping for currency {currency}, skipping")
+                    continue
+
+                # Calculate derived metrics
+                hist_data = historical_rates.get(currency, [])
+                trend_score = self._calculate_trend_score(hist_data, float(usd_rate))
+                volatility = self._calculate_volatility(hist_data)
+                attractiveness_score = self._calculate_attractiveness(
+                    trend_score, volatility
+                )
+
+                # Determine data quality
+                data_quality = 'GOOD' if len(hist_data) >= 10 else 'PARTIAL'
+
+                cursor.execute(query, (
+                    currency,
+                    region,
+                    today,
+                    float(usd_rate),
+                    trend_score,
+                    volatility,
+                    attractiveness_score,
+                    data_quality
+                ))
+
+                inserted += cursor.rowcount
+
+            conn.commit()
+
+            self.logger.debug(
+                f"Inserted/updated {inserted} fx_valuation_signals records"
+            )
+            return inserted
+
+    def _normalize_to_usd(self, rates: Dict[str, Decimal]) -> Dict[str, Decimal]:
+        """
+        Normalize rates to USD base
+
+        Args:
+            rates: Dict of rates vs base_currency (e.g., KRW)
+
+        Returns:
+            Dict of USD-normalized rates
+        """
+        usd_rates = {}
+
+        if self.base_currency == 'USD':
+            # Already USD-based
+            return rates
+
+        # Get USD rate vs base_currency
+        usd_rate = rates.get('USD')
+        if not usd_rate:
+            self.logger.warning(
+                "USD rate not available, cannot normalize to USD"
+            )
+            return {}
+
+        # Convert all rates to USD base
+        for currency, rate in rates.items():
+            if currency == 'USD':
+                usd_rates['USD'] = Decimal('1.0')  # USD/USD = 1
+            else:
+                # Example: KRW/JPY = 10, KRW/USD = 1300
+                # USD/JPY = (KRW/JPY) / (KRW/USD) = 10 / 1300 = 0.0077
+                usd_rates[currency] = rate / usd_rate
+
+        return usd_rates
+
+    def _get_historical_usd_rates(
+        self, currencies: List[str], days: int = 20
+    ) -> Dict[str, List[float]]:
+        """
+        Get historical USD-normalized rates for trend calculation
+
+        Args:
+            currencies: List of currency codes
+            days: Number of historical days to fetch
+
+        Returns:
+            Dict mapping currency to list of historical USD rates
+        """
+        if not self.db:
+            return {}
+
+        query = """
+            SELECT currency, usd_rate
+            FROM fx_valuation_signals
+            WHERE currency = ANY(%s)
+                AND date >= %s
+                AND date < %s
+                AND data_quality = 'GOOD'
+            ORDER BY currency, date ASC
+        """
+
+        lookback_date = date.today() - timedelta(days=days)
+
+        with self.db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(query, (
+                currencies,
+                lookback_date,
+                date.today()
+            ))
+
+            results = cursor.fetchall()
+
+            # Group by currency
+            hist_data = {}
+            for currency, usd_rate in results:
+                if currency not in hist_data:
+                    hist_data[currency] = []
+                hist_data[currency].append(float(usd_rate))
+
+            return hist_data
+
+    def _calculate_trend_score(
+        self, historical_rates: List[float], current_rate: float
+    ) -> float:
+        """
+        Calculate trend score from historical rates
+
+        Args:
+            historical_rates: List of past USD rates
+            current_rate: Current USD rate
+
+        Returns:
+            Trend score (-1.0 to 1.0)
+        """
+        if not historical_rates or len(historical_rates) < 2:
+            return 0.0
+
+        # Simple momentum: (current - average) / average
+        avg_rate = sum(historical_rates) / len(historical_rates)
+
+        if avg_rate == 0:
+            return 0.0
+
+        momentum = (current_rate - avg_rate) / avg_rate
+
+        # Normalize to -1.0 to 1.0 range (clip at ±20%)
+        trend_score = max(-1.0, min(1.0, momentum * 5))
+
+        return round(trend_score, 4)
+
+    def _calculate_volatility(self, historical_rates: List[float]) -> float:
+        """
+        Calculate volatility from historical rates
+
+        Args:
+            historical_rates: List of past USD rates
+
+        Returns:
+            Volatility (standard deviation of returns)
+        """
+        if not historical_rates or len(historical_rates) < 2:
+            return 0.0
+
+        # Calculate daily returns
+        returns = []
+        for i in range(1, len(historical_rates)):
+            if historical_rates[i-1] != 0:
+                ret = (historical_rates[i] - historical_rates[i-1]) / historical_rates[i-1]
+                returns.append(ret)
+
+        if not returns:
+            return 0.0
+
+        # Standard deviation of returns
+        mean_return = sum(returns) / len(returns)
+        variance = sum((r - mean_return) ** 2 for r in returns) / len(returns)
+        volatility = variance ** 0.5
+
+        return round(volatility, 6)
+
+    def _calculate_attractiveness(
+        self, trend_score: float, volatility: float
+    ) -> float:
+        """
+        Calculate currency attractiveness score
+
+        Args:
+            trend_score: Trend score (-1.0 to 1.0)
+            volatility: Volatility (std dev of returns)
+
+        Returns:
+            Attractiveness score (0.0 to 1.0)
+        """
+        # Simple formula: positive trend + low volatility = attractive
+        # Normalize volatility (assume 0.02 = high volatility)
+        vol_penalty = min(1.0, volatility / 0.02)
+
+        # Attractiveness: 0.5 + 0.3*trend - 0.2*volatility
+        attractiveness = 0.5 + (0.3 * trend_score) - (0.2 * vol_penalty)
+
+        # Clip to 0-1 range
+        attractiveness = max(0.0, min(1.0, attractiveness))
+
+        return round(attractiveness, 4)
 
     def _calculate_signals(self, current_rates: Dict[str, Decimal]) -> List[Dict]:
         """
