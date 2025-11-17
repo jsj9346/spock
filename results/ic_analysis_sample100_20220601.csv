@@ -1,0 +1,13 @@
+factor,period,ic,t_statistic,p_value,is_significant,sample_size
+rsi,fwd_return_1M,,,,False,1
+rsi,fwd_return_3M,,,,False,1
+rsi,fwd_return_6M,,,,False,1
+rsi,fwd_return_12M,,,,False,1
+macd,fwd_return_1M,,,,False,2
+macd,fwd_return_3M,,,,False,2
+macd,fwd_return_6M,,,,False,2
+macd,fwd_return_12M,,,,False,2
+short_term,fwd_return_1M,,,,False,3
+short_term,fwd_return_3M,,,,False,3
+short_term,fwd_return_6M,,,,False,3
+short_term,fwd_return_12M,,,,False,3

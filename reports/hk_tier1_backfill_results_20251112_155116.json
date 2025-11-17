@@ -1,0 +1,21 @@
+{
+  "tier": 1,
+  "tier_name": "HSI Constituents",
+  "total_tickers": 3,
+  "success_count": 2,
+  "failed_count": 1,
+  "failed_tickers": [
+    "0700"
+  ],
+  "duration_seconds": 2.645987033843994,
+  "start_date": "2025-10-01",
+  "end_date": "2025-11-12",
+  "validation_results": {
+    "total_validated": 2,
+    "passed": 0,
+    "failed": 2,
+    "avg_completeness": 0.9428571428571428,
+    "avg_validity": 1.0,
+    "avg_consistency": 1.0
+  }
+}

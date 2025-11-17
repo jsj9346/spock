@@ -1,0 +1,21 @@
+{
+  "tier": 2,
+  "tier_name": "High Market Cap (>$1B)",
+  "total_tickers": 500,
+  "success_count": 499,
+  "failed_count": 1,
+  "failed_tickers": [
+    "0226.HK"
+  ],
+  "duration_seconds": 507.9000298976898,
+  "start_date": "2022-01-01",
+  "end_date": "2025-11-12",
+  "validation_results": {
+    "total_validated": 499,
+    "passed": 475,
+    "failed": 24,
+    "avg_completeness": 0.964319010234666,
+    "avg_validity": 0.9961379052054985,
+    "avg_consistency": 0.999454743157788
+  }
+}

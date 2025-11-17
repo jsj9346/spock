@@ -1,0 +1,27 @@
+{
+  "tier": 1,
+  "tier_name": "HSI Constituents",
+  "total_tickers": 51,
+  "success_count": 44,
+  "failed_count": 7,
+  "failed_tickers": [
+    "3019.HK",
+    "3140.HK",
+    "2802.HK",
+    "2805.HK",
+    "2831.HK",
+    "2847.HK",
+    "3002.HK"
+  ],
+  "duration_seconds": 77.70874810218811,
+  "start_date": "2020-01-01",
+  "end_date": "2025-11-12",
+  "validation_results": {
+    "total_validated": 44,
+    "passed": 23,
+    "failed": 21,
+    "avg_completeness": 0.9664610377616458,
+    "avg_validity": 0.9898286614847259,
+    "avg_consistency": 0.9996305780054232
+  }
+}

@@ -1,0 +1,17 @@
+factor,period,ic,t_statistic,p_value,is_significant,sample_size
+rsi,fwd_return_1M,0.2024692293161501,0.5847810803344261,0.5748125526418609,False,10
+rsi,fwd_return_3M,0.07976060548818034,0.22631809870240777,0.8266294205655288,False,10
+rsi,fwd_return_6M,-0.14111491740216522,-0.4031676693527241,0.6973850724458668,False,10
+rsi,fwd_return_12M,-0.22087552289034557,-0.6405506357359324,0.5397245232079747,False,10
+macd,fwd_return_1M,-0.29696969696969694,-0.8796404503810084,0.4047016712701569,False,10
+macd,fwd_return_3M,0.10303030303030303,0.2929728414598968,0.7769984634438898,False,10
+macd,fwd_return_6M,0.23636363636363633,0.688032961232452,0.5108853175152002,False,10
+macd,fwd_return_12M,0.12727272727272726,0.36293309315564887,0.7260570147627894,False,10
+short_term,fwd_return_1M,,,,False,9
+short_term,fwd_return_3M,,,,False,9
+short_term,fwd_return_6M,,,,False,9
+short_term,fwd_return_12M,,,,False,9
+composite,fwd_return_1M,,,,False,6
+composite,fwd_return_3M,,,,False,6
+composite,fwd_return_6M,,,,False,6
+composite,fwd_return_12M,,,,False,6
