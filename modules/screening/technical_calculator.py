@@ -47,7 +47,7 @@ class TechnicalCalculator:
     def __init__(self):
         """Initialize TechnicalCalculator."""
         self.default_rsi_period = 14
-        self.default_ma_periods = [20, 50, 200]
+        self.default_ma_periods = [20, 50, 200]  # Screening uses key MAs (full set: [5, 20, 50, 60, 120, 200])
         logger.info("technical_calculator_initialized")
 
     def calculate_rsi(

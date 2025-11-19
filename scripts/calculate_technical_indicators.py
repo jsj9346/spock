@@ -100,7 +100,7 @@ class TechnicalIndicatorCalculator:
                 return False
 
             # Calculate indicators
-            df = self.calculate_ma(df, periods=[5, 20, 60, 120, 200])
+            df = self.calculate_ma(df, periods=[5, 20, 50, 60, 120, 200])
             df = self.calculate_rsi(df, period=14)
             df = self.calculate_macd(df)
 
@@ -116,6 +116,7 @@ class TechnicalIndicatorCalculator:
                         'timeframe': row['timeframe'],
                         'ma5': row.get('ma5'),
                         'ma20': row.get('ma20'),
+                        'ma50': row.get('ma50'),
                         'ma60': row.get('ma60'),
                         'ma120': row.get('ma120'),
                         'ma200': row.get('ma200'),
@@ -134,6 +135,7 @@ class TechnicalIndicatorCalculator:
                 UPDATE ohlcv_data
                 SET ma5 = %(ma5)s,
                     ma20 = %(ma20)s,
+                    ma50 = %(ma50)s,
                     ma60 = %(ma60)s,
                     ma120 = %(ma120)s,
                     ma200 = %(ma200)s,
@@ -260,12 +262,17 @@ def main():
     parser.add_argument('--region', type=str, default='HK', help='Market region (default: HK)')
     parser.add_argument('--batch-size', type=int, default=50, help='Progress report batch size (default: 50)')
     parser.add_argument('--dry-run', action='store_true', help='Dry run mode (no database updates)')
+    parser.add_argument('--full-recalc', action='store_true', help='Full recalculation mode (recalculate all records)')
 
     args = parser.parse_args()
+
+    # Determine incremental mode (opposite of full-recalc)
+    incremental_mode = not args.full_recalc
 
     logger.info(f"🎯 Technical Indicators Calculator")
     logger.info(f"Region: {args.region}")
     logger.info(f"Batch Size: {args.batch_size}")
+    logger.info(f"Mode: {'Incremental (ma5 IS NULL only)' if incremental_mode else 'Full Recalculation (ALL records)'}")
     logger.info(f"Dry Run: {args.dry_run}")
     logger.info("")
 
@@ -278,7 +285,7 @@ def main():
 
     # Calculate indicators
     calculator = TechnicalIndicatorCalculator(db_manager)
-    results = calculator.calculate_all_tickers(region=args.region, batch_size=args.batch_size)
+    results = calculator.calculate_all_tickers(region=args.region, batch_size=args.batch_size, incremental=incremental_mode)
 
     # Close database connection pool
     try:
