@@ -1038,6 +1038,10 @@ class DatabaseUpdateOrchestrator:
                             df = pd.DataFrame(ohlcv)
                             df = df.sort_values('date')  # Ascending for calculation
 
+                            # Convert DECIMAL to float for pandas_ta
+                            for col in ['open', 'high', 'low', 'close', 'volume']:
+                                df[col] = pd.to_numeric(df[col], errors='coerce')
+
                             # Calculate using pandas_ta
                             try:
                                 import pandas_ta as ta
@@ -1062,9 +1066,10 @@ class DatabaseUpdateOrchestrator:
                                 # Bollinger Bands
                                 bbands = ta.bbands(df['close'], length=20, std=2)
                                 if bbands is not None and not bbands.empty:
-                                    df['bb_upper'] = bbands['BBU_20_2.0']
-                                    df['bb_middle'] = bbands['BBM_20_2.0']
-                                    df['bb_lower'] = bbands['BBL_20_2.0']
+                                    # Rename columns to match DB schema
+                                    df['bb_upper'] = bbands.iloc[:, 0]  # BBL_20_2.0 (lower)
+                                    df['bb_middle'] = bbands.iloc[:, 1]  # BBM_20_2.0 (middle)
+                                    df['bb_lower'] = bbands.iloc[:, 2]  # BBU_20_2.0 (upper)
 
                                 # ATR
                                 df['atr_14'] = ta.atr(df['high'], df['low'], df['close'], length=14)

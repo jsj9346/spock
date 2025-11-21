@@ -385,6 +385,10 @@ class OHLCVUpdater:
             # Convert to DataFrame
             df = pd.DataFrame(rows, columns=['date', 'open', 'high', 'low', 'close', 'volume'])
 
+            # Convert DECIMAL to float for pandas_ta
+            for col in ['open', 'high', 'low', 'close', 'volume']:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+
         # Calculate indicators
         df = self._calculate_indicators(df)
 
@@ -428,10 +432,11 @@ class OHLCVUpdater:
 
         # Bollinger Bands
         bbands = ta.bbands(df['close'], length=20, std=2)
-        if bbands is not None:
-            df['bb_upper'] = bbands['BBU_20_2.0']
-            df['bb_middle'] = bbands['BBM_20_2.0']
-            df['bb_lower'] = bbands['BBL_20_2.0']
+        if bbands is not None and not bbands.empty:
+            # Rename columns to match DB schema (BBL, BBM, BBU order)
+            df['bb_lower'] = bbands.iloc[:, 0]  # BBL_20_2.0 (lower)
+            df['bb_middle'] = bbands.iloc[:, 1]  # BBM_20_2.0 (middle)
+            df['bb_upper'] = bbands.iloc[:, 2]  # BBU_20_2.0 (upper)
 
         return df
 
