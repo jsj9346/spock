@@ -378,7 +378,7 @@ class DatabaseUpdateOrchestrator:
                         limit=self.config.get('limit'),
                         days=kwargs.get('days', 250),
                         force_refresh=kwargs.get('force_refresh', False),
-                        stale_days=kwargs.get('stale_days', 7)
+                        stale_days=kwargs.get('stale_days', 2)  # Changed from 7 to 2 for more frequent updates
                     )
 
                     results[region] = result
@@ -425,7 +425,7 @@ class DatabaseUpdateOrchestrator:
         dry_run = kwargs.get('dry_run', False)
         incremental = kwargs.get('incremental', True)
         force_refresh = kwargs.get('force_refresh', False)
-        stale_days = kwargs.get('stale_days', 7)
+        stale_days = kwargs.get('stale_days', 2)  # Changed from 7 to 2 for more frequent updates
         limit = self.config.get('limit')
 
         mode_str = 'FORCE REFRESH' if force_refresh else ('INCREMENTAL' if incremental else 'FULL REFRESH')
@@ -877,10 +877,12 @@ class DatabaseUpdateOrchestrator:
 
     def _update_daily_valuation(self, regions: List[str], **kwargs) -> Dict:
         """
-        Update daily valuation multiples (PER, PBR) from pykrx
+        Update daily valuation multiples (PER, PBR) - Multi-market support
 
         Purpose: Enable historical valuation multiple trend analysis
-        Data Source: pykrx (KRX market data)
+        Data Sources:
+            - KR: pykrx (true historical daily data)
+            - US/JP/HK/CN/VN: yfinance (daily snapshots accumulated over time)
         Update Frequency: Daily
         """
         logger.info("🔄 Updating daily valuation multiples (PER, PBR)...")
@@ -892,6 +894,8 @@ class DatabaseUpdateOrchestrator:
                 try:
                     from scripts.backfill_fundamentals_pykrx import PyKRXFundamentalBackfiller
                     from datetime import date, timedelta
+
+                    logger.info(f"  [{region}] Using pykrx (historical daily data)")
 
                     # Initialize backfiller
                     backfiller = PyKRXFundamentalBackfiller(
@@ -934,12 +938,41 @@ class DatabaseUpdateOrchestrator:
                     results[region] = {'success': False, 'error': str(e)}
 
             else:
-                # Overseas markets: Daily valuation already handled by yfinance
-                logger.info(f"  [{region}] Daily valuation handled by yfinance fundamentals step")
-                results[region] = {
-                    'success': True,
-                    'message': 'Handled by yfinance in fundamentals step'
-                }
+                # Overseas markets: yfinance daily snapshot collection
+                try:
+                    from scripts.backfill_fundamentals_yfinance import YFinanceFundamentalBackfiller
+                    from datetime import date
+
+                    logger.info(f"  [{region}] Using yfinance (daily snapshot collection)")
+                    logger.info(f"  💡 yfinance provides current PER/PBR - daily execution builds historical data")
+
+                    # Initialize backfiller
+                    backfiller = YFinanceFundamentalBackfiller(
+                        self.db,
+                        dry_run=kwargs.get('dry_run', False),
+                        rate_limit_delay=0.5  # 2 requests/second
+                    )
+
+                    # Run for specific region (today's snapshot)
+                    stats = backfiller.run_backfill(
+                        region=region,
+                        incremental=kwargs.get('incremental', True),  # Skip if today's data exists
+                        limit=self.config.get('limit')
+                    )
+
+                    results[region] = stats
+
+                    logger.info(
+                        f"  ✅ [{region}] {stats['success']} tickers updated, "
+                        f"{stats['records_inserted']} inserted, "
+                        f"{stats['records_updated']} updated"
+                    )
+
+                except Exception as e:
+                    import traceback
+                    logger.error(f"  ❌ [{region}] Daily valuation update failed: {e}")
+                    logger.error(f"  Traceback: {traceback.format_exc()}")
+                    results[region] = {'success': False, 'error': str(e)}
 
         return results
 
@@ -948,7 +981,7 @@ class DatabaseUpdateOrchestrator:
         Update technical indicators (MA, RSI, MACD, Bollinger Bands, ATR, Volume)
 
         Purpose: Calculate technical analysis indicators for trading strategies
-        Indicators: MA(5,20,50,100,200), RSI-14, MACD, BB, ATR, Volume ratios
+        Indicators: MA(5,20,60,120,200), RSI-14, MACD, BB, ATR, Volume ratios
         Storage: Updates ohlcv_data table columns
         """
         logger.info("🔄 Updating technical indicators...")
@@ -1009,11 +1042,11 @@ class DatabaseUpdateOrchestrator:
                             try:
                                 import pandas_ta as ta
 
-                                # Moving Averages
+                                # Moving Averages (matching DB schema: ma5, ma20, ma60, ma120, ma200)
                                 df['ma5'] = ta.sma(df['close'], length=5)
                                 df['ma20'] = ta.sma(df['close'], length=20)
-                                df['ma50'] = ta.sma(df['close'], length=50)
-                                df['ma100'] = ta.sma(df['close'], length=100)
+                                df['ma60'] = ta.sma(df['close'], length=60)
+                                df['ma120'] = ta.sma(df['close'], length=120)
                                 df['ma200'] = ta.sma(df['close'], length=200)
 
                                 # RSI
@@ -1047,7 +1080,7 @@ class DatabaseUpdateOrchestrator:
                                     update_query = """
                                     UPDATE ohlcv_data
                                     SET
-                                        ma5 = %s, ma20 = %s, ma50 = %s, ma100 = %s, ma200 = %s,
+                                        ma5 = %s, ma20 = %s, ma60 = %s, ma120 = %s, ma200 = %s,
                                         rsi_14 = %s,
                                         macd = %s, macd_signal = %s, macd_hist = %s,
                                         bb_upper = %s, bb_middle = %s, bb_lower = %s,
@@ -1058,8 +1091,8 @@ class DatabaseUpdateOrchestrator:
                                     AND (
                                         ma5 IS DISTINCT FROM %s OR
                                         ma20 IS DISTINCT FROM %s OR
-                                        ma50 IS DISTINCT FROM %s OR
-                                        ma100 IS DISTINCT FROM %s OR
+                                        ma60 IS DISTINCT FROM %s OR
+                                        ma120 IS DISTINCT FROM %s OR
                                         ma200 IS DISTINCT FROM %s OR
                                         rsi_14 IS DISTINCT FROM %s OR
                                         macd IS DISTINCT FROM %s OR
@@ -1076,8 +1109,8 @@ class DatabaseUpdateOrchestrator:
 
                                     params = (
                                         # SET clause values (15)
-                                        latest.get('ma5'), latest.get('ma20'), latest.get('ma50'),
-                                        latest.get('ma100'), latest.get('ma200'),
+                                        latest.get('ma5'), latest.get('ma20'), latest.get('ma60'),
+                                        latest.get('ma120'), latest.get('ma200'),
                                         latest.get('rsi_14'),
                                         latest.get('macd'), latest.get('macd_signal'), latest.get('macd_hist'),
                                         latest.get('bb_upper'), latest.get('bb_middle'), latest.get('bb_lower'),
@@ -1086,8 +1119,8 @@ class DatabaseUpdateOrchestrator:
                                         # WHERE identifiers (3)
                                         ticker, region, latest['date'],
                                         # WHERE comparison values (15) - same as SET values
-                                        latest.get('ma5'), latest.get('ma20'), latest.get('ma50'),
-                                        latest.get('ma100'), latest.get('ma200'),
+                                        latest.get('ma5'), latest.get('ma20'), latest.get('ma60'),
+                                        latest.get('ma120'), latest.get('ma200'),
                                         latest.get('rsi_14'),
                                         latest.get('macd'), latest.get('macd_signal'), latest.get('macd_hist'),
                                         latest.get('bb_upper'), latest.get('bb_middle'), latest.get('bb_lower'),

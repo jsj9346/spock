@@ -331,9 +331,11 @@ class OHLCVUpdater:
             FROM ohlcv_data
             {where_clause}
             AND (
-                ma_20 IS NULL OR
-                ma_50 IS NULL OR
-                ma_200 IS NULL OR
+                ma5 IS NULL OR
+                ma20 IS NULL OR
+                ma60 IS NULL OR
+                ma120 IS NULL OR
+                ma200 IS NULL OR
                 rsi_14 IS NULL OR
                 macd IS NULL OR
                 bb_upper IS NULL
@@ -407,10 +409,12 @@ class OHLCVUpdater:
             self.logger.error("pandas_ta not installed. Install with: pip install pandas-ta")
             return df
 
-        # Moving Averages
-        df['ma_20'] = ta.sma(df['close'], length=20)
-        df['ma_50'] = ta.sma(df['close'], length=50)
-        df['ma_200'] = ta.sma(df['close'], length=200)
+        # Moving Averages (matching DB schema: ma5, ma20, ma60, ma120, ma200)
+        df['ma5'] = ta.sma(df['close'], length=5)
+        df['ma20'] = ta.sma(df['close'], length=20)
+        df['ma60'] = ta.sma(df['close'], length=60)
+        df['ma120'] = ta.sma(df['close'], length=120)
+        df['ma200'] = ta.sma(df['close'], length=200)
 
         # RSI
         df['rsi_14'] = ta.rsi(df['close'], length=14)
@@ -443,9 +447,11 @@ class OHLCVUpdater:
         query = """
             UPDATE ohlcv_data
             SET
-                ma_20 = %s,
-                ma_50 = %s,
-                ma_200 = %s,
+                ma5 = %s,
+                ma20 = %s,
+                ma60 = %s,
+                ma120 = %s,
+                ma200 = %s,
                 rsi_14 = %s,
                 macd = %s,
                 macd_signal = %s,
@@ -464,15 +470,18 @@ class OHLCVUpdater:
             for _, row in df.iterrows():
                 # Skip if all indicators are NULL
                 if pd.isna([
-                    row.get('ma_20'), row.get('ma_50'), row.get('ma_200'),
+                    row.get('ma5'), row.get('ma20'), row.get('ma60'),
+                    row.get('ma120'), row.get('ma200'),
                     row.get('rsi_14'), row.get('macd')
                 ]).all():
                     continue
 
                 values.append((
-                    row.get('ma_20'),
-                    row.get('ma_50'),
-                    row.get('ma_200'),
+                    row.get('ma5'),
+                    row.get('ma20'),
+                    row.get('ma60'),
+                    row.get('ma120'),
+                    row.get('ma200'),
                     row.get('rsi_14'),
                     row.get('macd'),
                     row.get('macd_signal'),
