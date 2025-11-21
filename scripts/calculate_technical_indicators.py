@@ -99,8 +99,12 @@ class TechnicalIndicatorCalculator:
                 logger.warning(f"⚠️  {ticker}: Insufficient data ({len(df)} records). Skipping.")
                 return False
 
-            # Calculate indicators
-            df = self.calculate_ma(df, periods=[5, 20, 50, 60, 120, 200])
+            # Convert DECIMAL to float for calculations
+            for col in ['open', 'high', 'low', 'close', 'volume']:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+
+            # Calculate indicators (matching DB schema: ma5, ma20, ma60, ma120, ma200)
+            df = self.calculate_ma(df, periods=[5, 20, 60, 120, 200])
             df = self.calculate_rsi(df, period=14)
             df = self.calculate_macd(df)
 
@@ -116,7 +120,6 @@ class TechnicalIndicatorCalculator:
                         'timeframe': row['timeframe'],
                         'ma5': row.get('ma5'),
                         'ma20': row.get('ma20'),
-                        'ma50': row.get('ma50'),
                         'ma60': row.get('ma60'),
                         'ma120': row.get('ma120'),
                         'ma200': row.get('ma200'),
@@ -130,12 +133,11 @@ class TechnicalIndicatorCalculator:
                 logger.warning(f"⚠️  {ticker}: No valid indicators calculated")
                 return False
 
-            # Batch update database
+            # Batch update database (matching DB schema: ma5, ma20, ma60, ma120, ma200)
             update_query = """
                 UPDATE ohlcv_data
                 SET ma5 = %(ma5)s,
                     ma20 = %(ma20)s,
-                    ma50 = %(ma50)s,
                     ma60 = %(ma60)s,
                     ma120 = %(ma120)s,
                     ma200 = %(ma200)s,
