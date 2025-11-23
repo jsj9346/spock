@@ -304,6 +304,7 @@ class YFinanceFundamentalBackfiller:
                 'per': self._safe_decimal(info.get('trailingPE') or info.get('forwardPE')),
                 'pbr': self._safe_decimal(info.get('priceToBook')),
                 'psr': self._safe_decimal(info.get('priceToSalesTrailing12Months')),
+                'pcr': self._safe_decimal(info.get('priceToFreeCashflow')),  # Price-to-Cashflow Ratio
                 'ev_ebitda': self._safe_decimal(info.get('enterpriseToEbitda')),
 
                 # Market data
@@ -431,7 +432,7 @@ class YFinanceFundamentalBackfiller:
             VALUES (
                 %(ticker)s, %(region)s, %(date)s, %(period_type)s,
                 %(shares_outstanding)s, %(market_cap)s, %(close_price)s,
-                %(per)s, %(pbr)s, %(psr)s, NULL, %(ev)s, %(ev_ebitda)s,
+                %(per)s, %(pbr)s, %(psr)s, %(pcr)s, %(ev)s, %(ev_ebitda)s,
                 %(dividend_yield)s, %(dividend_per_share)s,
                 %(data_source)s, NOW()
             )
@@ -443,6 +444,7 @@ class YFinanceFundamentalBackfiller:
                 per = EXCLUDED.per,
                 pbr = EXCLUDED.pbr,
                 psr = EXCLUDED.psr,
+                pcr = EXCLUDED.pcr,
                 ev = EXCLUDED.ev,
                 ev_ebitda = EXCLUDED.ev_ebitda,
                 dividend_yield = EXCLUDED.dividend_yield,

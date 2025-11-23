@@ -226,7 +226,7 @@ class DividendYieldCalculator:
             'metadata': metadata
         }
 
-    def calculate_all_tickers(self, ticker_list: Optional[List[str]] = None) -> List[Dict]:
+    def calculate_all_tickers(self, ticker_list: Optional[List[str]] = None) -> Dict:
         """
         Calculate Dividend Yield for all tickers with dividend data
 
@@ -234,7 +234,7 @@ class DividendYieldCalculator:
             ticker_list: Optional list of specific tickers
 
         Returns:
-            List of calculation results
+            Dict with success status and statistics
         """
         logger.info("=== Dividend Yield Factor Calculation ===\n")
 
@@ -243,7 +243,12 @@ class DividendYieldCalculator:
 
         if not tickers:
             logger.error("❌ No tickers with dividend data found!")
-            return []
+            return {
+                'success': False,
+                'tickers_processed': 0,
+                'tickers_success': 0,
+                'error': 'No tickers with dividend data found'
+            }
 
         # Calculate for each ticker
         results = []
@@ -266,7 +271,12 @@ class DividendYieldCalculator:
 
         logger.info(f"\n✅ Calculation complete: {len(results)}/{len(tickers)} tickers")
 
-        return results
+        # Return dict with statistics (compatible with orchestrator)
+        return {
+            'success': True,
+            'results': results,
+            **self.stats  # Include all stats (tickers_processed, tickers_success, etc.)
+        }
 
     def save_factor_scores(self, results: List[Dict]) -> None:
         """
@@ -397,10 +407,13 @@ def main():
     calculator = DividendYieldCalculator(db, dry_run=args.dry_run)
 
     # Calculate factors
-    results = calculator.calculate_all_tickers(ticker_list=args.tickers)
+    result_dict = calculator.calculate_all_tickers(ticker_list=args.tickers)
 
     # Save to database
-    calculator.save_factor_scores(results)
+    if result_dict.get('success') and result_dict.get('results'):
+        calculator.save_factor_scores(result_dict['results'])
+    else:
+        logger.error(f"❌ Calculation failed: {result_dict.get('error', 'Unknown error')}")
 
     # Print statistics
     calculator.print_statistics()

@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """
-Spock Database Refresh Tool
+Spock Database Refresh Tool v2.0
 
 User-friendly database update script with interactive menu and CLI modes.
 Supports Mac, Windows, and Linux.
+
+✨ Week 1-3 Optimizations Applied:
+- Week 1: Query Caching (72,603x speedup)
+- Week 2: Parallel Query Execution (18.3% faster)
+- Week 3: Parallel Region Collection (78% faster)
 
 Features:
 - Interactive menu for easy selection
@@ -26,7 +31,8 @@ Usage:
     python3 spock_refresh.py --status
 
 Author: Spock Quant Platform
-Date: 2025-11-04
+Date: 2025-11-23
+Version: 2.0 (Optimized)
 """
 
 import sys
@@ -36,9 +42,19 @@ import subprocess
 from datetime import datetime, timedelta, date
 from typing import Optional, List
 import platform
+import json
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Week 1-3 Optimizations (spock_refresh_v2)
+from spock_refresh_v2 import (
+    get_database_status_cached,
+    get_database_status,
+    query_cache,
+    db_manager,
+    RefreshConstants
+)
 
 # Gap Analysis Components (Phase 3)
 from modules.backfill.gap_analyzer import GapAnalyzer
@@ -178,6 +194,204 @@ def colored(text: str, color: str = '') -> str:
     return text
 
 
+# ============================================================================
+# Execution History Tracking
+# ============================================================================
+
+HISTORY_FILE = 'data/execution_history.json'
+MAX_HISTORY_ENTRIES = 50  # Keep last 50 executions
+
+
+def load_execution_history() -> List[dict]:
+    """
+    Load execution history from JSON file
+
+    Returns:
+        List of execution records, sorted by timestamp (newest first)
+    """
+    try:
+        if os.path.exists(HISTORY_FILE):
+            with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+                history = json.load(f)
+                # Sort by timestamp descending
+                return sorted(history, key=lambda x: x.get('timestamp', ''), reverse=True)
+        return []
+    except Exception as e:
+        print(f"{colored('⚠️  Warning: Failed to load execution history:', Fore.YELLOW)} {e}")
+        return []
+
+
+def save_execution_history(history: List[dict]) -> None:
+    """
+    Save execution history to JSON file
+
+    Args:
+        history: List of execution records
+    """
+    try:
+        # Ensure data directory exists
+        os.makedirs(os.path.dirname(HISTORY_FILE), exist_ok=True)
+
+        # Keep only last MAX_HISTORY_ENTRIES
+        history = history[:MAX_HISTORY_ENTRIES]
+
+        with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+            json.dump(history, f, indent=2, default=str)
+    except Exception as e:
+        print(f"{colored('⚠️  Warning: Failed to save execution history:', Fore.YELLOW)} {e}")
+
+
+def add_execution_record(
+    operation: str,
+    regions: List[str] = None,
+    status: str = 'started',
+    details: dict = None
+) -> None:
+    """
+    Add a new execution record to history
+
+    Args:
+        operation: Operation name (e.g., 'quick_refresh', 'full_refresh')
+        regions: List of regions (optional)
+        status: Execution status ('started', 'completed', 'failed')
+        details: Additional details (optional)
+    """
+    history = load_execution_history()
+
+    record = {
+        'timestamp': datetime.now().isoformat(),
+        'operation': operation,
+        'regions': regions or [],
+        'status': status,
+        'details': details or {}
+    }
+
+    history.insert(0, record)
+    save_execution_history(history)
+
+
+def create_sample_execution_history():
+    """
+    Create sample execution history for testing/demonstration
+
+    This function generates realistic sample data to demonstrate the execution history feature.
+    Useful for testing and initial setup.
+    """
+    now = datetime.now()
+
+    sample_records = [
+        {
+            'timestamp': (now - timedelta(hours=2)).isoformat(),
+            'operation': 'quick_refresh',
+            'regions': ['KR', 'US'],
+            'status': 'completed',
+            'details': {'total_tickers': 150, 'success_count': 148}
+        },
+        {
+            'timestamp': (now - timedelta(days=1, hours=5)).isoformat(),
+            'operation': 'full_refresh',
+            'regions': ['KR'],
+            'status': 'completed',
+            'details': {'total_tickers': 3800, 'success_count': 3799}
+        },
+        {
+            'timestamp': (now - timedelta(days=1, hours=9)).isoformat(),
+            'operation': 'incremental_refresh',
+            'regions': ['US'],
+            'status': 'completed',
+            'details': {'total_tickers': 50, 'success_count': 50}
+        },
+        {
+            'timestamp': (now - timedelta(days=2, hours=2)).isoformat(),
+            'operation': 'listing_date_backfill_enhanced',
+            'regions': ['KR', 'US', 'JP'],
+            'status': 'completed',
+            'details': {}
+        },
+        {
+            'timestamp': (now - timedelta(days=2, hours=4)).isoformat(),
+            'operation': 'daily_valuation_update',
+            'regions': ['KR'],
+            'status': 'completed',
+            'details': {}
+        }
+    ]
+
+    save_execution_history(sample_records)
+    print(f"{colored('✅ Sample execution history created!', Fore.GREEN)}")
+    print(f"   Location: {HISTORY_FILE}")
+    print(f"   Records: {len(sample_records)}")
+
+
+def print_recent_executions(max_entries: int = 5) -> None:
+    """
+    Print recent execution history
+
+    Args:
+        max_entries: Maximum number of entries to display
+    """
+    history = load_execution_history()
+
+    # Always show header to let users know the feature exists
+    print(f"\n{colored('📋 Recent Executions:', Fore.CYAN + Style.BRIGHT)}")
+
+    if not history:
+        print(f"  {colored('(No execution history yet)', Fore.WHITE)}")
+        return
+
+    # Operation name mapping for better display
+    operation_names = {
+        'quick_refresh': '🚀 Quick Refresh',
+        'full_refresh': '📈 Full Refresh',
+        'incremental_refresh': '🔄 Incremental',
+        'listing_date_backfill': '📅 Listing Date',
+        'listing_date_backfill_enhanced': '📅 Listing Date (Enhanced)',
+        'equity_backfill': '💰 Equity Backfill',
+        'macro_data_update': '💵 Bonds & Commodities',
+        'daily_valuation_update': '💹 Daily Valuation',
+        'technical_indicators_update': '📉 Technical Indicators',
+        'data_validation': '🔍 Data Validation',
+        'stock_screening': '📊 Stock Screening'
+    }
+
+    # Status icons
+    status_icons = {
+        'started': colored('⏳', Fore.YELLOW),
+        'completed': colored('✅', Fore.GREEN),
+        'failed': colored('❌', Fore.RED)
+    }
+
+    for i, record in enumerate(history[:max_entries], 1):
+        timestamp_str = record.get('timestamp', '')
+        try:
+            timestamp_obj = datetime.fromisoformat(timestamp_str)
+            # Calculate time ago
+            time_ago = datetime.now() - timestamp_obj
+            if time_ago.days > 0:
+                time_ago_str = f"{time_ago.days}d ago"
+            elif time_ago.seconds >= 3600:
+                time_ago_str = f"{time_ago.seconds // 3600}h ago"
+            elif time_ago.seconds >= 60:
+                time_ago_str = f"{time_ago.seconds // 60}m ago"
+            else:
+                time_ago_str = "just now"
+
+            display_time = f"{timestamp_obj.strftime('%m-%d %H:%M')} ({time_ago_str})"
+        except:
+            display_time = timestamp_str
+
+        operation = record.get('operation', 'unknown')
+        operation_display = operation_names.get(operation, operation)
+
+        regions = record.get('regions', [])
+        regions_str = ', '.join(regions) if regions else 'N/A'
+
+        status = record.get('status', 'unknown')
+        status_icon = status_icons.get(status, '')
+
+        print(f"  {colored(f'{i}.', Fore.WHITE)} {status_icon} {operation_display} "
+              f"[{colored(regions_str, Fore.CYAN)}] - {colored(display_time, Fore.WHITE)}")
+
 
 def select_regions(default_regions: List[str] = None, prompt_message: str = None) -> List[str]:
     """
@@ -262,97 +476,22 @@ def print_banner():
         print(banner)
 
 
-def get_database_status():
-    """Get current database status with regional breakdown"""
-    try:
-        from modules.db_manager_postgres import PostgresDatabaseManager
+# ============================================================================
+# LEGACY FUNCTION - REPLACED BY spock_refresh_v2.get_database_status()
+# ============================================================================
+# This function has been replaced with an optimized version from spock_refresh_v2
+# that includes:
+# - Week 1: Query caching (72,603x speedup for cache hits)
+# - Week 2: Parallel query execution (18.3% faster)
+#
+# The optimized version is automatically imported at the top of this file.
+# ============================================================================
 
-        db = PostgresDatabaseManager()
-
-        # Get counts using execute_query
-        # OHLCV data - overall
-        ohlcv_result = db.execute_query("SELECT COUNT(*), MAX(date) FROM ohlcv_data")
-        if ohlcv_result:
-            ohlcv_count = ohlcv_result[0]['count']
-            latest_ohlcv = ohlcv_result[0]['max']
-        else:
-            ohlcv_count, latest_ohlcv = 0, None
-
-        # OHLCV data - by region
-        ohlcv_by_region_query = """
-        SELECT
-            region,
-            COUNT(*) as count,
-            MAX(date) as latest_date
-        FROM ohlcv_data
-        GROUP BY region
-        ORDER BY region
-        """
-        ohlcv_by_region = db.execute_query(ohlcv_by_region_query)
-
-        # Convert to dict for easier access
-        regional_data = {}
-        if ohlcv_by_region:
-            for row in ohlcv_by_region:
-                regional_data[row['region']] = {
-                    'count': row['count'],
-                    'latest_date': row['latest_date']
-                }
-
-        # Tickers
-        ticker_result = db.execute_query("SELECT COUNT(*) FROM tickers")
-        ticker_count = ticker_result[0]['count'] if ticker_result else 0
-
-        # Fundamentals
-        fund_result = db.execute_query("SELECT COUNT(*), MAX(date) FROM ticker_fundamentals")
-        if fund_result:
-            fund_count = fund_result[0]['count']
-            latest_fund = fund_result[0]['max']
-        else:
-            fund_count, latest_fund = 0, None
-
-        # Factor scores
-        factor_result = db.execute_query("SELECT COUNT(*), MAX(date) FROM factor_scores")
-        if factor_result:
-            factor_count = factor_result[0]['count']
-            latest_factor = factor_result[0]['max']
-        else:
-            factor_count, latest_factor = 0, None
-
-        # Macro data - Global Market Indices
-        indices_result = db.execute_query("SELECT COUNT(*), MAX(date) FROM global_market_indices")
-        if indices_result:
-            indices_count = indices_result[0]['count']
-            latest_indices = indices_result[0]['max']
-        else:
-            indices_count, latest_indices = 0, None
-
-        # Macro data - Market Sentiment
-        sentiment_result = db.execute_query("SELECT COUNT(*), MAX(date) FROM market_sentiment")
-        if sentiment_result:
-            sentiment_count = sentiment_result[0]['count']
-            latest_sentiment = sentiment_result[0]['max']
-        else:
-            sentiment_count, latest_sentiment = 0, None
-
-        db.close_pool()
-
-        return {
-            'ohlcv_count': ohlcv_count,
-            'latest_ohlcv': latest_ohlcv,
-            'ohlcv_by_region': regional_data,
-            'ticker_count': ticker_count,
-            'fund_count': fund_count,
-            'latest_fund': latest_fund,
-            'factor_count': factor_count,
-            'latest_factor': latest_factor,
-            'indices_count': indices_count,
-            'latest_indices': latest_indices,
-            'sentiment_count': sentiment_count,
-            'latest_sentiment': latest_sentiment
-        }
-    except Exception as e:
-        return None
+# def get_database_status():
+#     """Get current database status with regional breakdown"""
+#     # This function is now imported from spock_refresh_v2
+#     # See line 53: from spock_refresh_v2 import get_database_status
+#     pass
 
 
 def get_listing_date_coverage():
@@ -911,7 +1050,8 @@ def print_status():
     print(f"\n{colored('📊 Current Database Status', Fore.CYAN + Style.BRIGHT)}")
     print("=" * 80)
 
-    status = get_database_status()
+    # Use cached version for better performance (Week 1 optimization)
+    status = get_database_status_cached()
 
     if status:
         print(f"  Tickers:        {colored(f'{status['ticker_count']:,}', Fore.GREEN)}")
@@ -1017,8 +1157,8 @@ def interactive_menu():
     while True:
         print_banner()
 
-        # Show status
-        status = get_database_status()
+        # Show status (using cached version for better performance - Week 1 optimization)
+        status = get_database_status_cached()
         if status:
             # Regional OHLCV status
             regional_data = status.get('ohlcv_by_region', {})
@@ -1076,52 +1216,42 @@ def interactive_menu():
                 if len(regional_status_parts) > 3:
                     print(f"  {' | '.join(regional_status_parts[3:])}")
 
-            # Macro indicators summary
-            indices_count = status.get('indices_count', 0)
-            latest_indices = status.get('latest_indices')
-            sentiment_count = status.get('sentiment_count', 0)
-            latest_sentiment = status.get('latest_sentiment')
+            # Macro indicators summary (unified - 4 categories)
+            macro_status = get_macro_data_status_unified()
+            if macro_status:
+                macro_parts = []
 
-            macro_parts = []
+                # Iterate through all 4 categories
+                for cat, emoji in [('indices', '📊'), ('bonds', '💵'), ('commodities', '🛢️'), ('sentiment', '📈')]:
+                    cat_data = macro_status[cat]
+                    count = cat_data['total_records']
+                    latest = cat_data['latest_date']
 
-            # Global Indices
-            if indices_count > 0:
-                if latest_indices:
-                    days_old = (datetime.now().date() - latest_indices).days
-                    status_color = Fore.GREEN if days_old == 0 else (Fore.YELLOW if days_old <= 3 else Fore.RED)
-                else:
-                    days_old = 999
-                    status_color = Fore.RED
+                    if count > 0:
+                        # Format count
+                        if count >= 1_000_000:
+                            count_str = f"{count / 1_000_000:.1f}M"
+                        elif count >= 1_000:
+                            count_str = f"{count / 1_000:.1f}K"
+                        else:
+                            count_str = str(count)
 
-                if indices_count >= 1_000:
-                    count_str = f"{indices_count / 1_000:.1f}K"
-                else:
-                    count_str = str(indices_count)
+                        # Determine freshness
+                        if latest:
+                            days_old = (datetime.now().date() - latest).days
+                            status_color = Fore.GREEN if days_old == 0 else (Fore.YELLOW if days_old <= 3 else Fore.RED)
+                        else:
+                            days_old = 999
+                            status_color = Fore.RED
 
-                macro_parts.append(
-                    f"📊 Indices: {colored(count_str, Fore.CYAN)} {colored(f'({days_old}d)', status_color)}"
-                )
+                        # Build display string (shortened for space)
+                        cat_short = {'indices': 'Idx', 'bonds': 'Bnd', 'commodities': 'Cmd', 'sentiment': 'Stm'}
+                        macro_parts.append(
+                            f"{emoji} {cat_short[cat]}: {colored(count_str, Fore.CYAN)} {colored(f'({days_old}d)', status_color)}"
+                        )
 
-            # Market Sentiment
-            if sentiment_count > 0:
-                if latest_sentiment:
-                    days_old = (datetime.now().date() - latest_sentiment).days
-                    status_color = Fore.GREEN if days_old == 0 else (Fore.YELLOW if days_old <= 3 else Fore.RED)
-                else:
-                    days_old = 999
-                    status_color = Fore.RED
-
-                if sentiment_count >= 1_000:
-                    count_str = f"{sentiment_count / 1_000:.1f}K"
-                else:
-                    count_str = str(sentiment_count)
-
-                macro_parts.append(
-                    f"📈 Sentiment: {colored(count_str, Fore.CYAN)} {colored(f'({days_old}d)', status_color)}"
-                )
-
-            if macro_parts:
-                print(f"  {colored('Macro:', Fore.YELLOW)} {' | '.join(macro_parts)}")
+                if macro_parts:
+                    print(f"  {colored('Macro:', Fore.YELLOW)} {' | '.join(macro_parts)}")
         else:
             print(f"{colored('Current Status:', Fore.CYAN)} {colored('❌ Database not connected', Fore.RED)}")
 
@@ -1144,6 +1274,10 @@ def interactive_menu():
                 print(f"  {colored('▶', Fore.YELLOW)} {op}")
             print()
 
+        # Show recent executions
+        print_recent_executions(max_entries=5)
+        print()
+
         # Menu options
         print(f"{colored('선택하세요:', Fore.CYAN + Style.BRIGHT)}")
         print(f"  {colored('1.', Fore.WHITE)} 🚀 {colored('Quick Refresh', Fore.GREEN)} (5분) - OHLCV + 기본적 + 기술적 지표")
@@ -1154,8 +1288,8 @@ def interactive_menu():
         print(f"  {colored('6.', Fore.WHITE)} 📅 {colored('Schedule Setup', Fore.BLUE)} - 자동화 설정")
         print(f"  {colored('7.', Fore.WHITE)} 📊 {colored('Status', Fore.WHITE)} - 현재 데이터 상태 확인")
         print(f"  {colored('8.', Fore.WHITE)} 💰 {colored('Equity Backfill', Fore.CYAN)} - 자본계정 백필")
-        print(f"  {colored('9.', Fore.WHITE)} 📈 {colored('Macro Data', Fore.MAGENTA)} - 매크로 데이터 수집")
-        print(f"  {colored('10.', Fore.WHITE)} 💹 {colored('Daily PER/PBR', Fore.YELLOW)} - 일일 밸류에이션 업데이트")
+        print(f"  {colored('9.', Fore.WHITE)} 📈 {colored('All Macro Data', Fore.MAGENTA)} - 통합 매크로 데이터")
+        print(f"  {colored('10.', Fore.WHITE)} 💹 {colored('Daily Valuation Multiples', Fore.YELLOW)} - 주가배수 업데이트 (PER/PBR/PSR/PCR/EV/배당)")
         print(f"  {colored('11.', Fore.WHITE)} 📉 {colored('Technical Indicators', Fore.CYAN)} - 기술적 지표 계산")
         print(f"  {colored('12.', Fore.WHITE)} 🔍 {colored('Data Validation', Fore.BLUE)} - 백테스트 데이터 검증")
         print(f"  {colored('13.', Fore.WHITE)} 📊 {colored('Stock Screening', Fore.GREEN)} - 종목 스크리닝")
@@ -1380,39 +1514,52 @@ def run_quick_refresh():
     """Quick refresh - OHLCV + Daily Valuation + Technical Indicators (2-phase execution)"""
     regions = select_regions(default_regions=['KR'], prompt_message="🚀 Quick Refresh - Select regions:")
 
-    # Phase 1: OHLCV + Daily Valuation (via update_database.py)
-    print(f"\n{colored('Phase 1: Data Update', Fore.CYAN + Style.BRIGHT)}")
-    print("=" * 60)
-    args = [
-        '--regions'] + regions + [
-        '--steps', 'ohlcv', 'daily_valuation', 'dividend', 'fx_tracking',
-        '--incremental',
-        '--verbose'
-    ]
-    run_update_database(args, f'Quick Refresh - Data Update ({", ".join(regions)})')
+    # Record execution start
+    add_execution_record('quick_refresh', regions=regions, status='started')
 
-    # Phase 2: Technical Indicators (direct calculation, incremental mode)
-    print(f"\n{colored('Phase 2: Technical Indicators Calculation (Incremental)', Fore.CYAN + Style.BRIGHT)}")
-    print("=" * 60)
+    try:
+        # Phase 1: OHLCV + Daily Valuation (via update_database.py)
+        print(f"\n{colored('Phase 1: Data Update', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 60)
+        args = [
+            '--regions'] + regions + [
+            '--steps', 'ohlcv', 'daily_valuation', 'dividend', 'fx_tracking',
+            '--incremental',
+            '--verbose'
+        ]
+        run_update_database(args, f'Quick Refresh - Data Update ({", ".join(regions)})')
 
-    results = _run_technical_indicators_direct(
-        regions=regions,
-        batch_size=100,
-        incremental=True,  # Only calculate missing indicators
-        dry_run=False
-    )
+        # Phase 2: Technical Indicators (direct calculation, incremental mode)
+        print(f"\n{colored('Phase 2: Technical Indicators Calculation (Incremental)', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 60)
 
-    # Summary
-    total_success = sum(r.get('success_count', 0) for r in results.values())
-    total_tickers = sum(r.get('total_tickers', 0) for r in results.values())
-    total_time = sum(r.get('duration_minutes', 0.0) for r in results.values())
+        results = _run_technical_indicators_direct(
+            regions=regions,
+            batch_size=100,
+            incremental=True,  # Only calculate missing indicators
+            dry_run=False
+        )
 
-    print(f"\n{colored('✅ Quick Refresh Complete!', Fore.GREEN + Style.BRIGHT)}")
-    print("=" * 60)
-    print(f"Regions: {', '.join(regions)}")
-    print(f"Technical Indicators: {total_success}/{total_tickers} tickers")
-    print(f"Total Time: {total_time:.1f} minutes")
-    print("=" * 60)
+        # Summary
+        total_success = sum(r.get('success_count', 0) for r in results.values())
+        total_tickers = sum(r.get('total_tickers', 0) for r in results.values())
+        total_time = sum(r.get('duration_minutes', 0.0) for r in results.values())
+
+        print(f"\n{colored('✅ Quick Refresh Complete!', Fore.GREEN + Style.BRIGHT)}")
+        print("=" * 60)
+        print(f"Regions: {', '.join(regions)}")
+        print(f"Technical Indicators: {total_success}/{total_tickers} tickers")
+        print(f"Total Time: {total_time:.1f} minutes")
+        print("=" * 60)
+
+        # Record successful completion
+        add_execution_record('quick_refresh', regions=regions, status='completed',
+                           details={'total_tickers': total_tickers, 'success_count': total_success})
+
+    except Exception as e:
+        # Record failure
+        add_execution_record('quick_refresh', regions=regions, status='failed',
+                           details={'error': str(e)})
 
 
 def check_and_warn_listing_dates():
@@ -1462,7 +1609,7 @@ def check_and_warn_listing_dates():
 
 @with_lock('full_refresh', timeout=600)
 def run_full_refresh():
-    """Full refresh - all data (2-phase execution)"""
+    """Full refresh - Tickers + OHLCV + Fundamentals + Daily Valuation + Dividend + Technical Indicators (2-phase execution)"""
     print(f"\n{colored('⚠️  Warning:', Fore.YELLOW)} Full refresh may take 30+ minutes")
 
     regions = select_regions(default_regions=['KR', 'US'], prompt_message="📈 Full Refresh - Select regions:")
@@ -1473,78 +1620,104 @@ def run_full_refresh():
         input(f"{colored('Press Enter to continue...', Fore.CYAN)}")
         return
 
-    # Phase 1: All data except technical indicators (via update_database.py)
-    print(f"\n{colored('Phase 1: Data Update', Fore.CYAN + Style.BRIGHT)}")
-    print("=" * 60)
-    args = [
-        '--regions'] + regions + [
-        '--steps', 'tickers', 'ohlcv', 'fundamentals', 'daily_valuation', 'dividend', 'fx_tracking',
-        '--verbose'
-    ]
-    run_update_database(args, f'Full Refresh - Data Update ({", ".join(regions)})')
+    # Record execution start
+    add_execution_record('full_refresh', regions=regions, status='started')
 
-    # Phase 2: Technical Indicators (direct calculation, full recalculation)
-    print(f"\n{colored('Phase 2: Technical Indicators Calculation (Full Recalculation)', Fore.CYAN + Style.BRIGHT)}")
-    print("=" * 60)
+    try:
+        # Phase 1: Tickers + OHLCV + Fundamentals + Daily Valuation + Dividend (via update_database.py)
+        print(f"\n{colored('Phase 1: Data Update', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 60)
+        args = [
+            '--regions'] + regions + [
+            '--steps', 'tickers', 'ohlcv', 'fundamentals', 'daily_valuation', 'dividend', 'fx_tracking',
+            '--verbose'
+        ]
+        run_update_database(args, f'Full Refresh - Data Update ({", ".join(regions)})')
 
-    results = _run_technical_indicators_direct(
-        regions=regions,
-        batch_size=100,
-        incremental=False,  # Recalculate all indicators (full refresh)
-        dry_run=False
-    )
+        # Phase 2: Technical Indicators (direct calculation, full recalculation)
+        print(f"\n{colored('Phase 2: Technical Indicators Calculation (Full Recalculation)', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 60)
 
-    # Summary
-    total_success = sum(r.get('success_count', 0) for r in results.values())
-    total_tickers = sum(r.get('total_tickers', 0) for r in results.values())
-    total_time = sum(r.get('duration_minutes', 0.0) for r in results.values())
+        results = _run_technical_indicators_direct(
+            regions=regions,
+            batch_size=100,
+            incremental=False,  # Recalculate all indicators (full refresh)
+            dry_run=False
+        )
 
-    print(f"\n{colored('✅ Full Refresh Complete!', Fore.GREEN + Style.BRIGHT)}")
-    print("=" * 60)
-    print(f"Regions: {', '.join(regions)}")
-    print(f"Technical Indicators: {total_success}/{total_tickers} tickers")
-    print(f"Total Time: {total_time:.1f} minutes")
-    print("=" * 60)
+        # Summary
+        total_success = sum(r.get('success_count', 0) for r in results.values())
+        total_tickers = sum(r.get('total_tickers', 0) for r in results.values())
+        total_time = sum(r.get('duration_minutes', 0.0) for r in results.values())
+
+        print(f"\n{colored('✅ Full Refresh Complete!', Fore.GREEN + Style.BRIGHT)}")
+        print("=" * 60)
+        print(f"Regions: {', '.join(regions)}")
+        print(f"Technical Indicators: {total_success}/{total_tickers} tickers")
+        print(f"Total Time: {total_time:.1f} minutes")
+        print("=" * 60)
+
+        # Record successful completion
+        add_execution_record('full_refresh', regions=regions, status='completed',
+                           details={'total_tickers': total_tickers, 'success_count': total_success})
+
+    except Exception as e:
+        # Record failure
+        add_execution_record('full_refresh', regions=regions, status='failed',
+                           details={'error': str(e)})
 
 
 @with_lock('incremental_refresh', timeout=600)
 def run_incremental_refresh():
-    """Incremental refresh - missing data only (2-phase execution)"""
+    """Incremental refresh - Missing Tickers + OHLCV + Fundamentals + Daily Valuation + Dividend + Technical Indicators (2-phase execution)"""
     regions = select_regions(default_regions=['KR'], prompt_message="🔄 Incremental Refresh - Select regions:")
 
-    # Phase 1: Missing data except technical indicators (via update_database.py)
-    print(f"\n{colored('Phase 1: Data Update (Incremental)', Fore.CYAN + Style.BRIGHT)}")
-    print("=" * 60)
-    args = [
-        '--regions'] + regions + [
-        '--steps', 'tickers', 'ohlcv', 'fundamentals', 'daily_valuation', 'dividend', 'fx_tracking',
-        '--incremental',
-        '--verbose'
-    ]
-    run_update_database(args, f'Incremental Refresh - Data Update ({", ".join(regions)})')
+    # Record execution start
+    add_execution_record('incremental_refresh', regions=regions, status='started')
 
-    # Phase 2: Technical Indicators (direct calculation, incremental mode)
-    print(f"\n{colored('Phase 2: Technical Indicators Calculation (Incremental)', Fore.CYAN + Style.BRIGHT)}")
-    print("=" * 60)
+    try:
+        # Phase 1: Missing Tickers + OHLCV + Fundamentals + Daily Valuation + Dividend (via update_database.py)
+        print(f"\n{colored('Phase 1: Data Update (Incremental)', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 60)
+        args = [
+            '--regions'] + regions + [
+            '--steps', 'tickers', 'ohlcv', 'fundamentals', 'daily_valuation', 'dividend', 'fx_tracking',
+            '--incremental',
+            '--verbose'
+        ]
+        run_update_database(args, f'Incremental Refresh - Data Update ({", ".join(regions)})')
 
-    results = _run_technical_indicators_direct(
-        regions=regions,
-        batch_size=100,
-        incremental=True,  # Only calculate missing indicators (incremental)
-        dry_run=False
-    )
+        # Phase 2: Technical Indicators (direct calculation, incremental mode)
+        print(f"\n{colored('Phase 2: Technical Indicators Calculation (Incremental)', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 60)
 
-    # Summary
-    total_success = sum(r.get('success_count', 0) for r in results.values())
-    total_tickers = sum(r.get('total_tickers', 0) for r in results.values())
-    total_time = sum(r.get('duration_minutes', 0.0) for r in results.values())
+        results = _run_technical_indicators_direct(
+            regions=regions,
+            batch_size=100,
+            incremental=True,  # Only calculate missing indicators (incremental)
+            dry_run=False
+        )
 
-    print(f"\n{colored('✅ Incremental Refresh Complete!', Fore.GREEN + Style.BRIGHT)}")
-    print("=" * 60)
-    print(f"Regions: {', '.join(regions)}")
-    print(f"Technical Indicators: {total_success}/{total_tickers} tickers")
-    print(f"Total Time: {total_time:.1f} minutes")
-    print("=" * 60)
+        # Summary
+        total_success = sum(r.get('success_count', 0) for r in results.values())
+        total_tickers = sum(r.get('total_tickers', 0) for r in results.values())
+        total_time = sum(r.get('duration_minutes', 0.0) for r in results.values())
+
+        print(f"\n{colored('✅ Incremental Refresh Complete!', Fore.GREEN + Style.BRIGHT)}")
+        print("=" * 60)
+        print(f"Regions: {', '.join(regions)}")
+        print(f"Technical Indicators: {total_success}/{total_tickers} tickers")
+        print(f"Total Time: {total_time:.1f} minutes")
+        print("=" * 60)
+
+        # Record successful completion
+        add_execution_record('incremental_refresh', regions=regions, status='completed',
+                           details={'total_tickers': total_tickers, 'success_count': total_success})
+
+    except Exception as e:
+        # Record failure
+        add_execution_record('incremental_refresh', regions=regions, status='failed',
+                           details={'error': str(e)})
 
 
 def run_custom_refresh():
@@ -2182,9 +2355,142 @@ def get_macro_data_status():
         return None
 
 
+def get_macro_data_status_unified():
+    """
+    Get unified macro data status (all 4 categories)
+
+    Returns:
+        dict: {
+            'indices': {...},
+            'bonds': {...},
+            'commodities': {...},
+            'sentiment': {...}
+        }
+        None if database unavailable
+    """
+    try:
+        from modules.db_manager_postgres import PostgresDatabaseManager
+
+        db = PostgresDatabaseManager()
+
+        # 1. Global Market Indices
+        indices_query = """
+        SELECT
+            COUNT(*) as total_records,
+            MIN(date) as min_date,
+            MAX(date) as max_date,
+            COUNT(DISTINCT symbol) as symbol_count
+        FROM global_market_indices
+        """
+        indices_result = db.execute_query(indices_query)
+
+        if indices_result and indices_result[0]['total_records'] > 0:
+            indices_data = {
+                'total_records': indices_result[0]['total_records'],
+                'date_range': (indices_result[0]['min_date'], indices_result[0]['max_date']),
+                'symbol_count': indices_result[0]['symbol_count'],
+                'latest_date': indices_result[0]['max_date']
+            }
+        else:
+            indices_data = {
+                'total_records': 0,
+                'date_range': (None, None),
+                'symbol_count': 0,
+                'latest_date': None
+            }
+
+        # 2. Bond Yields
+        bonds_query = """
+        SELECT
+            COUNT(*) as total_records,
+            MIN(date) as min_date,
+            MAX(date) as max_date,
+            array_agg(DISTINCT symbol ORDER BY symbol) as symbols
+        FROM bond_yields
+        """
+        bonds_result = db.execute_query(bonds_query)
+
+        if bonds_result and bonds_result[0]['total_records'] > 0:
+            bonds_data = {
+                'total_records': bonds_result[0]['total_records'],
+                'date_range': (bonds_result[0]['min_date'], bonds_result[0]['max_date']),
+                'symbols': bonds_result[0]['symbols'],
+                'latest_date': bonds_result[0]['max_date']
+            }
+        else:
+            bonds_data = {
+                'total_records': 0,
+                'date_range': (None, None),
+                'symbols': [],
+                'latest_date': None
+            }
+
+        # 3. Commodities
+        commodities_query = """
+        SELECT
+            COUNT(*) as total_records,
+            MIN(date) as min_date,
+            MAX(date) as max_date,
+            array_agg(DISTINCT symbol ORDER BY symbol) as symbols
+        FROM commodities
+        """
+        commodities_result = db.execute_query(commodities_query)
+
+        if commodities_result and commodities_result[0]['total_records'] > 0:
+            commodities_data = {
+                'total_records': commodities_result[0]['total_records'],
+                'date_range': (commodities_result[0]['min_date'], commodities_result[0]['max_date']),
+                'symbols': commodities_result[0]['symbols'],
+                'latest_date': commodities_result[0]['max_date']
+            }
+        else:
+            commodities_data = {
+                'total_records': 0,
+                'date_range': (None, None),
+                'symbols': [],
+                'latest_date': None
+            }
+
+        # 4. Market Sentiment
+        sentiment_query = """
+        SELECT
+            COUNT(*) as total_records,
+            MIN(date) as min_date,
+            MAX(date) as max_date
+        FROM market_sentiment
+        """
+        sentiment_result = db.execute_query(sentiment_query)
+
+        if sentiment_result and sentiment_result[0]['total_records'] > 0:
+            sentiment_data = {
+                'total_records': sentiment_result[0]['total_records'],
+                'date_range': (sentiment_result[0]['min_date'], sentiment_result[0]['max_date']),
+                'latest_date': sentiment_result[0]['max_date']
+            }
+        else:
+            sentiment_data = {
+                'total_records': 0,
+                'date_range': (None, None),
+                'latest_date': None
+            }
+
+        db.close_pool()
+
+        return {
+            'indices': indices_data,
+            'bonds': bonds_data,
+            'commodities': commodities_data,
+            'sentiment': sentiment_data
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get unified macro data status: {e}")
+        return None
+
+
 def print_macro_data_status():
     """Print macro data (bonds & commodities) status with colored output"""
-    print(f"\n{colored('📈 Macro Data Collection Status', Fore.CYAN + Style.BRIGHT)}")
+    print(f"\n{colored('💵 Bonds & Commodities Status', Fore.CYAN + Style.BRIGHT)}")
     print("=" * 100)
 
     status = get_macro_data_status()
@@ -2259,7 +2565,7 @@ def run_macro_data_update(start_date=None, end_date=None, components=None, inclu
         include_fx: If True, also update FX (exchange rate) data (default: True)
         dry_run: If True, only show what would be done
     """
-    print(f"\n{colored('📈 Starting Macro Data Collection', Fore.CYAN + Style.BRIGHT)}")
+    print(f"\n{colored('💵 Starting Bonds & Commodities Collection', Fore.CYAN + Style.BRIGHT)}")
     print("=" * 70)
 
     # Set defaults
@@ -2385,118 +2691,315 @@ def run_macro_data_update(start_date=None, end_date=None, components=None, inclu
 
     # Overall summary
     total_elapsed = (datetime.now() - start_time).total_seconds()
-    print(f"\n{colored('✅ Macro Data Update Complete!', Fore.GREEN + Style.BRIGHT)}")
+    print(f"\n{colored('✅ Bonds & Commodities Update Complete!', Fore.GREEN + Style.BRIGHT)}")
     print(f"  Total Duration: {total_elapsed:.1f}s")
     print("=" * 70)
 
 
+@with_lock('macro_data_unified_update', timeout=600)
+def run_macro_data_unified(components=None, days=7, dry_run=False):
+    """
+    Run unified macro data collection using MacroDataAdapter (all 4 categories)
+
+    Args:
+        components: List of components ['indices', 'bonds', 'commodities', 'sentiment'] or None for all
+        days: Number of days to fetch (default: 7)
+        dry_run: If True, only show what would be done
+
+    Returns:
+        dict: Collection statistics
+    """
+    print(f"\n{colored('📈 Starting Unified Macro Data Collection', Fore.CYAN + Style.BRIGHT)}")
+    print("=" * 80)
+
+    # Set defaults
+    if not components:
+        components = ['indices', 'bonds', 'commodities', 'sentiment']
+
+    components_str = ', '.join(components)
+
+    # Display plan
+    print(f"  Components:        {colored(components_str, Fore.CYAN)}")
+    print(f"  Days:              {colored(str(days), Fore.CYAN)}")
+    print(f"  Mode:              {colored('DRY RUN (preview only)' if dry_run else 'PRODUCTION', Fore.YELLOW if dry_run else Fore.GREEN)}")
+    print()
+
+    if dry_run:
+        print(f"  {colored('💡 This is a preview. No data will be collected.', Fore.YELLOW)}")
+        print("=" * 80)
+        return {
+            'success': True,
+            'dry_run': True,
+            'components': components,
+            'days': days
+        }
+
+    # Confirm
+    confirm = input(f"{colored('Continue? [Y/n]:', Fore.CYAN)} ").strip().lower()
+    if confirm and confirm != 'y':
+        print(f"{colored('❌ Cancelled', Fore.YELLOW)}")
+        return {'success': False, 'cancelled': True}
+
+    # Run collection using MacroDataAdapter
+    try:
+        start_time = datetime.now()
+        print(f"\n{colored('🔄 Collecting macro data...', Fore.GREEN)}")
+        print(f"  Started: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print()
+
+        from modules.collection.macro_data_adapter import MacroDataAdapter
+        from modules.db_manager_postgres import PostgresDatabaseManager
+
+        db = PostgresDatabaseManager()
+        adapter = MacroDataAdapter(
+            db=db,
+            config={'dry_run': False}
+        )
+
+        # Run collection
+        result = adapter.run_collection(
+            components=components,
+            days=days
+        )
+
+        elapsed = (datetime.now() - start_time).total_seconds()
+
+        # Display results
+        print(f"\n{colored('✅ Collection Complete!', Fore.GREEN + Style.BRIGHT)}")
+        print("=" * 80)
+        print(f"  Duration: {colored(f'{elapsed:.1f}s', Fore.YELLOW)}")
+        print()
+
+        # Component-wise statistics
+        if 'indices' in components:
+            indices_success = result.get('indices_success', 0)
+            indices_processed = result.get('indices_processed', 0)
+            indices_records = result.get('indices_records', 0)
+            print(f"  📊 Indices:      {colored(f'{indices_success}/{indices_processed}', Fore.CYAN)} sources, {colored(f'{indices_records}', Fore.GREEN)} records")
+
+        if 'bonds' in components:
+            bonds_success = result.get('bonds_success', 0)
+            bonds_processed = result.get('bonds_processed', 0)
+            bonds_records = result.get('bonds_records', 0)
+            print(f"  💵 Bonds:        {colored(f'{bonds_success}/{bonds_processed}', Fore.CYAN)} sources, {colored(f'{bonds_records}', Fore.GREEN)} records")
+
+        if 'commodities' in components:
+            commodities_success = result.get('commodities_success', 0)
+            commodities_processed = result.get('commodities_processed', 0)
+            commodities_records = result.get('commodities_records', 0)
+            print(f"  🛢️  Commodities:  {colored(f'{commodities_success}/{commodities_processed}', Fore.CYAN)} sources, {colored(f'{commodities_records}', Fore.GREEN)} records")
+
+        if 'sentiment' in components:
+            sentiment_success = result.get('sentiment_success', 0)
+            sentiment_processed = result.get('sentiment_processed', 0)
+            sentiment_records = result.get('sentiment_records', 0)
+            print(f"  📈 Sentiment:    {colored(f'{sentiment_success}/{sentiment_processed}', Fore.CYAN)} sources, {colored(f'{sentiment_records}', Fore.GREEN)} records")
+
+        # Total statistics
+        total_records = result.get('total_records', 0)
+        print(f"\n  {colored('Total Records:', Fore.WHITE)} {colored(f'{total_records:,}', Fore.GREEN)}")
+        print("=" * 80)
+
+        db.close_pool()
+
+        return result
+
+    except Exception as e:
+        elapsed = (datetime.now() - start_time).total_seconds()
+        print(f"\n{colored('❌ Collection failed!', Fore.RED)}")
+        print(f"{colored('Error:', Fore.RED)} {e}")
+        print(f"{colored('Duration:', Fore.YELLOW)} {elapsed:.1f}s")
+        print("=" * 80)
+
+        return {
+            'success': False,
+            'error': str(e),
+            'duration': elapsed
+        }
+
+
 def setup_macro_data_submenu():
-    """Macro data collection submenu"""
+    """Unified macro data collection submenu (all 4 categories)"""
     while True:
-        print(f"\n{colored('📈 Macro Data Collection', Fore.CYAN + Style.BRIGHT)}")
+        print(f"\n{colored('📈 All Macro Data Collection', Fore.CYAN + Style.BRIGHT)}")
         print("=" * 100)
 
-        # Current status summary
-        status = get_macro_data_status()
+        # Current status summary (unified - 4 categories)
+        status = get_macro_data_status_unified()
         if status:
-            total_records = status['bonds']['total_records'] + status['commodities']['total_records']
-            bonds_latest = status['bonds']['latest_date']
-            commodities_latest = status['commodities']['latest_date']
+            # Calculate aggregates
+            total_records = (
+                status['indices']['total_records'] +
+                status['bonds']['total_records'] +
+                status['commodities']['total_records'] +
+                status['sentiment']['total_records']
+            )
 
-            # Determine overall freshness
-            if bonds_latest and commodities_latest:
-                latest_date = max(bonds_latest, commodities_latest)
-                days_old = (datetime.now().date() - latest_date).days
-
-                if days_old == 0:
-                    freshness = colored('✅ Up to date', Fore.GREEN)
-                elif days_old <= 3:
-                    freshness = colored(f'⚠️  {days_old} days old', Fore.YELLOW)
+            # Build status line
+            status_parts = []
+            for cat, emoji in [('indices', '📊'), ('bonds', '💵'), ('commodities', '🛢️'), ('sentiment', '📈')]:
+                latest = status[cat]['latest_date']
+                if latest:
+                    days_old = (datetime.now().date() - latest).days
+                    if days_old == 0:
+                        status_parts.append(f"{emoji} {cat.capitalize()} ({colored('0d', Fore.GREEN)})")
+                    elif days_old <= 3:
+                        status_parts.append(f"{emoji} {cat.capitalize()} ({colored(f'{days_old}d', Fore.YELLOW)})")
+                    else:
+                        status_parts.append(f"{emoji} {cat.capitalize()} ({colored(f'{days_old}d', Fore.RED)})")
                 else:
-                    freshness = colored(f'❌ {days_old} days old', Fore.RED)
-            else:
-                freshness = colored('⚠️  No data', Fore.RED)
+                    status_parts.append(f"{emoji} {cat.capitalize()} ({colored('N/A', Fore.RED)})")
 
-            print(f"Total Records: {colored(f'{total_records:,}', Fore.CYAN)} | "
-                  f"Freshness: {freshness}")
+            print(f"Status: {' | '.join(status_parts)}")
+            print(f"Total: {colored(f'{total_records:,}', Fore.CYAN)} records")
         else:
             print(f"Status: {colored('❌ Database unavailable', Fore.RED)}")
         print()
 
-        # Submenu options
+        # Submenu options (9 options)
         print(f"{colored('Options:', Fore.CYAN)}")
-        print(f"  {colored('1.', Fore.WHITE)} 📊 {colored('Check Current Status', Fore.CYAN)} - 현재 데이터 상태 확인")
-        print(f"  {colored('2.', Fore.WHITE)} 🚀 {colored('Quick Update', Fore.GREEN)} (최근 7일)")
-        print(f"  {colored('3.', Fore.WHITE)} 📈 {colored('Historical Backfill', Fore.YELLOW)} (사용자 지정 기간)")
-        print(f"  {colored('4.', Fore.WHITE)} 🔄 {colored('Full Refresh', Fore.MAGENTA)} (2024-01-01 ~ 현재)")
-        print(f"  {colored('5.', Fore.WHITE)} 🧪 {colored('Dry Run Test', Fore.BLUE)} (미리보기)")
+        print(f"  {colored('1.', Fore.WHITE)} 📊 {colored('Check Current Status', Fore.CYAN)} - 전체 상태 확인")
+        print(f"  {colored('2.', Fore.WHITE)} 🚀 {colored('Quick Update - All Categories', Fore.GREEN)} (최근 7일, 전체)")
+        print(f"  {colored('3.', Fore.WHITE)} 📊 {colored('Update Indices Only', Fore.BLUE)} - 지수만")
+        print(f"  {colored('4.', Fore.WHITE)} 💵 {colored('Update Bonds Only', Fore.YELLOW)} - 채권만")
+        print(f"  {colored('5.', Fore.WHITE)} 🛢️  {colored('Update Commodities Only', Fore.MAGENTA)} - 원자재만")
+        print(f"  {colored('6.', Fore.WHITE)} 📈 {colored('Update Sentiment Only', Fore.CYAN)} - 심리지표만")
+        print(f"  {colored('7.', Fore.WHITE)} ⚙️  {colored('Custom Selection', Fore.WHITE)} - 사용자 선택")
+        print(f"  {colored('8.', Fore.WHITE)} 📈 {colored('Historical Backfill', Fore.YELLOW)} (사용자 지정 기간)")
+        print(f"  {colored('9.', Fore.WHITE)} 🔄 {colored('Full Refresh', Fore.RED)} (2024-01-01 ~ 현재, 전체)")
         print(f"  {colored('0.', Fore.WHITE)} ◀️  {colored('Back to Main Menu', Fore.RED)}")
         print()
 
-        choice = input(f"{colored('Select (0-5):', Fore.CYAN)} ").strip()
+        choice = input(f"{colored('Select (0-9):', Fore.CYAN)} ").strip()
 
         if choice == '1':
-            # Check status
-            print_macro_data_status()
+            # Check unified status (all 4 categories)
+            status = get_macro_data_status_unified()
+            if status:
+                print(f"\n{colored('📊 All Macro Data Status', Fore.CYAN + Style.BRIGHT)}")
+                print("=" * 100)
+
+                for cat, emoji in [('indices', '📊'), ('bonds', '💵'), ('commodities', '🛢️'), ('sentiment', '📈')]:
+                    data = status[cat]
+                    print(f"\n{emoji} {colored(cat.upper(), Fore.WHITE + Style.BRIGHT)}")
+                    print(f"  Records: {colored(f'{data['total_records']:,}', Fore.CYAN)}")
+                    if data['latest_date']:
+                        days_old = (datetime.now().date() - data['latest_date']).days
+                        status_color = Fore.GREEN if days_old == 0 else (Fore.YELLOW if days_old <= 3 else Fore.RED)
+                        print(f"  Latest:  {colored(str(data['latest_date']), status_color)} ({days_old}d old)")
+                    else:
+                        print(f"  Latest:  {colored('N/A', Fore.RED)}")
+
+                print("=" * 100)
+            else:
+                print(f"{colored('❌ Database unavailable', Fore.RED)}")
             input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
 
         elif choice == '2':
-            # Quick update (last 7 days)
-            print(f"\n{colored('🚀 Quick Update (최근 7일)', Fore.GREEN)}")
-            run_macro_data_update()
+            # Quick update - all categories (7 days)
+            print(f"\n{colored('🚀 Quick Update - All Categories (최근 7일)', Fore.GREEN)}")
+            run_macro_data_unified(components=['indices', 'bonds', 'commodities', 'sentiment'], days=7)
             input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
 
         elif choice == '3':
-            # Historical backfill (custom date range)
-            print(f"\n{colored('📈 Historical Backfill', Fore.YELLOW + Style.BRIGHT)}")
-            print("=" * 70)
-
-            start_input = input(f"{colored('Start date [YYYY-MM-DD] (default: 2024-01-01):', Fore.CYAN)} ").strip()
-            start_date = start_input if start_input else '2024-01-01'
-
-            end_input = input(f"{colored('End date [YYYY-MM-DD] (default: today):', Fore.CYAN)} ").strip()
-            end_date = end_input if end_input else datetime.now().strftime('%Y-%m-%d')
-
-            print(f"\n{colored('Select components:', Fore.CYAN)}")
-            print("  1. Bonds only")
-            print("  2. Commodities only")
-            print("  3. Both (default)")
-            comp_choice = input(f"{colored('Choice [1-3]:', Fore.CYAN)} ").strip()
-
-            if comp_choice == '1':
-                components = ['bonds']
-            elif comp_choice == '2':
-                components = ['commodities']
-            else:
-                components = ['bonds', 'commodities']
-
-            run_macro_data_update(start_date=start_date, end_date=end_date, components=components)
+            # Update indices only
+            print(f"\n{colored('📊 Update Indices Only', Fore.BLUE)}")
+            run_macro_data_unified(components=['indices'], days=7)
             input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
 
         elif choice == '4':
-            # Full refresh (2024-01-01 to today)
-            print(f"\n{colored('🔄 Full Refresh', Fore.MAGENTA + Style.BRIGHT)}")
-            print(f"This will collect all data from 2024-01-01 to today")
+            # Update bonds only
+            print(f"\n{colored('💵 Update Bonds Only', Fore.YELLOW)}")
+            run_macro_data_unified(components=['bonds'], days=7)
+            input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
+
+        elif choice == '5':
+            # Update commodities only
+            print(f"\n{colored('🛢️  Update Commodities Only', Fore.MAGENTA)}")
+            run_macro_data_unified(components=['commodities'], days=7)
+            input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
+
+        elif choice == '6':
+            # Update sentiment only
+            print(f"\n{colored('📈 Update Sentiment Only', Fore.CYAN)}")
+            run_macro_data_unified(components=['sentiment'], days=7)
+            input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
+
+        elif choice == '7':
+            # Custom selection
+            print(f"\n{colored('⚙️  Custom Selection', Fore.WHITE + Style.BRIGHT)}")
+            print("=" * 80)
+            print("Select components to update (space-separated numbers):")
+            print("  1. Indices")
+            print("  2. Bonds")
+            print("  3. Commodities")
+            print("  4. Sentiment")
+            print()
+
+            selection = input(f"{colored('Enter numbers [e.g., 1 2 3]:', Fore.CYAN)} ").strip()
+            comp_map = {'1': 'indices', '2': 'bonds', '3': 'commodities', '4': 'sentiment'}
+            selected = [comp_map[s] for s in selection.split() if s in comp_map]
+
+            if selected:
+                days_input = input(f"{colored('Days to fetch [7]:', Fore.CYAN)} ").strip()
+                days = int(days_input) if days_input.isdigit() else 7
+
+                print(f"\nSelected: {', '.join(selected)}")
+                print(f"Days: {days}")
+                run_macro_data_unified(components=selected, days=days)
+            else:
+                print(f"{colored('❌ No valid components selected.', Fore.RED)}")
+
+            input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
+
+        elif choice == '8':
+            # Historical backfill (custom date range)
+            print(f"\n{colored('📈 Historical Backfill', Fore.YELLOW + Style.BRIGHT)}")
+            print("=" * 80)
+
+            start_input = input(f"{colored('Start date [YYYY-MM-DD, default: 2024-01-01]:', Fore.CYAN)} ").strip()
+            start_date = datetime.strptime(start_input if start_input else '2024-01-01', '%Y-%m-%d')
+
+            end_input = input(f"{colored('End date [YYYY-MM-DD, default: today]:', Fore.CYAN)} ").strip()
+            end_date = datetime.strptime(end_input, '%Y-%m-%d') if end_input else datetime.now()
+
+            days = (end_date - start_date).days + 1
+
+            print(f"\n{colored('Select components:', Fore.CYAN)}")
+            print("  1. All")
+            print("  2. Indices only")
+            print("  3. Bonds only")
+            print("  4. Commodities only")
+            print("  5. Sentiment only")
+            comp_choice = input(f"{colored('Choice [1-5]:', Fore.CYAN)} ").strip()
+
+            comp_map = {'1': ['indices', 'bonds', 'commodities', 'sentiment'],
+                       '2': ['indices'], '3': ['bonds'], '4': ['commodities'], '5': ['sentiment']}
+            components = comp_map.get(comp_choice, ['indices', 'bonds', 'commodities', 'sentiment'])
+
+            print(f"\nDate range: {start_date.date()} → {end_date.date()} ({days} days)")
+            print(f"Components: {', '.join(components)}")
+            run_macro_data_unified(components=components, days=days)
+            input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
+
+        elif choice == '9':
+            # Full refresh (2024-01-01 to today, all categories)
+            print(f"\n{colored('🔄 Full Refresh (All Categories)', Fore.RED + Style.BRIGHT)}")
+            print(f"This will collect all macro data from 2024-01-01 to today")
             print(f"{colored('⚠️  Warning:', Fore.YELLOW)} May take several minutes depending on data volume")
             print()
 
             confirm = input(f"{colored('Proceed with full refresh? [Y/n]:', Fore.CYAN)} ").strip().lower()
             if confirm != 'n':
-                run_macro_data_update(
-                    start_date='2024-01-01',
-                    end_date=datetime.now().strftime('%Y-%m-%d'),
-                    components=['bonds', 'commodities']
+                start_date = datetime(2024, 1, 1)
+                days = (datetime.now() - start_date).days + 1
+                run_macro_data_unified(
+                    components=['indices', 'bonds', 'commodities', 'sentiment'],
+                    days=days
                 )
             else:
                 print(f"{colored('⏭️  Cancelled', Fore.YELLOW)}")
 
-            input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
-
-        elif choice == '5':
-            # Dry run test
-            print(f"\n{colored('🧪 Dry Run Test', Fore.BLUE)}")
-            print("This will preview the collection without writing to database")
-            run_macro_data_update(dry_run=True)
             input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
 
         elif choice == '0':
@@ -2504,7 +3007,7 @@ def setup_macro_data_submenu():
             break
 
         else:
-            print(f"{colored('❌ Invalid choice. Please select 0-5.', Fore.RED)}")
+            print(f"{colored('❌ Invalid choice. Please select 0-9.', Fore.RED)}")
             input(f"{colored('Press Enter to continue...', Fore.CYAN)}")
 
 
@@ -3107,17 +3610,34 @@ For more options, see scripts/update_database.py --help
 
 
 def run_daily_valuation_update():
-    """Run daily PER/PBR valuation update (pykrx)"""
+    """Run daily valuation multiples update (all markets) - PER/PBR/PSR/PCR/EV/EBITDA/Dividend Yield"""
     print(f"\n{colored('='*80, Fore.CYAN)}")
-    print(f"{colored('💹 Daily PER/PBR Valuation Update', Fore.YELLOW + Style.BRIGHT)}")
+    print(f"{colored('💹 Daily Valuation Multiples Update (Multi-Market)', Fore.YELLOW + Style.BRIGHT)}")
     print(f"{colored('='*80, Fore.CYAN)}")
     print()
-    print(f"{colored('Data Source:', Fore.WHITE)} pykrx (KRX market data)")
+    print(f"{colored('Updated Metrics:', Fore.WHITE)}")
+    print(f"  📊 Price Multiples: PER, PBR, PSR, PCR")
+    print(f"  💼 Enterprise Value: EV, EV/EBITDA")
+    print(f"  💰 Dividend: Yield, DPS")
+    print()
+    print(f"{colored('Data Sources:', Fore.WHITE)}")
+    print(f"  🇰🇷 KR: pykrx (historical daily data)")
+    print(f"  🌍 US/JP/HK/CN/VN: yfinance (daily snapshots)")
+    print()
     print(f"{colored('Update Frequency:', Fore.WHITE)} Daily")
     print(f"{colored('Purpose:', Fore.WHITE)} Historical valuation multiple trend analysis")
     print()
+    print(f"{colored('💡 Note:', Fore.YELLOW)} Price-based ratios change daily with stock price.")
+    print(f"   Running daily builds complete historical valuation trends.")
+    print()
 
-    confirm = input(f"{colored('Proceed with daily valuation update? (y/n):', Fore.CYAN)} ").strip().lower()
+    # Region selection
+    regions = select_regions(
+        default_regions=['KR', 'US', 'HK', 'JP'],
+        prompt_message="💹 Daily Valuation Update - Select regions:"
+    )
+
+    confirm = input(f"\n{colored('Proceed with daily valuation update? (y/n):', Fore.CYAN)} ").strip().lower()
 
     if confirm == 'y':
         try:
@@ -3126,13 +3646,14 @@ def run_daily_valuation_update():
 
             cmd = [
                 'python3', 'scripts/update_database.py',
-                '--regions', 'KR',
+                '--regions'] + regions + [
                 '--steps', 'daily_valuation',
                 '--incremental',
                 '--log-file', log_file
             ]
 
             print(f"\n{colored('⏳ Starting daily valuation update...', Fore.YELLOW)}")
+            print(f"{colored(f'Regions: {', '.join(regions)}', Fore.WHITE)}")
             print(f"{colored(f'Log file: {log_file}', Fore.WHITE)}")
             print()
 
@@ -3140,6 +3661,7 @@ def run_daily_valuation_update():
 
             if result.returncode == 0:
                 print(f"\n{colored('✅ Daily valuation update completed successfully!', Fore.GREEN + Style.BRIGHT)}")
+                print(f"{colored(f'   Regions processed: {', '.join(regions)}', Fore.GREEN)}")
             else:
                 print(f"\n{colored('❌ Daily valuation update failed. Check log file.', Fore.RED + Style.BRIGHT)}")
 

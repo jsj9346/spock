@@ -2,10 +2,18 @@
 """
 Phase 1.5 - Day 2: pykrx Fundamental Data Backfill for KR Market
 
-Backfills ticker_fundamentals table with valuation ratios from pykrx library.
-Extracts: PER, PBR, EPS, DIV (dividend yield), DPS, BPS
+Backfills ticker_fundamentals table with daily valuation ratios from pykrx library.
 
-Target Coverage: 100% of KR market (141 active stocks)
+Daily Metrics (주가 변동 반영):
+- PER, PBR: Price-based ratios (주가수익비율, 주가순자산비율)
+- DIV: Dividend yield (배당수익률, %)
+- DPS: Dividend per share (주당배당금)
+- EPS, BPS: Per-share metrics (주당순이익, 주당순자산)
+
+Note: PSR, PCR, EV, EV/EBITDA는 재무제표 데이터(매출, 현금흐름, 부채)가 필요하므로
+      quarterly 업데이트만 가능합니다. 별도 스크립트에서 처리 예정.
+
+Target Coverage: 100% of KR market
 Data Source: pykrx (KRX market data)
 
 Usage:
