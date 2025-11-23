@@ -22,9 +22,11 @@ import sys
 import os
 import time
 import logging
-from typing import List, Dict, Optional
+import threading
+from typing import List, Dict, Optional, Tuple
 from datetime import datetime, timedelta, date
 from decimal import Decimal
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 import pytz
 
@@ -410,10 +412,154 @@ class KRPostgresOHLCVAdapter:
             logger.error(f"❌ {ticker}: Collection failed: {e}")
             return False
 
+    def run_collection_parallel(
+        self,
+        incremental: bool = True,
+        limit: Optional[int] = None,
+        days: int = 250,
+        force_refresh: bool = False,
+        stale_days: int = 2,
+        max_workers: int = 5
+    ) -> Dict:
+        """
+        Parallel OHLCV collection for KR market (Week 4 QW4)
+
+        Collects OHLCV data for multiple tickers in parallel using ThreadPoolExecutor.
+        Rate limiting is enforced via TokenBucketRateLimiter (thread-safe).
+
+        Args:
+            incremental: If True, only update tickers with stale/missing data
+            limit: Optional limit on number of tickers
+            days: Number of days to collect per ticker
+            force_refresh: If True, update all tickers regardless of freshness
+            stale_days: Consider data stale if older than this many days
+            max_workers: Maximum concurrent worker threads (default: 5)
+
+        Returns:
+            Statistics dictionary with collection results
+
+        Performance:
+            Sequential: 1000 tickers × 0.05s/ticker = 50s
+            Parallel (5 workers): ~10-15s (70-80% faster)
+        """
+        mode_str = 'FORCE REFRESH' if force_refresh else ('INCREMENTAL' if incremental else 'FULL REFRESH')
+        logger.info("="*80)
+        logger.info("KR PostgreSQL OHLCV Collection (PARALLEL)")
+        logger.info("="*80)
+        logger.info(f"Mode: {mode_str}")
+        if incremental and not force_refresh:
+            logger.info(f"Stale threshold: >{stale_days} days")
+        logger.info(f"Limit: {limit if limit else 'None'}")
+        logger.info(f"Days per ticker: {days}")
+        logger.info(f"Max workers: {max_workers}")
+        logger.info("="*80)
+
+        start_time = time.time()
+
+        # Thread-safe statistics tracking
+        stats_lock = threading.Lock()
+
+        def _collect_single_ticker(ticker: str) -> Tuple[str, bool]:
+            """Collect data for a single ticker (thread-safe)"""
+            try:
+                # Rate limiting (thread-safe)
+                if self.rate_limiter:
+                    self.rate_limiter.wait_if_needed()
+
+                # Collect ticker data
+                success = self.collect_ticker(ticker, days=days)
+
+                return (ticker, success)
+
+            except Exception as e:
+                logger.error(f"❌ {ticker}: Collection failed: {e}")
+                with stats_lock:
+                    self.stats['tickers_failed'] += 1
+                    self.stats['errors'] += 1
+                return (ticker, False)
+
+        try:
+            # Get tickers to update
+            if incremental:
+                tickers = self._get_tickers_needing_update(
+                    incremental=True,
+                    limit=limit,
+                    force_refresh=force_refresh,
+                    stale_days=stale_days
+                )
+            else:
+                tickers = self._get_active_tickers(limit=limit)
+
+            if not tickers:
+                logger.warning("⚠️ No tickers to update")
+                self.stats['success'] = True
+                self.stats['duration'] = time.time() - start_time
+                return self.stats
+
+            logger.info(f"📊 Processing {len(tickers)} tickers in parallel (max {max_workers} workers)...")
+
+            # Parallel execution
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # Submit all tickers
+                futures = {
+                    executor.submit(_collect_single_ticker, ticker): ticker
+                    for ticker in tickers
+                }
+
+                # Track progress
+                completed = 0
+                for future in as_completed(futures):
+                    ticker, success = future.result()
+                    completed += 1
+
+                    # Progress logging (every 10%)
+                    if completed % max(1, len(tickers) // 10) == 0:
+                        pct = (completed / len(tickers)) * 100
+                        logger.info(f"Progress: {completed}/{len(tickers)} tickers ({pct:.1f}%)")
+
+            # Mark as successful
+            self.stats['success'] = True
+
+        except Exception as e:
+            logger.error(f"❌ Parallel collection failed: {e}")
+            self.stats['success'] = False
+            self.stats['errors'] += 1
+
+        finally:
+            # Calculate duration
+            self.stats['duration'] = time.time() - start_time
+
+            # Print summary
+            logger.info("="*80)
+            logger.info("Parallel Collection Summary")
+            logger.info("="*80)
+            logger.info(f"Duration: {self.stats['duration']:.2f}s")
+            logger.info(f"Tickers queried: {self.stats['tickers_queried']}")
+            logger.info(f"Tickers collected: {self.stats['tickers_collected']}")
+            logger.info(f"Tickers skipped: {self.stats['tickers_skipped']}")
+            logger.info(f"Tickers failed: {self.stats['tickers_failed']}")
+            logger.info(f"Records inserted: {self.stats['records_inserted']}")
+            logger.info(f"Records updated: {self.stats['records_updated']}")
+            logger.info(f"Errors: {self.stats['errors']}")
+            logger.info(f"Success: {'✅ YES' if self.stats['success'] else '❌ NO'}")
+
+            # Performance stats
+            if self.rate_limiter:
+                limiter_stats = self.rate_limiter.get_stats()
+                logger.info(f"Rate limiter: {limiter_stats['total_calls']} calls, "
+                           f"{limiter_stats['total_wait_time']:.2f}s wait, "
+                           f"{limiter_stats['efficiency_percent']:.1f}% efficiency")
+            logger.info("="*80)
+
+        return self.stats
+
     def run_collection(self, incremental: bool = True, limit: Optional[int] = None, days: int = 250,
-                      force_refresh: bool = False, stale_days: int = 2) -> Dict:
+                      force_refresh: bool = False, stale_days: int = 2, parallel: bool = False,
+                      max_workers: int = 5) -> Dict:
         """
         Run OHLCV collection workflow with smart incremental updates
+
+        Week 4: Added parallel mode for performance improvement
 
         Args:
             incremental: If True, only update tickers with stale data
@@ -421,10 +567,26 @@ class KRPostgresOHLCVAdapter:
             days: Number of days to collect per ticker
             force_refresh: If True, update all tickers regardless of freshness
             stale_days: Consider data stale if older than this many days (default: 2)
+            parallel: If True, use parallel collection (default: False, legacy mode)
+            max_workers: Maximum concurrent workers for parallel mode (default: 5)
 
         Returns:
             Statistics dictionary
         """
+        # Week 4 QW4: Route to parallel implementation if requested
+        if parallel:
+            logger.info("🚀 Using parallel ticker collection (Week 4 optimization)")
+            return self.run_collection_parallel(
+                incremental=incremental,
+                limit=limit,
+                days=days,
+                force_refresh=force_refresh,
+                stale_days=stale_days,
+                max_workers=max_workers
+            )
+
+        # Sequential mode (legacy/fallback)
+        logger.info("📋 Using sequential ticker collection (legacy mode)")
         mode_str = 'FORCE REFRESH' if force_refresh else ('INCREMENTAL' if incremental else 'FULL REFRESH')
         logger.info("="*80)
         logger.info("KR PostgreSQL OHLCV Collection")
