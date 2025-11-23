@@ -33,6 +33,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 from modules.db_manager_postgres import PostgresDatabaseManager
 from modules.kis_data_collector import KISDataCollector
+from modules.orchestration.rate_limiter import TokenBucketRateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +91,18 @@ class KRPostgresOHLCVAdapter:
         # Korean timezone
         self.kst = pytz.timezone('Asia/Seoul')
 
+        # Week 4 QW2: Initialize TokenBucketRateLimiter
+        if self.rate_limit > 0:
+            max_rate = int(1 / self.rate_limit)  # Convert delay to rate (e.g., 0.05s -> 20 req/s)
+            self.rate_limiter = TokenBucketRateLimiter(
+                max_rate=max_rate,
+                time_window=1.0,
+                name="KIS_API"
+            )
+            logger.info(f"✅ TokenBucketRateLimiter initialized ({max_rate} req/s)")
+        else:
+            self.rate_limiter = None
+
         logger.info(f"✅ KRPostgresOHLCVAdapter initialized")
         logger.info(f"   Database: PostgreSQL ({self.db.database})")
         logger.info(f"   Mode: {'DRY RUN' if self.dry_run else 'LIVE'}")
@@ -127,7 +140,7 @@ class KRPostgresOHLCVAdapter:
         return tickers
 
     def _get_tickers_needing_update(self, incremental: bool = True, limit: Optional[int] = None,
-                                     force_refresh: bool = False, stale_days: int = 7) -> List[str]:
+                                     force_refresh: bool = False, stale_days: int = 2) -> List[str]:
         """
         Get tickers that need OHLCV updates with smart date filtering
 
@@ -135,7 +148,7 @@ class KRPostgresOHLCVAdapter:
             incremental: If True, only return tickers with stale/missing data
             limit: Optional limit on number of tickers
             force_refresh: If True, update all tickers (ignores recency)
-            stale_days: Consider data stale if older than this many days (default: 7)
+            stale_days: Consider data stale if older than this many days (default: 2)
 
         Returns:
             List of ticker codes to update
@@ -398,7 +411,7 @@ class KRPostgresOHLCVAdapter:
             return False
 
     def run_collection(self, incremental: bool = True, limit: Optional[int] = None, days: int = 250,
-                      force_refresh: bool = False, stale_days: int = 7) -> Dict:
+                      force_refresh: bool = False, stale_days: int = 2) -> Dict:
         """
         Run OHLCV collection workflow with smart incremental updates
 
@@ -407,7 +420,7 @@ class KRPostgresOHLCVAdapter:
             limit: Optional limit on number of tickers
             days: Number of days to collect per ticker
             force_refresh: If True, update all tickers regardless of freshness
-            stale_days: Consider data stale if older than this many days (default: 7)
+            stale_days: Consider data stale if older than this many days (default: 2)
 
         Returns:
             Statistics dictionary
@@ -454,9 +467,9 @@ class KRPostgresOHLCVAdapter:
                 # Collect ticker data
                 self.collect_ticker(ticker, days=days)
 
-                # Rate limiting
-                if self.rate_limit > 0:
-                    time.sleep(self.rate_limit)
+                # Week 4 QW2: Intelligent rate limiting (replaces fixed sleep)
+                if self.rate_limiter:
+                    self.rate_limiter.wait_if_needed()
 
             # Mark as successful
             self.stats['success'] = True

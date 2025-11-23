@@ -6,10 +6,13 @@ Prevents exceeding API rate limits and ensures smooth operation.
 
 Author: Quant Investment Platform
 Date: 2025-11-01
+Updated: 2025-11-23 (Week 4 Optimization - TokenBucketRateLimiter)
 """
 
 import time
 from typing import List, Optional
+from collections import deque
+import threading
 import logging
 
 logger = logging.getLogger(__name__)
@@ -228,3 +231,133 @@ class MultiRateLimiter:
 
     def __repr__(self) -> str:
         return f"MultiRateLimiter(limiters={list(self.limiters.keys())})"
+
+
+# ==============================================================================
+# Week 4 Optimization: TokenBucketRateLimiter
+# ==============================================================================
+
+class TokenBucketRateLimiter:
+    """
+    Thread-safe token bucket rate limiter (Week 4 Optimization).
+
+    Allows bursts up to max_rate within time_window, then enforces rate limit.
+    More efficient than fixed-delay limiter as it only sleeps when necessary.
+
+    Performance improvement over basic RateLimiter:
+    - Thread-safe (can be used with ThreadPoolExecutor)
+    - Efficient deque for call history (vs list)
+    - Only sleeps when needed (not on every call)
+    - Better statistics tracking
+
+    Example:
+        # Allow 20 requests per second
+        limiter = TokenBucketRateLimiter(max_rate=20, time_window=1.0)
+
+        # In parallel threads
+        def worker(item):
+            limiter.wait_if_needed()  # Thread-safe
+            api_call(item)
+    """
+
+    def __init__(
+        self,
+        max_rate: int,
+        time_window: float = 1.0,
+        name: str = "RateLimiter"
+    ):
+        """
+        Initialize rate limiter.
+
+        Args:
+            max_rate: Maximum requests allowed in time_window
+            time_window: Time window in seconds (default: 1.0)
+            name: Identifier for logging (default: "RateLimiter")
+        """
+        self.max_rate = max_rate
+        self.time_window = time_window
+        self.name = name
+
+        # Thread-safe call history
+        self.calls = deque()  # Stores timestamps of recent calls
+        self.lock = threading.Lock()
+
+        # Statistics
+        self.total_calls = 0
+        self.total_wait_time = 0.0
+
+    def wait_if_needed(self) -> float:
+        """
+        Wait if rate limit would be exceeded, otherwise return immediately.
+
+        Returns:
+            float: Time waited in seconds (0.0 if no wait needed)
+
+        Thread-safe: Can be called from multiple threads simultaneously.
+        """
+        with self.lock:
+            now = time.time()
+
+            # Remove calls outside time window
+            while self.calls and self.calls[0] < now - self.time_window:
+                self.calls.popleft()
+
+            # Check if rate limit exceeded
+            wait_time = 0.0
+            if len(self.calls) >= self.max_rate:
+                # Calculate sleep time
+                oldest_call = self.calls[0]
+                sleep_until = oldest_call + self.time_window
+                sleep_time = sleep_until - now
+
+                if sleep_time > 0:
+                    # Rate limit exceeded - must wait
+                    time.sleep(sleep_time)
+                    self.total_wait_time += sleep_time
+                    now = time.time()  # Update time after sleep
+
+                    # Clean up again after sleep
+                    while self.calls and self.calls[0] < now - self.time_window:
+                        self.calls.popleft()
+
+                    wait_time = sleep_time
+
+            # Record this call
+            self.calls.append(now)
+            self.total_calls += 1
+
+            return wait_time
+
+    def get_stats(self) -> dict:
+        """
+        Get rate limiter statistics.
+
+        Returns:
+            dict: Statistics including total calls, wait time, efficiency
+        """
+        with self.lock:
+            if self.total_calls == 0:
+                efficiency = 100.0
+            else:
+                # Efficiency = % of time NOT waiting
+                total_time = self.total_calls / self.max_rate  # Theoretical minimum time
+                efficiency = (1 - self.total_wait_time / max(total_time, 0.001)) * 100
+
+            return {
+                'total_calls': self.total_calls,
+                'total_wait_time': round(self.total_wait_time, 2),
+                'current_queue_size': len(self.calls),
+                'efficiency_percent': round(efficiency, 2),
+                'avg_wait_per_call': round(
+                    self.total_wait_time / self.total_calls
+                    if self.total_calls > 0 else 0.0,
+                    3
+                )
+            }
+
+    def reset(self):
+        """Reset statistics and call history."""
+        with self.lock:
+            self.calls.clear()
+            self.total_calls = 0
+            self.total_wait_time = 0.0
