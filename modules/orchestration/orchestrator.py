@@ -12,8 +12,9 @@ import os
 import sys
 import time
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -351,8 +352,121 @@ class DatabaseUpdateOrchestrator:
 
         return results
 
+    def _update_ohlcv_parallel(
+        self,
+        regions: List[str],
+        max_workers: int = 6,
+        **kwargs
+    ) -> Dict[str, Dict]:
+        """
+        Update OHLCV data for multiple regions in parallel.
+
+        Week 4 Optimization (QW1): Process regions concurrently instead of sequentially.
+        Expected improvement: 40% faster (300s → 180s for 6 regions)
+
+        Args:
+            regions: List of regions to update (KR, US, HK, JP, CN, VN)
+            max_workers: Maximum concurrent regions (default: 6)
+            **kwargs: Additional parameters (incremental, days, etc.)
+
+        Returns:
+            Dict mapping region -> update results
+        """
+        logger.info(f"🚀 Starting parallel OHLCV update for {len(regions)} regions")
+
+        results = {}
+
+        def _update_single_region(region: str) -> Tuple[str, Dict]:
+            """Process a single region and return (region, result)"""
+            start_time = time.time()
+
+            try:
+                logger.info(f"  [{region}] Starting update...")
+
+                if region == 'KR':
+                    from modules.collection.kr_postgres_ohlcv_adapter import KRPostgresOHLCVAdapter
+
+                    adapter = KRPostgresOHLCVAdapter(
+                        db=self.db,
+                        config={
+                            'dry_run': kwargs.get('dry_run', False),
+                            'rate_limit': 0.05,
+                            'batch_size': 1000,
+                            'validation_threshold': 0.7
+                        }
+                    )
+
+                    result = adapter.run_collection(
+                        incremental=kwargs.get('incremental', True),
+                        limit=self.config.get('limit'),
+                        days=kwargs.get('days', 250),
+                        force_refresh=kwargs.get('force_refresh', False),
+                        stale_days=kwargs.get('stale_days', 2)
+                    )
+                else:
+                    result = self._update_ohlcv_overseas(region, **kwargs)
+
+                duration = time.time() - start_time
+                result['duration'] = duration
+
+                logger.info(
+                    f"  ✅ [{region}] Completed in {duration:.1f}s "
+                    f"({result.get('tickers_collected', 0)} tickers)"
+                )
+
+                return (region, result)
+
+            except Exception as e:
+                duration = time.time() - start_time
+                logger.error(f"  ❌ [{region}] Failed after {duration:.1f}s: {e}")
+
+                return (region, {
+                    'success': False,
+                    'error': str(e),
+                    'duration': duration,
+                    'tickers_collected': 0
+                })
+
+        # Parallel execution
+        with ThreadPoolExecutor(max_workers=min(max_workers, len(regions))) as executor:
+            # Submit all regions
+            futures = {
+                executor.submit(_update_single_region, region): region
+                for region in regions
+            }
+
+            # Collect results as they complete
+            for future in as_completed(futures):
+                region, result = future.result()
+                results[region] = result
+
+        # Summary logging
+        successful = sum(1 for r in results.values() if r.get('success', False))
+        total_duration = max(r.get('duration', 0) for r in results.values())
+
+        logger.info(f"✅ Parallel OHLCV update complete:")
+        logger.info(f"   Success: {successful}/{len(regions)} regions")
+        logger.info(f"   Total time: {total_duration:.1f}s (wall-clock)")
+
+        return results
+
     def _update_ohlcv(self, regions: List[str], **kwargs) -> Dict:
-        """Update OHLCV data for all regions"""
+        """
+        Update OHLCV data for all regions.
+
+        Week 4: Supports both parallel and sequential modes.
+        Use parallel_regions=False to disable parallel processing.
+        """
+        # Feature flag for parallel processing (default: enabled)
+        parallel_mode = kwargs.get('parallel_regions', True)
+
+        if parallel_mode and len(regions) > 1:
+            logger.info("🚀 Using parallel region processing (Week 4 optimization)")
+            return self._update_ohlcv_parallel(regions, max_workers=6, **kwargs)
+        else:
+            # Sequential mode (legacy/fallback)
+            logger.info("📋 Using sequential region processing")
+
         logger.info("🔄 Updating OHLCV data...")
 
         results = {}
@@ -877,15 +991,23 @@ class DatabaseUpdateOrchestrator:
 
     def _update_daily_valuation(self, regions: List[str], **kwargs) -> Dict:
         """
-        Update daily valuation multiples (PER, PBR) - Multi-market support
+        Update daily valuation multiples - Multi-market support
+
+        Updated Metrics (주가 변동 기반):
+            - Price Multiples: PER, PBR, PSR, PCR
+            - Enterprise Value: EV, EV/EBITDA
+            - Dividend: Yield, DPS
 
         Purpose: Enable historical valuation multiple trend analysis
         Data Sources:
-            - KR: pykrx (true historical daily data)
-            - US/JP/HK/CN/VN: yfinance (daily snapshots accumulated over time)
+            - KR: pykrx (PER, PBR, DIV, DPS - daily historical data)
+            - US/JP/HK/CN/VN: yfinance (all metrics - daily snapshots)
+
         Update Frequency: Daily
+
+        Note: KR 시장의 PSR, PCR, EV, EV/EBITDA는 재무제표 데이터 필요 (quarterly)
         """
-        logger.info("🔄 Updating daily valuation multiples (PER, PBR)...")
+        logger.info("🔄 Updating daily valuation multiples (PER/PBR/PSR/PCR/EV/Dividend)...")
 
         results = {}
 
@@ -944,7 +1066,7 @@ class DatabaseUpdateOrchestrator:
                     from datetime import date
 
                     logger.info(f"  [{region}] Using yfinance (daily snapshot collection)")
-                    logger.info(f"  💡 yfinance provides current PER/PBR - daily execution builds historical data")
+                    logger.info(f"  💡 yfinance provides current valuation multiples - daily execution builds historical data")
 
                     # Initialize backfiller
                     backfiller = YFinanceFundamentalBackfiller(
