@@ -97,7 +97,7 @@ def find_backtest_files() -> dict:
     Returns:
         dict: {percentile: csv_path}
     """
-    results_dir = Path('/Users/13ruce/spock/backtest_results')
+    results_dir = Path('/Users/13ruce/spock/data/backtest_results')
     pattern = 'orthogonal_backtest_2023-01-01_2024-10-09_*.csv'
 
     files = list(results_dir.glob(pattern))

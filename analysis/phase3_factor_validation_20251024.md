@@ -423,7 +423,7 @@ Date         Portfolio Value  Holdings  Transaction Costs  Period Return
    - ~184 dates per factor, 1,656 total observations
    - Columns: date, ic, p_value, num_stocks, is_significant, is_positive, factor_name
 
-3. **backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_222046.csv** (NEW)
+3. **data/backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_222046.csv** (NEW)
    - Tier 3 backtest results (superior factors)
    - 3 rebalance dates with portfolio snapshots
    - Columns: date, portfolio_value, cash, holdings_value, num_holdings, transaction_costs, total_transaction_costs, returns
@@ -520,5 +520,5 @@ if ic_end_date >= backtest_start_date:
 
 **Report Generated**: 2025-10-24
 **Analysis Tool**: scripts/analyze_factor_ic.py
-**Backtest Results**: backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_222046.csv
+**Backtest Results**: data/backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_222046.csv
 **Factor IC Data**: analysis/factor_ic_analysis_20251024.csv

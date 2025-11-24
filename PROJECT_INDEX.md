@@ -410,7 +410,7 @@ pytest tests/test_e2e_all_markets.py -v
 - **Alert Rules**: 25 rules (critical, warning, info)
 
 ### Testing
-- **Test Reports**: `test_reports/` directory
+- **Backtest Results**: `data/backtest_results/` directory
 - **Coverage**: 71-82% across adapters
 - **CI/CD**: GitHub Actions (future)
 

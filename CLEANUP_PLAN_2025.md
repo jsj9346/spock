@@ -442,12 +442,13 @@ validation_reports/schema_20251016_150926.log
 
 **Test Reports** (archived structure):
 ```
-test_reports/phase5_task1_20251014/
-test_reports/phase5_task2_20251014/
-test_reports/phase5_task3_20251014/
+test_reports/phase5_task1_20251014/  # DELETED 2025-11-24 (empty directory)
+test_reports/phase5_task2_20251014/  # DELETED 2025-11-24 (empty directory)
+test_reports/phase5_task3_20251014/  # DELETED 2025-11-24 (empty directory)
 ```
 
-**Action**: Archive if older than 30 days and referenced nowhere in current code.
+**Status**: ✅ **COMPLETED** - Empty test_reports/ and test_results/ directories deleted on 2025-11-24.
+**New Location**: Backtest results moved to `data/backtest_results/`
 
 ---
 

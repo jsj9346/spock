@@ -409,7 +409,7 @@ All analysis outputs are available in the `analysis/` directory:
 
 ### B. Raw Backtest Results
 
-All detailed daily portfolio values are available in `backtest_results/`:
+All detailed daily portfolio values are available in `data/backtest_results/`:
 
 - `ic_weighted_backtest_2024-10-10_2025-10-22_20251024_120204.csv` (60th)
 - `ic_weighted_backtest_2024-10-10_2025-10-22_20251024_120125.csv` (70th)

@@ -224,7 +224,7 @@ ic_weights[factor] = avg_ic if avg_ic > 0 else 0  # Only use positive predictive
 ## Appendix: Backtest Output Files
 
 ```
-backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_184659.csv  # Static IC
-backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_184737.csv  # 3mo Rolling
-backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_184817.csv  # 6mo Rolling
+data/backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_184659.csv  # Static IC
+data/backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_184737.csv  # 3mo Rolling
+data/backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_184817.csv  # 6mo Rolling
 ```

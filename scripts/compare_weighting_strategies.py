@@ -49,7 +49,7 @@ def load_backtest_results():
     Returns:
         dict: {strategy_name: DataFrame}
     """
-    results_dir = Path("backtest_results")
+    results_dir = Path("data/backtest_results")
 
     # Define file patterns
     files = {

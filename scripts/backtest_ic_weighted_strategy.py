@@ -576,8 +576,8 @@ Examples:
     print_performance_report(metrics)
 
     # Save results to CSV
-    output_dir = Path("backtest_results")
-    output_dir.mkdir(exist_ok=True)
+    output_dir = Path("data/backtest_results")
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     csv_path = output_dir / f"ic_weighted_backtest_{args.start}_{args.end}_{timestamp}.csv"

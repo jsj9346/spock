@@ -161,7 +161,7 @@ Streamlit 기반 연구 워크벤치:
 ┌───────────────────▼─────────────────────────────────────────────┐
 │            데이터 레이어 (PostgreSQL + TimescaleDB)              │
 │  하이퍼테이블: ohlcv_data (연속 집계)                           │
-│  테이블: tickers, factors, strategies, backtest_results         │
+│  테이블: tickers, factors, strategies, data/backtest_results         │
 │  보존: 무제한 (1년 후 압축)                                     │
 └──────────────────────────────────────────────────────────────────┘
 ```

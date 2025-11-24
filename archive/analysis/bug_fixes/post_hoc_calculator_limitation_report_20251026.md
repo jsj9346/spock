@@ -41,7 +41,7 @@ Created `scripts/calculate_metrics_from_csv.py` with comprehensive metrics:
 **Command**:
 ```bash
 python3 scripts/calculate_metrics_from_csv.py \
-  --csv backtest_results/orthogonal_backtest_2023-01-02_2024-01-02_20251026_134306.csv
+  --csv data/backtest_results/orthogonal_backtest_2023-01-02_2024-01-02_20251026_134306.csv
 ```
 
 **Expected**: Accurate Sharpe/Max DD from daily values
@@ -67,7 +67,7 @@ RESULTS:
 
 ### Step 3: Root Cause Analysis
 
-**CSV Content** (`backtest_results/orthogonal_backtest_2023-01-02_2024-01-02_20251026_134306.csv`):
+**CSV Content** (`data/backtest_results/orthogonal_backtest_2023-01-02_2024-01-02_20251026_134306.csv`):
 ```csv
 date,portfolio_value,cash,holdings_value,num_holdings,transaction_costs,total_transaction_costs,returns
 2023-03-31,99856278.10,12752098.10,87104180.0,68,143721.90,143721.90,
@@ -321,7 +321,7 @@ Create `backtest_daily_values` table for:
 ### Command
 ```bash
 python3 scripts/calculate_metrics_from_csv.py \
-  --csv backtest_results/orthogonal_backtest_2023-01-02_2024-01-02_20251026_134306.csv
+  --csv data/backtest_results/orthogonal_backtest_2023-01-02_2024-01-02_20251026_134306.csv
 ```
 
 ### Full Output

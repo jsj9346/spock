@@ -652,11 +652,11 @@ risk_management:
 **Results Files**:
 - `analysis/factor_ic_analysis_20251024.csv` - IC time series for all factors
 - `analysis/phase3_factor_validation_20251024.md` - Phase 3 detailed report
-- `backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_222046.csv` - Tier 3 results
-- `backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_224157.csv` - Phase 2C results
-- `backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_224341.csv` - Tier 4 Diversified
-- `backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_224450.csv` - Tier 4 Momentum
-- `backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_224547.csv` - Tier 2 Minimal
+- `data/backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_222046.csv` - Tier 3 results
+- `data/backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_224157.csv` - Phase 2C results
+- `data/backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_224341.csv` - Tier 4 Diversified
+- `data/backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_224450.csv` - Tier 4 Momentum
+- `data/backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_224547.csv` - Tier 2 Minimal
 
 **Log Files**:
 - `logs/phase3_tier3_best_factors_20251024.log` - Tier 3 backtest execution log

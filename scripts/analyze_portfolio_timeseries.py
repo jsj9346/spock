@@ -10,7 +10,7 @@ import numpy as np
 from pathlib import Path
 
 # 최신 결과 파일 경로
-results_dir = Path("backtest_results")
+results_dir = Path("data/backtest_results")
 portfolio_file = list(results_dir.glob("liquidity_portfolio_value_*.csv"))[-1]
 
 print(f"📁 분석 파일: {portfolio_file.name}\n")

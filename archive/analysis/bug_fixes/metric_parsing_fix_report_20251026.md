@@ -394,7 +394,7 @@ Date        Portfolio Value    Return
 - `scripts/backtest_orthogonal_factors.py` (output format)
 - `analysis/walk_forward_results_20251026_112705.csv` (before fix)
 - `analysis/walk_forward_results_20251026_134312.csv` (after fix)
-- `backtest_results/orthogonal_backtest_2023-01-02_2024-01-02_20251026_134306.csv` (daily values)
+- `data/backtest_results/orthogonal_backtest_2023-01-02_2024-01-02_20251026_134306.csv` (daily values)
 
 **Generated**:
 - `analysis/metric_parsing_fix_report_20251026.md` (this report)

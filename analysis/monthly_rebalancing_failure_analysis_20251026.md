@@ -327,8 +327,8 @@ Given fundamental instability, explore:
 ## 🔗 Related Files
 
 **Backtest Results**:
-- Quarterly (Q): `backtest_results/orthogonal_backtest_2023-01-02_2024-01-02_20251026_141218.csv`
-- Monthly (M): `backtest_results/orthogonal_backtest_2023-01-02_2024-01-02_20251026_141159.csv`
+- Quarterly (Q): `data/backtest_results/orthogonal_backtest_2023-01-02_2024-01-02_20251026_141218.csv`
+- Monthly (M): `data/backtest_results/orthogonal_backtest_2023-01-02_2024-01-02_20251026_141159.csv`
 
 **Validation Results**:
 - Quarterly Walk-Forward: `analysis/walk_forward_results_20251026_134312.csv`

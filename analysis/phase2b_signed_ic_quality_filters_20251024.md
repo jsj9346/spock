@@ -304,10 +304,10 @@ Replace linear IC weighting with:
 ### Backtest Output Files
 
 ```
-backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_211439.csv  # Tier 1 (Baseline)
-backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_211522.csv  # Tier 2 MVP (12mo rolling, absolute IC)
-backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_211613.csv  # Tier 2B Signed IC
-backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_211702.csv  # Tier 2B Full
+data/backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_211439.csv  # Tier 1 (Baseline)
+data/backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_211522.csv  # Tier 2 MVP (12mo rolling, absolute IC)
+data/backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_211613.csv  # Tier 2B Signed IC
+data/backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_211702.csv  # Tier 2B Full
 ```
 
 ---
