@@ -1,7 +1,7 @@
 # Spock Refresh 사용 가이드
 
-**날짜:** 2025-11-23
-**버전:** 2.0 (Week 1-3 최적화 적용)
+**날짜:** 2025-11-24
+**버전:** 2.0 (Week 1-3 최적화 적용, v2 통합 완료)
 
 ---
 
@@ -9,8 +9,7 @@
 
 ```
 spock/
-├── spock_refresh.py          # 🎯 메인 실행 파일 (사용자 인터페이스)
-├── spock_refresh_v2.py        # 🔧 최적화 모듈 (내부 사용)
+├── spock_refresh.py          # 🎯 메인 실행 파일 (UI + 최적화 통합)
 └── modules/
     └── ticker_refresh/
         └── ticker_refresher.py
@@ -20,8 +19,9 @@ spock/
 
 | 파일 | 역할 | 직접 실행? |
 |------|------|----------|
-| **spock_refresh.py** | 메인 UI (메뉴, CLI 옵션) | ✅ 예 |
-| **spock_refresh_v2.py** | 최적화된 내부 함수 (캐싱, 병렬) | ❌ 아니오 |
+| **spock_refresh.py** | 메인 UI + 최적화 함수 통합 (캐싱, 병렬) | ✅ 예 |
+
+**Note:** v2.0부터 `spock_refresh_v2.py`는 `spock_refresh.py`에 통합되었습니다 (2025-11-24).
 
 ---
 
@@ -92,7 +92,7 @@ python3 spock_refresh.py --quick --yes
 
 ## ⚡ Week 1-3 최적화 적용됨
 
-`spock_refresh.py`는 내부적으로 `spock_refresh_v2.py`의 최적화된 함수들을 사용합니다:
+`spock_refresh.py`는 다음 최적화 기능들을 내장하고 있습니다:
 
 ### 적용된 최적화
 
@@ -165,7 +165,7 @@ KIS_ACCOUNT_NUMBER=your_account
 
 캐시 통계 확인:
 ```python
-from spock_refresh_v2 import query_cache
+from spock_refresh import query_cache
 
 # 캐시 통계
 print(query_cache.stats)
@@ -174,7 +174,7 @@ print(query_cache.stats)
 
 DB 연결 통계:
 ```python
-from spock_refresh_v2 import db_manager
+from spock_refresh import db_manager
 
 # 연결 풀 통계
 print(db_manager.get_stats())
@@ -185,9 +185,9 @@ print(db_manager.get_stats())
 
 ## 🐛 문제 해결
 
-### Q: `spock_refresh_v2.py`를 실행했는데 테스트만 나와요
+### Q: 이전 `spock_refresh_v2.py` 파일은 어디 갔나요?
 
-**A:** `spock_refresh_v2.py`는 내부 모듈입니다. 대신 다음을 사용하세요:
+**A:** v2.0부터 `spock_refresh_v2.py`는 `spock_refresh.py`에 통합되었습니다. 모든 최적화 기능은 메인 파일에서 직접 사용 가능합니다:
 ```bash
 python3 spock_refresh.py
 ```
@@ -207,7 +207,7 @@ brew services start postgresql@17
 
 **A:** 프로그램을 재시작하거나 Python에서:
 ```python
-from spock_refresh_v2 import query_cache
+from spock_refresh import query_cache
 query_cache.invalidate()  # 전체 캐시 무효화
 ```
 

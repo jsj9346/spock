@@ -22,8 +22,8 @@ from datetime import datetime
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-import spock_refresh_v2
-from spock_refresh_v2 import (
+import spock_refresh
+from spock_refresh import (
     get_database_status_cached,
     query_cache
 )

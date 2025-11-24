@@ -1,8 +1,10 @@
 # Week 1-3 최적화 통합 완료 보고서
 
-**날짜:** 2025-11-23
+**날짜:** 2025-11-23 (업데이트: 2025-11-24)
 **버전:** spock_refresh.py v2.0
-**상태:** ✅ **통합 완료**
+**상태:** ✅ **통합 완료** → ✅ **v2 파일 consolidation 완료 (2025-11-24)**
+
+> **2025-11-24 업데이트:** `spock_refresh_v2.py`가 `spock_refresh.py`에 통합되었습니다. 모든 import는 `spock_refresh`에서 직접 수행됩니다.
 
 ---
 
@@ -26,7 +28,7 @@ Week 1-3 최적화가 `spock_refresh.py`에 성공적으로 통합되었습니�
 
 ```python
 # 추가된 Import (spock_refresh.py:51-57)
-from spock_refresh_v2 import (
+from spock_refresh import (
     get_database_status_cached,  # Week 1: 캐싱
     get_database_status,          # Week 2: 병렬 쿼리
     query_cache,                  # 캐시 관리
@@ -144,12 +146,12 @@ python3 spock_refresh.py --status     # 상태 확인
 
 ```python
 # 캐시 통계 확인
-from spock_refresh_v2 import query_cache
+from spock_refresh import query_cache
 print(query_cache.stats)
 # {'hits': 150, 'misses': 10, 'hit_rate': 93.75}
 
 # DB 연결 통계
-from spock_refresh_v2 import db_manager
+from spock_refresh import db_manager
 print(db_manager.get_stats())
 # {'active': 2, 'idle': 3, 'total': 5}
 ```
@@ -272,7 +274,7 @@ def get_database_status():
 
 ```python
 # Python 인터프리터에서
-from spock_refresh_v2 import query_cache
+from spock_refresh import query_cache
 
 # 캐시 통계 확인
 print(query_cache.stats)
@@ -283,7 +285,7 @@ print(query_cache.stats)
 
 ```bash
 # 캐시 초기화 후 재시작
-python3 -c "from spock_refresh_v2 import query_cache; query_cache.invalidate()"
+python3 -c "from spock_refresh import query_cache; query_cache.invalidate()"
 python3 spock_refresh.py
 ```
 

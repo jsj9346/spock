@@ -22,8 +22,8 @@ from concurrent.futures import ThreadPoolExecutor
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-import spock_refresh_v2
-from spock_refresh_v2 import _execute_single_query, get_database_status
+import spock_refresh
+from spock_refresh import _execute_single_query, get_database_status
 
 
 class TestParallelQueryExecution:
@@ -32,7 +32,7 @@ class TestParallelQueryExecution:
     def test_single_query_execution(self):
         """Test 1: 단일 쿼리 실행 (헬퍼 함수)"""
         # Mock DB manager
-        with patch('spock_refresh_v2.db_manager') as mock_db_manager:
+        with patch('spock_refresh.db_manager') as mock_db_manager:
             mock_session = MagicMock()
             mock_session.execute_query.return_value = [{'count': 100}]
             mock_db_manager.session.return_value.__enter__.return_value = mock_session
@@ -47,7 +47,7 @@ class TestParallelQueryExecution:
     def test_single_query_error_handling(self):
         """Test 2: 단일 쿼리 오류 처리"""
         # Mock DB manager to raise error
-        with patch('spock_refresh_v2.db_manager') as mock_db_manager:
+        with patch('spock_refresh.db_manager') as mock_db_manager:
             mock_session = MagicMock()
             mock_session.execute_query.side_effect = Exception("DB Error")
             mock_db_manager.session.return_value.__enter__.return_value = mock_session
@@ -59,7 +59,7 @@ class TestParallelQueryExecution:
 
     def test_parallel_query_count(self):
         """Test 3: 병렬 실행되는 쿼리 개수 검증"""
-        with patch('spock_refresh_v2.db_manager') as mock_db_manager:
+        with patch('spock_refresh.db_manager') as mock_db_manager:
             # Mock responses for all queries
             mock_session = MagicMock()
 
@@ -91,7 +91,7 @@ class TestParallelQueryExecution:
         """Test 4: 각 쿼리가 독립적인 DB 연결 사용"""
         connection_ids = []
 
-        with patch('spock_refresh_v2.db_manager') as mock_db_manager:
+        with patch('spock_refresh.db_manager') as mock_db_manager:
             def track_connection(query):
                 # Track which connection was used
                 conn_id = id(mock_db_manager.session.return_value)
@@ -121,7 +121,7 @@ class TestParallelQueryExecution:
 
     def test_max_workers_configuration(self):
         """Test 5: max_workers 설정 검증"""
-        from spock_refresh_v2 import RefreshConstants
+        from spock_refresh import RefreshConstants
 
         # Verify default max_workers
         assert RefreshConstants.ParallelExecution.MAX_WORKERS_DEFAULT == 4
@@ -131,7 +131,7 @@ class TestParallelQueryExecution:
 
     def test_query_error_isolation(self):
         """Test 6: 개별 쿼리 오류 격리"""
-        with patch('spock_refresh_v2.db_manager') as mock_db_manager:
+        with patch('spock_refresh.db_manager') as mock_db_manager:
             mock_session = MagicMock()
 
             call_count = [0]
@@ -158,7 +158,7 @@ class TestParallelQueryExecution:
 
     def test_result_aggregation(self):
         """Test 7: 병렬 결과 집계 정확성"""
-        with patch('spock_refresh_v2.db_manager') as mock_db_manager:
+        with patch('spock_refresh.db_manager') as mock_db_manager:
             mock_session = MagicMock()
 
             def mock_execute(query):
@@ -204,7 +204,7 @@ class TestParallelQueryExecution:
 
     def test_parallel_execution_performance(self):
         """Test 8: 병렬 실행 성능 검증"""
-        with patch('spock_refresh_v2.db_manager') as mock_db_manager:
+        with patch('spock_refresh.db_manager') as mock_db_manager:
             mock_session = MagicMock()
 
             def slow_query(query):
