@@ -92,7 +92,7 @@ class UIConfig(BaseConfig):
     # ========================================================================
     # Application Metadata
     # ========================================================================
-    version: str = "1.0.0"
+    version: str = "2.0.0"
     app_name: str = "Spock Database Refresh Tool"
     description: str = "Cross-platform data update utility"
 

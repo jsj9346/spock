@@ -1916,7 +1916,7 @@ def print_banner():
 {colored('╔════════════════════════════════════════════════════════════════╗', Fore.CYAN)}
 {colored('║', Fore.CYAN)}   {colored('📊 Spock Database Refresh Tool', Fore.WHITE + Style.BRIGHT)}                          {colored('║', Fore.CYAN)}
 {colored('║', Fore.CYAN)}   {colored('Cross-platform data update utility', Fore.WHITE)}                       {colored('║', Fore.CYAN)}
-{colored('║', Fore.CYAN)}   {colored('Version 1.0.0', Fore.WHITE)}                                             {colored('║', Fore.CYAN)}
+{colored('║', Fore.CYAN)}   {colored('Version 2.0.0', Fore.WHITE)}                                             {colored('║', Fore.CYAN)}
 {colored('╚════════════════════════════════════════════════════════════════╝', Fore.CYAN)}
         """
         print(banner)
