@@ -391,8 +391,9 @@ class DatabaseUpdateOrchestrator:
                         config={
                             'dry_run': kwargs.get('dry_run', False),
                             'rate_limit': 0.05,
-                            'batch_size': 1000,
-                            'validation_threshold': 0.7
+                            'batch_size': 500,  # Phase 2 OPT-2: Optimized for PostgreSQL
+                            'validation_threshold': 0.7,
+                            'warm_cache': True  # Phase 2 OPT-3: Enable cache warming
                         }
                     )
 
@@ -482,8 +483,9 @@ class DatabaseUpdateOrchestrator:
                         config={
                             'dry_run': kwargs.get('dry_run', False),
                             'rate_limit': 0.05,  # 20 req/s
-                            'batch_size': 1000,
-                            'validation_threshold': 0.7
+                            'batch_size': 500,  # Phase 2 OPT-2: Optimized for PostgreSQL
+                            'validation_threshold': 0.7,
+                            'warm_cache': True  # Phase 2 OPT-3: Enable cache warming
                         }
                     )
 

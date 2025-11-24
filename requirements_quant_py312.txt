@@ -1,0 +1,119 @@
+# ============================================================================
+# Quant Investment Platform - Requirements (Python 3.12 Compatible)
+# ============================================================================
+# Install with: pip install -r requirements_quant_py312.txt
+# Python Version: 3.12+
+# Last Updated: 2025-11-19
+# ============================================================================
+
+# ============================================================================
+# Core Dependencies (Required) - Python 3.12 Compatible Versions
+# ============================================================================
+
+# Data Manipulation & Analysis
+pandas>=2.1.0                 # DataFrame operations, time-series analysis
+numpy>=1.26.0                 # Numerical computing, linear algebra
+scipy>=1.12.0                 # Scientific computing, optimization algorithms
+scikit-learn>=1.4.0           # Machine learning, factor combination
+statsmodels>=0.14.0           # Econometric models, statistical testing
+
+# ============================================================================
+# Database (PostgreSQL + TimescaleDB)
+# ============================================================================
+
+psycopg2-binary               # PostgreSQL adapter for Python (sync)
+asyncpg>=0.29.0               # PostgreSQL async adapter (CLI backend)
+
+# ============================================================================
+# Backtesting Engines (Optional - Install separately if needed)
+# ============================================================================
+
+# backtrader - Not compatible with Python 3.12 yet
+# zipline-reloaded - Not compatible with Python 3.12 yet
+# vectorbt - Not compatible with Python 3.12 yet
+# Note: Use custom backtesting engine for now
+
+# ============================================================================
+# Portfolio Optimization
+# ============================================================================
+
+cvxpy>=1.3.2                  # Convex optimization (Markowitz, constraints)
+PyPortfolioOpt>=1.5.5         # Portfolio optimization toolkit
+riskfolio-lib>=4.3.0          # Advanced portfolio optimization
+
+# ============================================================================
+# Technical Analysis
+# ============================================================================
+
+pandas-ta>=0.4.67b0           # Technical indicators library (updated for pandas 2.x)
+
+# ============================================================================
+# Web Framework & API
+# ============================================================================
+
+fastapi>=0.103.1              # Async REST API framework
+streamlit>=1.27.0             # Interactive research dashboard
+uvicorn>=0.23.2               # ASGI server for FastAPI
+pydantic>=2.4.2               # Data validation for FastAPI
+
+# ============================================================================
+# CLI Framework & Terminal UI
+# ============================================================================
+
+rich>=13.7.0                  # Beautiful terminal formatting, tables, progress bars
+Jinja2>=3.1.2                 # HTML template engine for backtest reports
+
+# ============================================================================
+# Visualization
+# ============================================================================
+
+plotly>=5.17.0                # Interactive charts (dashboard)
+matplotlib>=3.7.2             # Static plots
+seaborn>=0.12.2               # Statistical data visualization
+mplfinance>=0.12.10b0         # Financial charts
+
+# ============================================================================
+# Configuration & Logging
+# ============================================================================
+
+python-dotenv>=1.0.0          # Environment variable management
+pyyaml>=6.0.1                 # YAML configuration files
+loguru>=0.7.0                 # Enhanced logging
+
+# ============================================================================
+# Security & Authentication
+# ============================================================================
+
+PyJWT>=2.8.0                  # JSON Web Tokens
+requests>=2.31.0              # HTTP client
+
+# ============================================================================
+# System Monitoring & Performance
+# ============================================================================
+
+psutil>=5.9.5                 # System resource monitoring
+tqdm>=4.67.1                  # Progress bars
+
+# ============================================================================
+# Database Refresh System
+# ============================================================================
+
+colorama>=0.4.6               # Cross-platform colored terminal output
+pykrx>=1.0.46                 # Korean market data (KOSPI, KOSDAQ)
+yfinance>=0.2.31              # Yahoo Finance data (US, global markets)
+exchangerates>=0.2.0          # Exchange rate data
+prometheus-client>=0.23.1     # Metrics export for monitoring
+
+# ============================================================================
+# Data Collection
+# ============================================================================
+
+finance-datareader>=0.9.50    # FinanceDataReader
+
+# ============================================================================
+# Web scraping dependencies
+# ============================================================================
+
+aiohttp>=3.11.14
+beautifulsoup4>=4.12.2
+lxml>=4.9.3

@@ -1,6 +1,6 @@
-# CLAUDE_KR.md - Quant Investment Platform (한국어)
+# GEMINI.md - Quant Investment Platform (한국어)
 
-이 파일은 Claude Code (claude.ai/code)가 이 저장소의 코드 작업 시 참고할 가이드입니다.
+이 파일은 Antigravity가 이 저장소의 코드 작업 시 참고할 가이드입니다.
 
 ## 프로젝트 개요
 
@@ -118,57 +118,6 @@
 
 ---
 
-## 🧹 레거시 코드 정리 완료 (2025-11-24)
-
-**상태**: ✅ **100% 완료** - SQLite 레거시 코드 정리 및 PostgreSQL 완전 전환 확정
-
-### 정리 완료 항목
-
-#### 1. Deprecated 코드 제거 (Phase 1)
-- ✅ **HistoricalDataProvider**: 완전 제거 (PostgresDataProvider/SQLiteDataProvider로 대체)
-- ✅ **레거시 백업 파일**: 아카이브 이동
-  - `modules/factors/value_factors_sqlite_backup.py` → `archive/`
-  - `modules/factors/value_factors_old.py` → `archive/`
-- ✅ **빈 DB 파일**: `data/spock.db` (0 bytes) 삭제
-
-#### 2. SQLite 의존성 분석 (Phase 2)
-- **분석 결과**: SQLiteDatabaseManager 334개 위치에서 사용 중
-  - scripts/ (60+): 마이그레이션, 검증, 백필 유틸리티
-  - tests/ (30+): 단위 테스트 및 통합 테스트
-  - modules/ (3개): 하위 호환성 지원 (팩토리 메서드)
-- **결정**: ✅ **SQLite 코드 유지** (테스트 인프라 필수)
-  - 프로덕션: PostgreSQL 100% 독점 사용
-  - 테스트: SQLite In-Memory/File 기반 테스트 유지
-  - 유틸리티: 레거시 마이그레이션 스크립트 보존
-
-#### 3. 문서 및 스크립트 아카이브 (Phase 3)
-- ✅ **마이그레이션 스크립트** (8개 → `archive/migration_scripts/`)
-  - `migrate_from_sqlite.py`, `migrate_sqlite_to_postgres.py`
-  - `migrate_ticker_fundamentals.py`, `sync_sqlite_schema.py` 등
-- ✅ **레거시 문서** (3개 → `docs/archive/migration/`)
-  - `WEEK5_SQLITE_SCHEMA_MIGRATION.md`
-  - `POSTGRES_MIGRATION_GUIDE.md`
-  - `POSTGRES_OPERATIONS.md`
-- ✅ **.env 파일 명확화**: SQLite 용도 주석 추가 (TEST & UTILITY ONLY)
-
-### 최종 코드베이스 상태
-
-| 컴포넌트 | 프로덕션 | 테스트 | 상태 |
-|---------|---------|--------|------|
-| **데이터 수집** | PostgreSQL | SQLite | ✅ 이중 지원 |
-| **백테스팅 엔진** | PostgreSQL | SQLite | ✅ 이중 지원 |
-| **팩터 계산** | PostgreSQL | PostgreSQL | ✅ 완전 전환 |
-| **포트폴리오 관리** | PostgreSQL | - | ✅ 완전 전환 |
-| **리스크 관리** | PostgreSQL | - | ✅ 완전 전환 |
-
-**정리 효과**:
-- 📦 **15개 파일** 정리 (제거 4개, 아카이브 11개)
-- 🗂️ **명확한 구조**: 프로덕션/테스트/레거시 분리
-- 📝 **문서화 개선**: 아카이브 구조 및 .env 주석
-- ✅ **하위 호환성**: 테스트 인프라 안정성 유지
-
----
-
 ## 아키텍처 전환: 트레이딩에서 리서치로
 
 ### 변경 사항
@@ -257,11 +206,9 @@
 └──────────────────┴──────────────────┴──────────────────────────┘
                     │
 ┌───────────────────▼─────────────────────────────────────────────┐
-│            Data Layer (PostgreSQL + TimescaleDB) ✅ PRODUCTION  │
+│                Data Layer (PostgreSQL + TimescaleDB)             │
 │  Hypertables: ohlcv_data (continuous aggregates)                │
 │  Tables: tickers, factors, strategies, backtest_results         │
-│  - PostgresDataProvider (프로덕션, 85%+ 캐시 히트율)             │
-│  - SQLiteDataProvider (테스트 전용, 하위 호환성)                │
 └──────────────────┬─────────────────────────────────────────────┘
                     │
 ┌───────────────────▼─────────────────────────────────────────────┐
@@ -298,13 +245,6 @@
    logs/                                # 애플리케이션 로그
    tests/                               # 테스트 스위트
    docs/                                # 문서
-      archive/                          # 레거시 문서 아카이브
-         migration/                     # 마이그레이션 가이드 (11개)
-
-   archive/                             # 레거시 코드 아카이브
-      spock_legacy/                     # 레거시 Spock 시스템 (18개)
-      migration_scripts/                # 마이그레이션 스크립트 (8개)
-      value_factors_*.py                # 레거시 팩터 백업 (2개)
 
    examples/
       example_momentum_value_strategy.py
@@ -619,11 +559,10 @@ python3 quant_platform.py backtest \
 
 ---
 
-**마지막 업데이트**: 2025-11-24
-**버전**: 1.3.0 (레거시 정리)
-**상태**: Phase 1 완료, 레거시 코드 정리 완료, Phase 2 준비 완료
+**마지막 업데이트**: 2025-11-12
+**버전**: 1.2.0 (최적화)
+**상태**: Phase 1 완료, Phase 2 준비 완료
 **현재 초점**: Phase 2 - 백테스팅 기반 전략 검증 및 최적화 (Week 5+)
 - **Phase 1.4 완료**: 3개 팩터 검증 (Max_Drawdown, Liquidity, Short_Term_Momentum) - 통계적 유의성 확보
-- **레거시 정리 완료** (2025-11-24): SQLite 레거시 코드 아카이브, PostgreSQL 완전 전환 확정 (15개 파일 정리)
 - **다음 작업**: 검증된 팩터로 백테스팅 전략 구성 및 Walk-forward 최적화
 - KIS API를 이용할 경우에는 반드시 이전 토큰 발급 이력을 확인할 것.(KIS API는 24시간동안 유효하며, 짧은 시간에 많은 토큰 발급 요청시 접근 제한에 걸리는 문제가 있음.)

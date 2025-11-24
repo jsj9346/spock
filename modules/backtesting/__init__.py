@@ -34,7 +34,6 @@ from .backtest_config import (
     PatternMetrics,
 )
 from .backtest_engine import BacktestEngine
-from .historical_data_provider import HistoricalDataProvider
 from .portfolio_simulator import PortfolioSimulator
 from .strategy_runner import StrategyRunner, run_generate_buy_signals
 from .performance_analyzer import PerformanceAnalyzer
@@ -67,7 +66,6 @@ __all__ = [
     "PerformanceMetrics",
     "PatternMetrics",
     "BacktestEngine",
-    "HistoricalDataProvider",
     "PortfolioSimulator",
     "StrategyRunner",
     "run_generate_buy_signals",

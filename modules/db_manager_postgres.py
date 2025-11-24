@@ -70,8 +70,8 @@ class PostgresDatabaseManager:
                  database: str = None,
                  user: str = None,
                  password: str = None,
-                 pool_min_conn: int = 10,
-                 pool_max_conn: int = 30):
+                 pool_min_conn: int = 20,
+                 pool_max_conn: int = 60):
         """
         Initialize PostgreSQL connection pool
 
