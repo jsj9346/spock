@@ -79,7 +79,7 @@ SELECT 'Slow Queries (24h)', COUNT(*)::text
 - Slow Queries: <10
 
 **2. Review Grafana Dashboard**
-- Navigate to: `http://localhost:3000/dashboards/postgres-monitoring`
+- Navigate to: `http://localhost:3000/monitoring/grafana/dashboards/postgres-monitoring`
 - Check for red/yellow alerts in Overview panel
 - Verify data freshness: Latest OHLCV data should be <24 hours old
 
@@ -223,7 +223,7 @@ curl http://localhost:8000/metrics | head -20
 
 ### Grafana Dashboard Usage
 
-**Dashboard URL**: `http://localhost:3000/dashboards/postgres-monitoring`
+**Dashboard URL**: `http://localhost:3000/monitoring/grafana/dashboards/postgres-monitoring`
 
 **15 Visualization Panels**:
 

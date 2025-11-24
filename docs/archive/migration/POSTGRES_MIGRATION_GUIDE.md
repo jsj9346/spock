@@ -499,7 +499,7 @@ curl http://localhost:8000/metrics | grep postgres_database_size_bytes
 # Import Grafana dashboard
 # 1. Open Grafana UI (http://localhost:3000)
 # 2. Navigate to Dashboards → Import
-# 3. Upload dashboards/postgres_monitoring.json
+# 3. Upload monitoring/grafana/dashboards/postgres_monitoring.json
 ```
 
 ---

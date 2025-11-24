@@ -575,8 +575,8 @@ Compression (after 1 year):
 
    # 2. Configure Grafana (import dashboard)
    # - Navigate to http://localhost:3000
-   # - Import dashboards/postgres_monitoring.json
-   # - Configure alert rules from dashboards/postgres_alert_rules.yaml
+   # - Import monitoring/grafana/dashboards/postgres/postgres_monitoring.json
+   # - Configure alert rules from monitoring/grafana/dashboards/postgres/postgres_alert_rules.yaml
 
    # 3. Verify metrics collection
    curl http://localhost:8000/metrics
@@ -684,8 +684,8 @@ The system is ready for production migration. All scripts have been tested, docu
 7. `/modules/monitoring/postgres_metrics.py` - 600+ lines
 
 **Configuration Files** (2 files):
-1. `/dashboards/postgres_monitoring.json` - Grafana dashboard
-2. `/dashboards/postgres_alert_rules.yaml` - Alert rules
+1. `/monitoring/grafana/dashboards/postgres/postgres_monitoring.json` - Grafana dashboard
+2. `/monitoring/grafana/dashboards/postgres/postgres_alert_rules.yaml` - Alert rules
 
 **Documentation** (2 files, ~1000 lines):
 1. `/docs/POSTGRES_MIGRATION_GUIDE.md` - 500+ lines
