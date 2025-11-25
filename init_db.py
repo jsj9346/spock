@@ -233,11 +233,6 @@ class DatabaseInitializer:
                 lot_size INTEGER DEFAULT 1,           -- 거래 단위 (KR/US: 1주, CN/JP/VN: 100주, HK: 종목별 가변)
 
                 -- ========================================
-                -- 섹터 정보 (tickers 테이블에 추가됨)
-                -- ========================================
-                sector_code TEXT,                     -- 섹터 코드 (GICS 2자리)
-
-                -- ========================================
                 -- 관리 정보
                 -- ========================================
                 is_active BOOLEAN DEFAULT 1,          -- 거래 가능 여부 (1: 가능, 0: 정지/폐지)
@@ -245,8 +240,16 @@ class DatabaseInitializer:
 
                 created_at TEXT NOT NULL,             -- 생성 시각
                 last_updated TEXT NOT NULL,           -- 최종 업데이트 시각
-                enriched_at TEXT,                     -- 데이터 보강 시각 (섹터/펀더멘털 데이터 추가 시)
-                data_source TEXT                      -- 데이터 출처 (KRX Official API, pykrx, KIS Master File)
+                data_source TEXT,                     -- 데이터 출처 (KRX Official API, pykrx, KIS Master File)
+
+                -- ========================================
+                -- yfinance 상태 관리 (2025-11-26 추가)
+                -- ========================================
+                timeout_flag BOOLEAN DEFAULT 0,       -- API 타임아웃 플래그
+                yf_status TEXT DEFAULT 'unknown',     -- yfinance 수집 상태: unknown, active, delisted, unsupported, blacklist, retry
+                yf_last_check TEXT,                   -- 마지막 yfinance 상태 확인 시간 (YYYY-MM-DD HH:MM:SS)
+                yf_fail_reason TEXT,                  -- 실패 사유: no_data_found, preferred_stock, delisted, timeout 등
+                yf_fail_count INTEGER DEFAULT 0       -- 연속 실패 횟수 (3회 이상 시 상태 변경)
             )
         """)
 

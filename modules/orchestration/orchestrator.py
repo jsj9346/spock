@@ -12,6 +12,7 @@ import os
 import sys
 import time
 import logging
+import traceback
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -24,6 +25,7 @@ from modules.orchestration.checkpoint import CheckpointManager
 from modules.orchestration.rate_limiter import MultiRateLimiter
 from modules.orchestration.validators import DataQualityValidator
 from modules.api_clients.yfinance_api import YFinanceAPI
+from modules.ticker_status_manager import TickerStatusManager
 
 # Rich library for progress tracking (optional)
 try:
@@ -281,15 +283,22 @@ class DatabaseUpdateOrchestrator:
                 return result
 
             except Exception as e:
-                # If this is the last attempt, raise the exception
+                # Format detailed error information
+                error_msg = str(e)
+                error_traceback = traceback.format_exc()
+
+                # If this is the last attempt, log detailed error and raise
                 if attempt == max_retries - 1:
-                    logger.error(f"❌ Step '{step}' failed after {max_retries} attempts: {e}")
+                    logger.error(f"❌ Step '{step}' failed after {max_retries} attempts:")
+                    logger.error(f"   Error: {error_msg}")
+                    logger.error(f"   Full traceback:\n{error_traceback}")
                     raise
 
-                # Otherwise, log and retry
+                # Otherwise, log warning and retry
                 logger.warning(
-                    f"⚠️  Step '{step}' attempt {attempt + 1}/{max_retries} raised exception: {e}"
+                    f"⚠️  Step '{step}' attempt {attempt + 1}/{max_retries} raised exception: {error_msg}"
                 )
+                logger.debug(f"   Traceback for attempt {attempt + 1}:\n{error_traceback}")
                 logger.warning(f"   Retrying in {retry_delay}s...")
                 time.sleep(retry_delay)
                 retry_delay *= 2  # Exponential backoff
@@ -531,6 +540,7 @@ class DatabaseUpdateOrchestrator:
                 - incremental: Only update missing data
                 - force_refresh: Force update all tickers
                 - stale_days: Days threshold for stale data (default: 7)
+                - days: Number of days of data to fetch (default: 365)
                 - limit: Maximum number of tickers to process
 
         Returns:
@@ -542,6 +552,7 @@ class DatabaseUpdateOrchestrator:
         incremental = kwargs.get('incremental', True)
         force_refresh = kwargs.get('force_refresh', False)
         stale_days = kwargs.get('stale_days', 2)  # Changed from 7 to 2 for more frequent updates
+        days_to_fetch = kwargs.get('days', 365)  # Number of days to fetch (default: 365)
         limit = self.config.get('limit')
 
         mode_str = 'FORCE REFRESH' if force_refresh else ('INCREMENTAL' if incremental else 'FULL REFRESH')
@@ -557,10 +568,17 @@ class DatabaseUpdateOrchestrator:
         }
 
         try:
-            # Initialize yfinance API
+            # Initialize yfinance API and ticker status manager
             yf_api = YFinanceAPI(rate_limit_per_second=1.0)
+            ticker_status = TickerStatusManager(self.db)
+
+            # Log ticker status summary
+            status_summary = ticker_status.get_status_summary(region)
+            if status_summary['skip_count'] > 0:
+                logger.info(f"  [{region}] Ticker status: {status_summary['process_count']} active, {status_summary['skip_count']} skip (delisted/unsupported)")
 
             # Get ticker list from database with smart incremental logic
+            # Note: yf_status filter excludes delisted/unsupported/blacklist tickers
             if incremental and not force_refresh:
                 # Smart incremental - tickers with no data or stale data (>=stale_days)
                 query = f"""
@@ -583,6 +601,7 @@ class DatabaseUpdateOrchestrator:
                 WHERE t.region = %s
                   AND t.asset_type = 'STOCK'
                   AND t.is_active = TRUE
+                  AND t.yf_status NOT IN ('delisted', 'unsupported', 'blacklist')
                   AND (
                       ld.last_date IS NULL  -- No data at all
                       OR ld.last_date <= CURRENT_DATE - INTERVAL '{stale_days} days'  -- Stale data (>= stale_days old)
@@ -600,6 +619,7 @@ class DatabaseUpdateOrchestrator:
                 WHERE region = %s
                   AND asset_type = 'STOCK'
                   AND is_active = TRUE
+                  AND yf_status NOT IN ('delisted', 'unsupported', 'blacklist')
                 ORDER BY ticker
                 """
                 params = (region,)
@@ -660,9 +680,10 @@ class DatabaseUpdateOrchestrator:
                     # Map ticker to yfinance format
                     yf_symbol = self._map_ticker_to_yfinance(ticker, region)
 
-                    # Fetch OHLCV data (last 1 year)
-                    end_date = datetime.now()
-                    start_date = end_date - timedelta(days=365)
+                    # Fetch OHLCV data (configurable days, default 365)
+                    # Note: yfinance 'end' parameter is exclusive, so add 1 day to include today's data
+                    end_date = datetime.now() + timedelta(days=1)
+                    start_date = end_date - timedelta(days=days_to_fetch + 1)
 
                     df = yf_api.get_ohlcv(
                         ticker=yf_symbol,
@@ -672,6 +693,7 @@ class DatabaseUpdateOrchestrator:
 
                     if df is None or df.empty:
                         logger.debug(f"  ⚠️ [{region}:{ticker}] No OHLCV data available")
+                        ticker_status.mark_failure(ticker, region, "No OHLCV data available")
                         stats['tickers_failed'] += 1
                         continue
 
@@ -711,6 +733,8 @@ class DatabaseUpdateOrchestrator:
                             )
                         stats['records_inserted'] += len(df)
 
+                    # Mark ticker as successfully collected
+                    ticker_status.mark_success(ticker, region)
                     stats['tickers_collected'] += 1
 
                     if i % 10 == 0:
@@ -721,15 +745,20 @@ class DatabaseUpdateOrchestrator:
 
                 except Exception as e:
                     logger.warning(f"  ⚠️ [{region}:{ticker}] Failed: {e}")
+                    ticker_status.mark_failure(ticker, region, str(e))
                     stats['tickers_failed'] += 1
                     continue
 
             stats['duration'] = time.time() - start_time
             stats['success'] = True
 
+            # Add skip count to stats
+            stats['tickers_skipped'] = status_summary['skip_count']
+
             logger.info(
                 f"  ✅ [{region}] OHLCV collection completed: "
                 f"{stats['tickers_collected']} success, {stats['tickers_failed']} failed, "
+                f"{stats['tickers_skipped']} skipped, "
                 f"{stats['records_inserted']} records in {stats['duration']:.2f}s"
             )
 
@@ -1381,6 +1410,17 @@ class DatabaseUpdateOrchestrator:
         # Steps failed
         if self.stats['steps_failed']:
             print(f"❌ Steps failed: {', '.join(self.stats['steps_failed'])}")
+            print(f"\nFailed Steps:")
+            for step in self.stats['steps_failed']:
+                step_result = self.stats['step_results'].get(step, {})
+                error_msg = step_result.get('error', 'Unknown error')
+                timestamp = step_result.get('timestamp', 'N/A')
+                print(f"  • {step}: {error_msg}")
+                print(f"    Time: {timestamp}")
+
+                # Log full traceback to logger (not stdout) for detailed debugging
+                if 'traceback' in step_result:
+                    logger.debug(f"Full traceback for step '{step}':\n{step_result['traceback']}")
 
         # Duration
         duration = self.stats['total_duration']
@@ -1647,12 +1687,23 @@ class DatabaseUpdateOrchestrator:
                     console.print(f"✅ [green]Step '{step}' completed[/green]")
 
                 except Exception as e:
-                    console.print(f"❌ [red]Step '{step}' failed: {e}[/red]")
+                    # Format detailed error information
+                    error_msg = str(e)
+                    error_traceback = traceback.format_exc()
+
+                    console.print(f"❌ [red]Step '{step}' failed: {error_msg}[/red]")
+
+                    # Log full traceback for debugging
+                    logger.error(f"❌ Step '{step}' failed with exception:")
+                    logger.error(f"   Error: {error_msg}")
+                    logger.error(f"   Full traceback:\n{error_traceback}")
 
                     self.stats['steps_failed'].append(step)
                     self.stats['step_results'][step] = {
                         'success': False,
-                        'error': str(e)
+                        'error': error_msg,
+                        'traceback': error_traceback,
+                        'timestamp': datetime.now().isoformat()
                     }
 
                     # Handle error based on fail_fast config
@@ -1706,12 +1757,20 @@ class DatabaseUpdateOrchestrator:
                 logger.info(f"✅ Step '{step}' completed")
 
             except Exception as e:
-                logger.error(f"❌ Step '{step}' failed: {e}")
+                # Format detailed error information
+                error_msg = str(e)
+                error_traceback = traceback.format_exc()
+
+                logger.error(f"❌ Step '{step}' failed with exception:")
+                logger.error(f"   Error: {error_msg}")
+                logger.error(f"   Full traceback:\n{error_traceback}")
 
                 self.stats['steps_failed'].append(step)
                 self.stats['step_results'][step] = {
                     'success': False,
-                    'error': str(e)
+                    'error': error_msg,
+                    'traceback': error_traceback,
+                    'timestamp': datetime.now().isoformat()
                 }
 
                 # Handle error based on fail_fast config
@@ -1747,5 +1806,12 @@ class DatabaseUpdateOrchestrator:
         if self.stats['steps_failed']:
             console.print("\n[red]Failed Steps:[/red]")
             for step in self.stats['steps_failed']:
-                error = self.stats['step_results'][step].get('error', 'Unknown error')
+                step_result = self.stats['step_results'].get(step, {})
+                error = step_result.get('error', 'Unknown error')
+                timestamp = step_result.get('timestamp', 'N/A')
                 console.print(f"  • {step}: {error}")
+                console.print(f"    [dim]Time: {timestamp}[/dim]")
+
+                # Log full traceback to logger (not stdout) for detailed debugging
+                if 'traceback' in step_result:
+                    logger.debug(f"Full traceback for step '{step}':\n{step_result['traceback']}")
