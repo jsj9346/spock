@@ -277,39 +277,130 @@
 ```
 ~/spock/
    quant_platform.py                    # 메인 오케스트레이터
+   spock_refresh.py                     # 데이터 갱신 도구 (v2.0.0)
 
+   # ========================================================================
+   # 핵심 모듈
+   # ========================================================================
    modules/
-      # 핵심 Quant 컴포넌트
+      # Quant 컴포넌트
       factors/                          # 팩터 라이브러리
-      backtest/                         # 백테스팅 엔진
+      backtesting/                      # 백테스팅 엔진
       optimization/                     # 포트폴리오 최적화
       risk/                             # 리스크 관리
-      strategies/                       # 전략 정의
 
       # 데이터 수집 (Spock에서 재사용)
+      collection/                       # 데이터 수집
+         kr_postgres_ohlcv_adapter.py   # KR OHLCV 어댑터
       api_clients/                      # API 래퍼
       market_adapters/                  # 시장별 어댑터
-      parsers/                          # 데이터 변환
+      orchestration/                    # 오케스트레이션
+      backfill/                         # 백필 실행자
+      db_manager_postgres.py            # PostgreSQL 관리자
+
+   # ========================================================================
+   # 전략 및 스크립트
+   # ========================================================================
+   strategies/                          # 전략 구현
+      multi_factor_strategy.py          # 멀티팩터 전략
+
+   scripts/                             # 유틸리티 스크립트 (100+ 파일)
+      # 백필 스크립트
+      backfill_*.py                     # 데이터 백필
+      # 팩터 분석
+      analyze_factor_*.py               # 팩터 IC 분석
+      # 백테스팅
+      backtest_*.py                     # 백테스트 실행
+      # 데이터 품질
+      validate_*.py, detect_*.py        # 데이터 검증
+      # 기타
+      calculate_*.py, collect_*.py      # 계산 및 수집
+
+   # ========================================================================
+   # 인프라 및 설정
+   # ========================================================================
+   infrastructure/                      # 인프라 설정
+      config/                           # 설정 관리
+         ui_config.py                   # UI 설정 (버전 정보)
+      database/                         # 데이터베이스 설정
+      di/                               # 의존성 주입
+      error_handlers/                   # 에러 핸들러
+      exceptions/                       # 예외 클래스
+      validators/                       # 검증자
+
+   config/                              # 애플리케이션 설정
+   migrations/                          # 데이터베이스 마이그레이션
+
+   # ========================================================================
+   # 모니터링 및 CLI
+   # ========================================================================
+   monitoring/                          # 모니터링 스택
+      prometheus/                       # Prometheus 설정
+      grafana/                          # Grafana 대시보드
+         dashboards/postgres/           # PostgreSQL 대시보드
+      alertmanager/                     # 알림 관리
+      exporters/                        # 메트릭 익스포터
+
+   cli/                                 # CLI 인터페이스
+      commands/                         # CLI 명령어
+      strategies/                       # 전략 CLI
+      templates/                        # 템플릿
+      utils/                            # CLI 유틸리티
 
    api/                                 # FastAPI 백엔드
-   dashboard/                           # Streamlit UI
-   config/                              # 설정 파일
-   data/                                # PostgreSQL 데이터베이스
-   log/                                # 애플리케이션 로그
+   mcp_server/                          # MCP 서버
+
+   # ========================================================================
+   # 데이터 및 로그
+   # ========================================================================
+   data/                                # 데이터 디렉토리
+      backtest_results/                 # 백테스트 결과 (78 CSV)
+      cache/                            # 캐시 파일
+      spock_local.db                    # SQLite (테스트 전용)
+
+   log/                                 # 애플리케이션 로그 (31GB+)
+      checkpoints/                      # 체크포인트 파일
+
+   # ========================================================================
+   # 분석 및 보고서
+   # ========================================================================
+   analysis/                            # 분석 결과 (마크다운)
+   reports/                             # 각종 보고서
+   benchmark_reports/                   # 벤치마크 보고서
+   metrics_reports/                     # 메트릭 보고서
+   validation_reports/                  # 검증 보고서
+   alert_logs/                          # 알림 로그
+   results/                             # 실행 결과
+
+   # ========================================================================
+   # 테스트 및 문서
+   # ========================================================================
    tests/                               # 테스트 스위트
+      unit/                             # 단위 테스트
+      integration/                      # 통합 테스트
+      e2e/                              # E2E 테스트
+
    docs/                                # 문서
       archive/                          # 레거시 문서 아카이브
-         migration/                     # 마이그레이션 가이드 (11개)
+         migration/                     # 마이그레이션 가이드
+         spock_legacy/                  # 레거시 Spock 문서
+         phase_details/                 # Phase 완료 보고서
+         weekly_reports/                # 주간 보고서
 
+   examples/                            # 예제 코드
+      example_momentum_value_strategy.py
+      example_backtest_workflow.py
+      example_portfolio_optimization.py
+
+   # ========================================================================
+   # 아카이브 및 백업
+   # ========================================================================
    archive/                             # 레거시 코드 아카이브
       spock_legacy/                     # 레거시 Spock 시스템 (18개)
       migration_scripts/                # 마이그레이션 스크립트 (8개)
       value_factors_*.py                # 레거시 팩터 백업 (2개)
 
-   examples/
-      example_momentum_value_strategy.py
-      example_backtest_workflow.py
-      example_portfolio_optimization.py
+   backups/                             # 백업 파일
 ```
 
 ---
