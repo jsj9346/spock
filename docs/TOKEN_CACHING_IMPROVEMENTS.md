@@ -554,7 +554,7 @@ print(f"Efficiency: {(1 - status['buffer_seconds']/86400)*100:.2f}%")
 
 3. **Review logs**:
    ```bash
-   grep "token" logs/*.log | tail -20
+   grep "token" log/*.log | tail -20
    ```
 
 ### Multi-Process Environments

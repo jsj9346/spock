@@ -21,7 +21,7 @@ Usage:
     python3 scripts/monitor_backfill_progress.py
 
     # Monitor specific log file
-    python3 scripts/monitor_backfill_progress.py --log logs/backfill_kr_week3_full_universe.log
+    python3 scripts/monitor_backfill_progress.py --log log/backfill_kr_week3_full_universe.log
 
     # Custom refresh interval (seconds)
     python3 scripts/monitor_backfill_progress.py --refresh 5
@@ -339,7 +339,7 @@ class BackfillMonitor:
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(description='Monitor backfill progress in real-time')
-    parser.add_argument('--log', type=str, default='logs/backfill_kr_week3_full_universe.log',
+    parser.add_argument('--log', type=str, default='log/backfill_kr_week3_full_universe.log',
                        help='Path to backfill log file')
     parser.add_argument('--refresh', type=int, default=10,
                        help='Refresh interval in seconds (default: 10)')

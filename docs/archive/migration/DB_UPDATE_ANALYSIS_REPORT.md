@@ -665,7 +665,7 @@ Usage:
     python3 scripts/update_database.py --dry-run
 
     # 백그라운드 실행
-    nohup python3 scripts/update_database.py > logs/db_update_$(date +%Y%m%d).log 2>&1 &
+    nohup python3 scripts/update_database.py > log/db_update_$(date +%Y%m%d).log 2>&1 &
 """
 
 import sys
@@ -685,7 +685,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Setup logging
-log_filename = f"logs/{datetime.now().strftime('%Y%m%d')}_db_update.log"
+log_filename = f"log/{datetime.now().strftime('%Y%m%d')}_db_update.log"
 os.makedirs('logs', exist_ok=True)
 
 logging.basicConfig(
@@ -1071,8 +1071,8 @@ python3 scripts/update_database.py --dry-run
 
 #### 5. 백그라운드 실행
 ```bash
-nohup python3 scripts/update_database.py > logs/db_update_$(date +%Y%m%d).log 2>&1 &
-tail -f logs/db_update_*.log
+nohup python3 scripts/update_database.py > log/db_update_$(date +%Y%m%d).log 2>&1 &
+tail -f log/db_update_*.log
 ```
 
 ---

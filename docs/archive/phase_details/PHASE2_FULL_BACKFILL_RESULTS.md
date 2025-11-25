@@ -10,7 +10,7 @@
 
 > **Note**: This section will be populated automatically after backfill completion using:
 > ```bash
-> python3 scripts/validate_phase2_backfill.py --log logs/phase2_full_backfill_v3.log --report logs/phase2_validation_report.md
+> python3 scripts/validate_phase2_backfill.py --log log/phase2_full_backfill_v3.log --report log/phase2_validation_report.md
 > ```
 
 **Key Metrics** (To be filled):
@@ -128,7 +128,7 @@
 **Execution Command**:
 ```bash
 python3 scripts/backfill_phase2_historical.py --start-year 2022 --end-year 2024 \
-  2>&1 | tee logs/phase2_full_backfill_v3.log
+  2>&1 | tee log/phase2_full_backfill_v3.log
 ```
 
 **Progress** (To be updated):
@@ -151,7 +151,7 @@ python3 scripts/backfill_phase2_historical.py --start-year 2022 --end-year 2024 
 
 ### Validation Results (To be filled)
 
-**Automated Validation Report**: `logs/phase2_validation_report.md`
+**Automated Validation Report**: `log/phase2_validation_report.md`
 
 **Manual Validation Queries**:
 ```sql
@@ -403,10 +403,10 @@ tickers = [row['ticker'] for row in results]
 **Monitoring Strategy**:
 ```bash
 # Progress monitoring
-tail -100 logs/phase2_full_backfill_v3.log | grep "Progress:"
+tail -100 log/phase2_full_backfill_v3.log | grep "Progress:"
 
 # Error detection
-grep -iE "error|exception|failed" logs/phase2_full_backfill_v3.log
+grep -iE "error|exception|failed" log/phase2_full_backfill_v3.log
 
 # Database record count
 psql -d quant_platform -c "SELECT COUNT(*) FROM ticker_fundamentals WHERE fiscal_year >= 2022;"
@@ -442,8 +442,8 @@ psql -d quant_platform -c "SELECT COUNT(*) FROM ticker_fundamentals WHERE fiscal
 - **Dry Run v1 Analysis**: `/docs/PHASE2_DRY_RUN_ANALYSIS.md`
 - **Dry Run v2 Results**: `/docs/PHASE2_DRY_RUN_V2_RESULTS.md`
 - **Dry Run v3 Results**: `/docs/PHASE2_DRY_RUN_V3_RESULTS.md`
-- **Validation Report**: `logs/phase2_validation_report.md` (auto-generated)
-- **Backfill Log**: `logs/phase2_full_backfill_v3.log`
+- **Validation Report**: `log/phase2_validation_report.md` (auto-generated)
+- **Backfill Log**: `log/phase2_full_backfill_v3.log`
 
 ### B. Database Schema
 ```sql
@@ -500,12 +500,12 @@ CREATE INDEX idx_fundamentals_year ON ticker_fundamentals(fiscal_year DESC);
 ```bash
 # Run validation after backfill completion
 python3 scripts/validate_phase2_backfill.py \
-  --log logs/phase2_full_backfill_v3.log \
-  --report logs/phase2_validation_report.md
+  --log log/phase2_full_backfill_v3.log \
+  --report log/phase2_validation_report.md
 
 # Automated validation setup (waits for backfill completion)
 while ps aux | grep -q "[b]ackfill_phase2_historical.py"; do sleep 300; done && \
-python3 scripts/validate_phase2_backfill.py --report logs/phase2_validation_report.md
+python3 scripts/validate_phase2_backfill.py --report log/phase2_validation_report.md
 ```
 
 ---

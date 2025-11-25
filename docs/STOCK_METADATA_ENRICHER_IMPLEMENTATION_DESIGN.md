@@ -1013,10 +1013,10 @@ python3 scripts/enrich_global_metadata.py --test --limit 10
 cp data/spock_local.db data/backups/spock_local_pre_enrichment_$(date +%Y%m%d).db
 
 # Step 7: Full deployment (overnight recommended, ~4.8 hours)
-nohup python3 scripts/enrich_global_metadata.py --all-regions > logs/enrichment_$(date +%Y%m%d).log 2>&1 &
+nohup python3 scripts/enrich_global_metadata.py --all-regions > log/enrichment_$(date +%Y%m%d).log 2>&1 &
 
 # Step 8: Monitor progress
-tail -f logs/enrichment_$(date +%Y%m%d).log
+tail -f log/enrichment_$(date +%Y%m%d).log
 
 # Step 9: Verify completion
 python3 -c "
@@ -1437,7 +1437,7 @@ python3 scripts/enrich_global_metadata.py --region US --tickers AAPL MSFT GOOGL
 ### Monitoring
 - Grafana Dashboard: http://localhost:3000/d/enrichment
 - Prometheus Metrics: http://localhost:9090
-- Logs: `logs/enrichment_YYYYMMDD.log`
+- Logs: `log/enrichment_YYYYMMDD.log`
 
 ### Documentation
 - Design: `docs/GLOBAL_STOCK_METADATA_ENRICHMENT_DESIGN.md`

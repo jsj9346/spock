@@ -432,7 +432,7 @@ class CheckpointManager:
             "next_step": "dividend"
         }
         """
-        checkpoint_file = f"logs/checkpoint_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        checkpoint_file = f"log/checkpoint_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         with open(checkpoint_file, 'w') as f:
             json.dump({
                 'timestamp': datetime.now().isoformat(),
@@ -443,7 +443,7 @@ class CheckpointManager:
 
     def load_latest(self) -> Optional[Dict]:
         """최신 체크포인트 로드"""
-        checkpoint_files = glob.glob("logs/checkpoint_*.json")
+        checkpoint_files = glob.glob("log/checkpoint_*.json")
         if not checkpoint_files:
             return None
 
@@ -1020,7 +1020,7 @@ python3 scripts/update_database.py --incremental
 python3 scripts/update_database.py --resume
 
 # 백그라운드 실행
-nohup python3 scripts/update_database.py > logs/db_update_$(date +%Y%m%d).log 2>&1 &
+nohup python3 scripts/update_database.py > log/db_update_$(date +%Y%m%d).log 2>&1 &
 ```
 
 #### 🔄 자동화 스케줄링 (Cron)
@@ -1030,7 +1030,7 @@ nohup python3 scripts/update_database.py > logs/db_update_$(date +%Y%m%d).log 2>
 crontab -e
 
 # 매일 오전 6시 자동 실행
-0 6 * * * cd /Users/13ruce/spock && python3 scripts/update_database.py --incremental >> logs/daily_update.log 2>&1
+0 6 * * * cd /Users/13ruce/spock && python3 scripts/update_database.py --incremental >> log/daily_update.log 2>&1
 ```
 
 ---

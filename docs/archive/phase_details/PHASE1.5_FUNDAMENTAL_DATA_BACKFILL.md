@@ -137,7 +137,7 @@ Optimization: Batch processing with corp_code lookup cache
 
 **Deliverables**:
 - `scripts/backfill_fundamentals_dart.py` - DART backfill script
-- `logs/backfill_fundamentals_dart_YYYYMMDD.log` - Execution log
+- `log/backfill_fundamentals_dart_YYYYMMDD.log` - Execution log
 - Coverage report: KR fundamental data population rate
 
 ---
@@ -733,22 +733,22 @@ ON ticker_fundamentals(region, date DESC, per, pbr, dividend_yield);
 # KR market: DART + KIS API refresh
 0 2 * * * cd /home/ec2-user/spock-quant && \
   python3 scripts/backfill_fundamentals_dart.py --incremental --rate-limit 1.0 >> \
-  logs/daily_fundamentals_dart.log 2>&1
+  log/daily_fundamentals_dart.log 2>&1
 
 # Global markets: yfinance refresh
 30 2 * * * cd /home/ec2-user/spock-quant && \
   python3 scripts/backfill_fundamentals_yfinance.py --incremental >> \
-  logs/daily_fundamentals_yfinance.log 2>&1
+  log/daily_fundamentals_yfinance.log 2>&1
 
 # Market indices: Daily index data update
 0 3 * * * cd /home/ec2-user/spock-quant && \
   python3 scripts/backfill_market_indices.py --update-latest >> \
-  logs/daily_market_indices.log 2>&1
+  log/daily_market_indices.log 2>&1
 
 # Data quality validation
 30 3 * * * cd /home/ec2-user/spock-quant && \
   python3 scripts/validate_fundamental_data.py --email-alerts >> \
-  logs/daily_validation.log 2>&1
+  log/daily_validation.log 2>&1
 ```
 
 ### Prometheus Metrics for Monitoring

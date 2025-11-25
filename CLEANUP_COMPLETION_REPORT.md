@@ -230,7 +230,7 @@ cp -r archive/spock_legacy/* .
 
 ### Week 1-2 (Optional)
 - [ ] Monitor project for any missing dependencies
-- [ ] Review `logs/` directory for old log files
+- [ ] Review `log/` directory for old log files
 - [ ] Consider archiving old test reports
 
 ### Month 1-3 (Optional)

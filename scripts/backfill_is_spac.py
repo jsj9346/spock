@@ -28,7 +28,7 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler(f'logs/{datetime.now().strftime("%Y%m%d")}_spac_backfill.log')
+        logging.FileHandler(f'log/{datetime.now().strftime("%Y%m%d")}_spac_backfill.log')
     ]
 )
 logger = logging.getLogger(__name__)

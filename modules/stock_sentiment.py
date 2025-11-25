@@ -62,7 +62,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
-        logging.FileHandler(f'logs/{datetime.now().strftime("%Y%m%d")}_stock_sentiment.log'),
+        logging.FileHandler(f'log/{datetime.now().strftime("%Y%m%d")}_stock_sentiment.log'),
         logging.StreamHandler()
     ]
 )

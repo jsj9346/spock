@@ -102,7 +102,7 @@ fi
 **4. Review Alert Log**
 ```bash
 # Check for critical alerts (last 24 hours)
-grep -i "critical\|error" ~/spock/logs/$(date +%Y%m%d)_quant_platform.log | tail -20
+grep -i "critical\|error" ~/spock/log/$(date +%Y%m%d)_quant_platform.log | tail -20
 ```
 
 ### End-of-Day Checklist (5 minutes)
@@ -412,7 +412,7 @@ ORDER BY n_dead_tup DESC;
 **Automated Quality Checks** (run daily at 6 AM):
 ```bash
 # Add to crontab
-# 0 6 * * * /usr/bin/python3 ~/spock/scripts/data_quality_checks.py --comprehensive --region KR >> ~/spock/logs/data_quality.log 2>&1
+# 0 6 * * * /usr/bin/python3 ~/spock/scripts/data_quality_checks.py --comprehensive --region KR >> ~/spock/log/data_quality.log 2>&1
 
 # Run manually
 python3 ~/spock/scripts/data_quality_checks.py --comprehensive --region KR
@@ -542,10 +542,10 @@ WHERE id IN (
 **Cron Configuration**:
 ```bash
 # Daily backup at 2 AM (when market is closed)
-0 2 * * * /Users/13ruce/spock/scripts/backup_postgres.sh >> /Users/13ruce/spock/logs/backup.log 2>&1
+0 2 * * * /Users/13ruce/spock/scripts/backup_postgres.sh >> /Users/13ruce/spock/log/backup.log 2>&1
 
 # Weekly full backup with S3 upload (Sunday 3 AM)
-0 3 * * 0 /Users/13ruce/spock/scripts/backup_postgres.sh --upload-s3 >> /Users/13ruce/spock/logs/backup_weekly.log 2>&1
+0 3 * * 0 /Users/13ruce/spock/scripts/backup_postgres.sh --upload-s3 >> /Users/13ruce/spock/log/backup_weekly.log 2>&1
 ```
 
 ### Manual Backup
@@ -964,7 +964,7 @@ psql -d quant_platform -c "DELETE FROM ohlcv_data WHERE ticker = '005930' AND da
 **Diagnosis**:
 ```bash
 # Check backup log
-tail -50 ~/spock/logs/backup.log
+tail -50 ~/spock/log/backup.log
 
 # Check disk space
 df -h ~/spock/backups/
@@ -1109,7 +1109,7 @@ pg_dump -d quant_platform -f ~/incident_snapshot_$(date +%Y%m%d_%H%M%S).sql
 # Collect diagnostics
 psql -d quant_platform -c "SELECT * FROM pg_stat_activity;" > activity_snapshot.txt
 psql -d quant_platform -c "SELECT * FROM pg_stat_statements ORDER BY total_exec_time DESC LIMIT 50;" > slow_queries.txt
-grep -i "error\|critical" ~/spock/logs/$(date +%Y%m%d)_quant_platform.log > error_log.txt
+grep -i "error\|critical" ~/spock/log/$(date +%Y%m%d)_quant_platform.log > error_log.txt
 ```
 
 **4. Resolution** (varies):

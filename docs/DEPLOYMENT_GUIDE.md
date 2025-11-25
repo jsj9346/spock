@@ -94,9 +94,9 @@ PyJWT==2.8.0
 ### 4. Monitoring Infrastructure
 
 - [ ] Metrics directory created (`metrics_reports/`)
-- [ ] Alert logs directory created (`alert_logs/`)
+- [ ] Alert logs directory created (`alert_log/`)
 - [ ] Monitoring dashboard directory exists (`monitoring/`)
-- [ ] Log directory configured (`logs/`)
+- [ ] Log directory configured (`log/`)
 
 ---
 
@@ -119,7 +119,7 @@ ls -la
 config/
 data/
 docs/
-logs/
+log/
 modules/
 monitoring/
 scripts/
@@ -262,7 +262,7 @@ print(f'KR trading hours: {data[\"KR\"][\"trading_hours\"]}')"
 
 ### 3. Logging Configuration
 
-**Directory**: `logs/`
+**Directory**: `log/`
 
 Configure log rotation:
 ```bash
@@ -432,7 +432,7 @@ Add to crontab for daily validation:
 crontab -e
 
 # Add daily validation at 1 AM
-0 1 * * * cd /Users/13ruce/spock && /Users/13ruce/spock/venv/bin/python3 scripts/validate_data_quality.py >> logs/validation.log 2>&1
+0 1 * * * cd /Users/13ruce/spock && /Users/13ruce/spock/venv/bin/python3 scripts/validate_data_quality.py >> log/validation.log 2>&1
 ```
 
 ---
@@ -592,10 +592,10 @@ cp benchmark_reports/performance_*.json benchmark_reports/baseline.json
 crontab -e
 
 # Collect metrics every 30 minutes
-*/30 * * * * cd /Users/13ruce/spock && /Users/13ruce/spock/venv/bin/python3 -c "from modules.metrics_collector import MetricsCollector; MetricsCollector().save_metrics()" >> logs/metrics.log 2>&1
+*/30 * * * * cd /Users/13ruce/spock && /Users/13ruce/spock/venv/bin/python3 -c "from modules.metrics_collector import MetricsCollector; MetricsCollector().save_metrics()" >> log/metrics.log 2>&1
 
 # Run alerts every hour
-0 * * * * cd /Users/13ruce/spock && /Users/13ruce/spock/venv/bin/python3 modules/alert_system.py >> logs/alerts.log 2>&1
+0 * * * * cd /Users/13ruce/spock && /Users/13ruce/spock/venv/bin/python3 modules/alert_system.py >> log/alerts.log 2>&1
 ```
 
 ### 3. Backup Configuration
@@ -615,7 +615,7 @@ crontab -e
 ```bash
 # Create logrotate config (Linux)
 sudo cat > /etc/logrotate.d/spock << 'EOF'
-/Users/13ruce/spock/logs/*.log {
+/Users/13ruce/spock/log/*.log {
     daily
     rotate 7
     compress
@@ -630,7 +630,7 @@ EOF
 **macOS Alternative** (using newsyslog):
 ```bash
 # Add to /etc/newsyslog.conf
-sudo echo "/Users/13ruce/spock/logs/*.log 644 7 * 24 GZ" >> /etc/newsyslog.conf
+sudo echo "/Users/13ruce/spock/log/*.log 644 7 * 24 GZ" >> /etc/newsyslog.conf
 ```
 
 ---
@@ -703,7 +703,7 @@ readlink metrics_latest.json
 
 **Symptoms**:
 - Alert system runs but no alerts generated
-- No alert files in alert_logs/
+- No alert files in alert_log/
 
 **Solution**:
 ```bash
@@ -733,11 +733,11 @@ chmod 755 data/
 
 # Fix directory permissions
 chmod 755 metrics_reports/
-chmod 755 alert_logs/
-chmod 755 logs/
+chmod 755 alert_log/
+chmod 755 log/
 
 # Verify
-ls -ld data/ metrics_reports/ alert_logs/ logs/
+ls -ld data/ metrics_reports/ alert_log/ log/
 ```
 
 ### Issue 6: API Credentials Invalid
@@ -865,13 +865,13 @@ sqlite3 data/spock_local.db "SELECT COUNT(*) FROM ohlcv_data;"
 ### Monitoring
 - **Dashboard**: http://localhost:8080/dashboard.html
 - **Metrics Reports**: `metrics_reports/`
-- **Alert Logs**: `alert_logs/`
+- **Alert Logs**: `alert_log/`
 
 ### Logs
-- **Application Logs**: `logs/spock.log`
-- **Metrics Logs**: `logs/metrics.log`
-- **Alert Logs**: `logs/alerts.log`
-- **Validation Logs**: `logs/validation.log`
+- **Application Logs**: `log/spock.log`
+- **Metrics Logs**: `log/metrics.log`
+- **Alert Logs**: `log/alerts.log`
+- **Validation Logs**: `log/validation.log`
 
 ---
 

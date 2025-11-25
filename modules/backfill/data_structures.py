@@ -351,7 +351,7 @@ class BackfillResult:
         result = BackfillResult(
             gap_analysis=gap_result,
             backfill_stats=stats,
-            checkpoint_file='logs/checkpoint_20251111.json',
+            checkpoint_file='log/checkpoint_20251111.json',
             success=True
         )
 
@@ -524,7 +524,7 @@ if __name__ == '__main__':
     result = BackfillResult(
         gap_analysis=gap_result,
         backfill_stats=backfill_stats,
-        checkpoint_file='logs/checkpoint_20251111.json',
+        checkpoint_file='log/checkpoint_20251111.json',
         success=True
     )
 

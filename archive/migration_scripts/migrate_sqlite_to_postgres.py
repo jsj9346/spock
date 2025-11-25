@@ -566,7 +566,7 @@ def main():
     args = parser.parse_args()
 
     # Setup logging
-    log_file = f"logs/{datetime.now().strftime('%Y%m%d')}_migration.log"
+    log_file = f"log/{datetime.now().strftime('%Y%m%d')}_migration.log"
     logger.add(log_file, rotation="100 MB")
 
     logger.info("=" * 70)

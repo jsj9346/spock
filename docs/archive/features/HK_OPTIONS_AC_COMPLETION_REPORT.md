@@ -429,8 +429,8 @@ elif tier == 2:
 - ✅ `data/hk_etfs.csv` (51 ETFs, 3 KB)
 
 ### Logs
-- ✅ `logs/hk_tier2_backfill.log` (120 KB)
-- ✅ `logs/hk_etf_backfill.log` (18 KB)
+- ✅ `log/hk_tier2_backfill.log` (120 KB)
+- ✅ `log/hk_etf_backfill.log` (18 KB)
 
 ### Reports
 - ✅ `reports/hk_tier2_backfill_results_20251112_161811.json` (485 bytes)

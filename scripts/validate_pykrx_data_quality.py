@@ -34,7 +34,7 @@ load_dotenv()
 
 # Setup logging
 logger.add(
-    f"logs/{datetime.now().strftime('%Y%m%d')}_pykrx_validation.log",
+    f"log/{datetime.now().strftime('%Y%m%d')}_pykrx_validation.log",
     format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
     level="INFO"
 )
@@ -289,7 +289,7 @@ class PykrxDataValidator:
         # Export to CSV if requested
         if export_csv:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"logs/pykrx_validation_{timestamp}.csv"
+            filename = f"log/pykrx_validation_{timestamp}.csv"
             
             # Flatten validation results
             rows = []

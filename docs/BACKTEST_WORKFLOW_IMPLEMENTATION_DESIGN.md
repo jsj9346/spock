@@ -660,7 +660,7 @@ Following these principles ensures:
 ## Support
 
 For issues or questions:
-1. Check logs: `logs/mcp_server.log`
+1. Check logs: `log/mcp_server.log`
 2. Review tool descriptions in Claude Desktop
 3. Verify MCP server is running
 4. Consult [BACKTEST_WORKFLOW_ANALYSIS.md](file:///Users/13ruce/spock/docs/BACKTEST_WORKFLOW_ANALYSIS.md)

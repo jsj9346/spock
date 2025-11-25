@@ -75,7 +75,7 @@ ticker | fiscal_year | period_type | net_income      | total_equity     | roe_pc
 
 **Process Details**:
 - Background process ID: `4a63ff`
-- Log file: `logs/20251102_task9_full_backfill.log`
+- Log file: `log/20251102_task9_full_backfill.log`
 - Current progress: Ticker 1/2,330 (000020)
 
 ---
@@ -87,13 +87,13 @@ ticker | fiscal_year | period_type | net_income      | total_equity     | roe_pc
 **Check Progress** (run every 2-3 hours):
 ```bash
 # Check current ticker being processed
-tail -20 logs/20251102_task9_full_backfill.log | grep "Processing"
+tail -20 log/20251102_task9_full_backfill.log | grep "Processing"
 
 # Check statistics
-tail -50 logs/20251102_task9_full_backfill.log | grep -E "(Tickers Processed|Records Inserted|Success)"
+tail -50 log/20251102_task9_full_backfill.log | grep -E "(Tickers Processed|Records Inserted|Success)"
 
 # Check for errors
-tail -100 logs/20251102_task9_full_backfill.log | grep "ERROR"
+tail -100 log/20251102_task9_full_backfill.log | grep "ERROR"
 
 # Database record count
 psql -d quant_platform -c "

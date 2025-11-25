@@ -22,7 +22,7 @@ Operational infrastructure reused from Spock with quant-specific enhancements.
 
 ### Log Files
 
-**Location**: `logs/YYYYMMDD_quant_platform.log`
+**Location**: `log/YYYYMMDD_quant_platform.log`
 **Retention**: 30 days (automatic cleanup)
 **Rotation**: Daily at midnight
 
@@ -272,7 +272,7 @@ psql -d quant_platform -c "SELECT 1;"
 df -h | grep quant_platform
 
 # 4. Review overnight logs
-tail -n 100 logs/$(date +%Y%m%d)_quant_platform.log | grep ERROR
+tail -n 100 log/$(date +%Y%m%d)_quant_platform.log | grep ERROR
 ```
 
 #### Evening Checklist
@@ -308,7 +308,7 @@ SELECT show_chunks('ohlcv_data');
 python3 scripts/generate_weekly_report.py --week $(date +%Y%W)
 
 # 4. Rotate old logs
-find logs/ -name "*.log" -mtime +30 -delete
+find log/ -name "*.log" -mtime +30 -delete
 ```
 
 ### Monthly Operations

@@ -36,7 +36,7 @@ def timeout_handler(signum, frame):
 # Configure logger
 logger.remove()
 logger.add(
-    f"logs/backfill_orphaned_tickers_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log",
+    f"log/backfill_orphaned_tickers_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log",
     format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
     level="INFO"
 )

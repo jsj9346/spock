@@ -18,8 +18,8 @@ Usage:
     python3 scripts/calculate_ev_ebitda.py --dry-run
 
     # Background execution with logging
-    nohup python3 scripts/calculate_ev_ebitda.py > logs/ev_ebitda_$(date +%Y%m%d_%H%M%S).log 2>&1 &
-    tail -f logs/ev_ebitda_*.log
+    nohup python3 scripts/calculate_ev_ebitda.py > log/ev_ebitda_$(date +%Y%m%d_%H%M%S).log 2>&1 &
+    tail -f log/ev_ebitda_*.log
 
 Author: Quant Investment Platform - Option B Implementation
 """
@@ -44,7 +44,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Setup logging
-log_filename = f"logs/{datetime.now().strftime('%Y%m%d')}_calculate_ev_ebitda.log"
+log_filename = f"log/{datetime.now().strftime('%Y%m%d')}_calculate_ev_ebitda.log"
 os.makedirs('logs', exist_ok=True)
 
 logger.add(

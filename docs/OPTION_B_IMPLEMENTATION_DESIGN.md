@@ -1841,13 +1841,13 @@ crontab -e
 
 # Add lines:
 # Daily pykrx collection (market close + 30 min)
-30 15 * * 1-5 cd /Users/13ruce/spock && python3 scripts/collect_pykrx_fundamentals.py --date today >> logs/pykrx_collection.log 2>&1
+30 15 * * 1-5 cd /Users/13ruce/spock && python3 scripts/collect_pykrx_fundamentals.py --date today >> log/pykrx_collection.log 2>&1
 
 # Daily data quality check (evening)
-0 20 * * * cd /Users/13ruce/spock && python3 scripts/monitor_data_quality.py >> logs/data_quality.log 2>&1
+0 20 * * * cd /Users/13ruce/spock && python3 scripts/monitor_data_quality.py >> log/data_quality.log 2>&1
 
 # Weekly factor re-calculation (Sunday midnight)
-0 0 * * 0 cd /Users/13ruce/spock && python3 scripts/calculate_dividend_yield.py && python3 scripts/calculate_ev_ebitda.py >> logs/factor_calculation.log 2>&1
+0 0 * * 0 cd /Users/13ruce/spock && python3 scripts/calculate_dividend_yield.py && python3 scripts/calculate_ev_ebitda.py >> log/factor_calculation.log 2>&1
 ```
 
 **Step 3: Monitoring Dashboard Setup**

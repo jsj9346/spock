@@ -527,8 +527,8 @@ Next steps:
 1. ✅ `docs/HK_TECHNICAL_FUNDAMENTAL_COMPLETION_REPORT.md` (this file)
 
 ### Log Files
-1. ✅ `logs/technical_indicators_20251112_*.log`
-2. ✅ `logs/fundamental_data_20251112_230205.log`
+1. ✅ `log/technical_indicators_20251112_*.log`
+2. ✅ `log/fundamental_data_20251112_230205.log`
 
 ---
 

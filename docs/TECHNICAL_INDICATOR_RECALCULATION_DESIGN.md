@@ -527,7 +527,7 @@ modules/
   indicator_calculator.py                  # Indicator calculation engine
   batch_processor.py                       # Batch processing utilities
 
-logs/
+log/
   indicator_recalculation_YYYYMMDD.log    # Execution logs
 
 data/

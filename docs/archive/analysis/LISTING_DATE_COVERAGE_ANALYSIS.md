@@ -306,7 +306,7 @@ yf_ticker = f"{base}{SUFFIX_MAP[region]}"
 - **HK Stock Exchange**: https://www.hkex.com.hk/
 - **Shanghai Stock Exchange**: http://english.sse.com.cn/
 - **Shenzhen Stock Exchange**: http://www.szse.cn/English/
-- **Backfill Log**: `/Users/13ruce/spock/logs/20251107_backfill_listing_dates_overseas.log`
+- **Backfill Log**: `/Users/13ruce/spock/log/20251107_backfill_listing_dates_overseas.log`
 - **Implementation**: `/Users/13ruce/spock/scripts/backfill_listing_dates_overseas.py`
 
 ---

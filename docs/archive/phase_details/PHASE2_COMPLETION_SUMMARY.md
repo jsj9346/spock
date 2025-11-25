@@ -446,13 +446,13 @@ python3 scripts/backfill_phase2_historical.py \
   --start-year 2022 \
   --end-year 2024 \
   --checkpoint-file data/phase2_checkpoint.json \
-  --log-file logs/phase2_backfill.log
+  --log-file log/phase2_backfill.log
 ```
 
 **Monitoring**:
 ```bash
 # Monitor progress
-tail -f logs/phase2_backfill.log
+tail -f log/phase2_backfill.log
 
 # Check stats
 psql -d quant_platform -c "

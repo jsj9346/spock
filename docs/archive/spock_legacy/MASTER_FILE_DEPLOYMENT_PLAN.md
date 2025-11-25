@@ -349,7 +349,7 @@ print(f'Restored {count} US tickers')
        level=logging.INFO,
        format='%(asctime)s [%(levelname)s] %(message)s',
        handlers=[
-           logging.FileHandler('logs/master_file_updates.log'),
+           logging.FileHandler('log/master_file_updates.log'),
            logging.StreamHandler()
        ]
    )
@@ -433,10 +433,10 @@ print(f'Restored {count} US tickers')
 
    # Add to crontab (edit with: crontab -e)
    # Daily at 6AM KST (adjust if server is not in KST)
-   0 6 * * * cd /Users/13ruce/spock && /usr/bin/python3 scripts/update_master_files.py >> logs/cron_master_file_updates.log 2>&1
+   0 6 * * * cd /Users/13ruce/spock && /usr/bin/python3 scripts/update_master_files.py >> log/cron_master_file_updates.log 2>&1
 
    # Weekly full refresh at 3AM KST on Sundays
-   0 3 * * 0 cd /Users/13ruce/spock && /usr/bin/python3 scripts/update_master_files.py >> logs/cron_master_file_updates.log 2>&1
+   0 3 * * 0 cd /Users/13ruce/spock && /usr/bin/python3 scripts/update_master_files.py >> log/cron_master_file_updates.log 2>&1
    ```
 
 4. **Set Up systemd Timer** (Alternative, 1 hour)
@@ -522,7 +522,7 @@ print(f'Restored {count} US tickers')
 - **Method**: Force refresh + data quality check
 
 ## Monitoring
-- **Logs**: `logs/master_file_updates.log`
+- **Logs**: `log/master_file_updates.log`
 - **Metrics**: Prometheus (port 8000)
 - **Alerts**: Grafana (failed updates, stale data)
 
@@ -834,7 +834,7 @@ for region in ['US', 'HK', 'JP', 'CN', 'VN']:
 curl http://localhost:8000/metrics | grep spock_ohlcv_rows_total
 
 # Check logs
-tail -f logs/master_file_updates.log
+tail -f log/master_file_updates.log
 ```
 
 ### Contact Information

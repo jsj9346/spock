@@ -56,7 +56,7 @@ except ImportError:
 load_dotenv()
 
 # Setup logging
-log_filename = f"logs/{datetime.now().strftime('%Y%m%d')}_corporate_actions_week3.log"
+log_filename = f"log/{datetime.now().strftime('%Y%m%d')}_corporate_actions_week3.log"
 os.makedirs('logs', exist_ok=True)
 
 logging.basicConfig(

@@ -512,8 +512,8 @@ LIMIT 5;
 
 ### A. 로그 파일
 
-- **HK 백필**: `logs/20251110_backfill_listing_dates_overseas.log` (lines 1-800)
-- **CN 백필**: `logs/20251110_backfill_listing_dates_overseas.log` (lines 801-end)
+- **HK 백필**: `log/20251110_backfill_listing_dates_overseas.log` (lines 1-800)
+- **CN 백필**: `log/20251110_backfill_listing_dates_overseas.log` (lines 801-end)
 
 ### B. 관련 문서
 

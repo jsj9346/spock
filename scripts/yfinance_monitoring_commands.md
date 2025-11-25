@@ -35,25 +35,25 @@ Automatically refreshes yfinance dashboard every 10 seconds
 
 ### 4️⃣ **실시간 로그 보기 (Real-time log tail)**
 ```bash
-tail -f logs/yfinance_production_backfill.log
+tail -f log/yfinance_production_backfill.log
 ```
 Follow log in real-time (Ctrl+C to exit)
 
 ### 5️⃣ **최근 진행 상황 (Last 20 lines)**
 ```bash
-tail -20 logs/yfinance_production_backfill.log
+tail -20 log/yfinance_production_backfill.log
 ```
 Show last 20 log entries
 
 ### 6️⃣ **진행률만 추출 (Extract progress lines)**
 ```bash
-grep -E "^\[.*\] Processing" logs/yfinance_production_backfill.log | tail -5
+grep -E "^\[.*\] Processing" log/yfinance_production_backfill.log | tail -5
 ```
 Show last 5 progress indicators (e.g., [123/17297] Processing...)
 
 ### 7️⃣ **에러/경고 확인 (Check for errors/warnings)**
 ```bash
-grep -E "(ERROR|❌|WARNING|⚠️)" logs/yfinance_production_backfill.log | tail -10
+grep -E "(ERROR|❌|WARNING|⚠️)" log/yfinance_production_backfill.log | tail -10
 ```
 Show last 10 errors or warnings
 
@@ -124,7 +124,7 @@ pkill -f "backfill_fundamentals_yfinance"
 
 ### 1️⃣3️⃣ **백필 재시작 (Restart backfill - if stopped)**
 ```bash
-nohup python3 scripts/backfill_fundamentals_yfinance.py --rate-limit 0.5 > logs/yfinance_production_backfill_RESTART.log 2>&1 & echo $!
+nohup python3 scripts/backfill_fundamentals_yfinance.py --rate-limit 0.5 > log/yfinance_production_backfill_RESTART.log 2>&1 & echo $!
 ```
 Restart from where it left off (yfinance script has built-in resume capability)
 
@@ -135,7 +135,7 @@ Restart from where it left off (yfinance script has built-in resume capability)
 ### Extract current progress from log:
 ```bash
 # Get latest progress line
-grep -E "^\[.*\] Processing" logs/yfinance_production_backfill.log | tail -1
+grep -E "^\[.*\] Processing" log/yfinance_production_backfill.log | tail -1
 
 # Example output: [123/17297] Processing US:AAPL...
 # Means: 123 tickers processed out of 17,297 total
@@ -181,12 +181,12 @@ grep -E "^\[.*\] Processing" logs/yfinance_production_backfill.log | tail -1
 1. Check process is running: `ps aux | grep yfinance`
 2. Check CPU usage: `top -p <PID>`
 3. Check network: `ping finance.yahoo.com`
-4. Review recent errors: `grep ERROR logs/yfinance_production_backfill.log | tail -20`
+4. Review recent errors: `grep ERROR log/yfinance_production_backfill.log | tail -20`
 
 ### If backfill stopped unexpectedly:
-1. Check exit code in log: `tail -50 logs/yfinance_production_backfill.log`
+1. Check exit code in log: `tail -50 log/yfinance_production_backfill.log`
 2. Check database connection: `psql -d quant_platform -c "SELECT 1;"`
-3. Restart with: `nohup python3 scripts/backfill_fundamentals_yfinance.py --rate-limit 0.5 > logs/yfinance_production_backfill_RESTART.log 2>&1 &`
+3. Restart with: `nohup python3 scripts/backfill_fundamentals_yfinance.py --rate-limit 0.5 > log/yfinance_production_backfill_RESTART.log 2>&1 &`
 
 ### If seeing many 404 errors:
 - **Normal behavior** - Not all tickers in our database have yfinance data

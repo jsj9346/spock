@@ -132,7 +132,7 @@
 
 **Process**:
 - PID: 89491 (running in background)
-- Log File: `logs/deployment_top50_20251017_224930.log`
+- Log File: `log/deployment_top50_20251017_224930.log`
 - Command: `python3 scripts/deploy_historical_fundamentals.py --top 50`
 
 ---
@@ -324,7 +324,7 @@ conn.close()
 ps aux | grep "deploy_historical_fundamentals.py"
 
 # View real-time logs (if available)
-tail -f logs/spock.log | grep "HISTORICAL"
+tail -f log/spock.log | grep "HISTORICAL"
 ```
 
 ---
@@ -373,7 +373,7 @@ tail -f logs/spock.log | grep "HISTORICAL"
 **Validation Script**: `scripts/validate_historical_data_quality.py`
 **Deployment Report**: Will be generated at `data/deployments/historical_deployment_TIMESTAMP.json`
 
-**For Issues**: Check logs at `logs/spock.log` or re-run with `--dry-run` flag
+**For Issues**: Check logs at `log/spock.log` or re-run with `--dry-run` flag
 
 ---
 

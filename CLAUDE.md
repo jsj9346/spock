@@ -295,7 +295,7 @@
    dashboard/                           # Streamlit UI
    config/                              # 설정 파일
    data/                                # PostgreSQL 데이터베이스
-   logs/                                # 애플리케이션 로그
+   log/                                # 애플리케이션 로그
    tests/                               # 테스트 스위트
    docs/                                # 문서
       archive/                          # 레거시 문서 아카이브
@@ -539,7 +539,7 @@ python3 quant_platform.py backtest \
 ## 모니터링 및 운영
 
 ### 로그 파일
-- **위치**: `logs/YYYYMMDD_quant_platform.log`
+- **위치**: `log/YYYYMMDD_quant_platform.log`
 - **보존 기간**: 30일
 - **레벨**: DEBUG, INFO, WARNING, ERROR, CRITICAL
 

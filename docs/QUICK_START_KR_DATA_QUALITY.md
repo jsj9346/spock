@@ -126,16 +126,16 @@ fi
 ### 시나리오 4: 백그라운드 수집 모니터링
 ```bash
 # 수집 스크립트 백그라운드 실행
-nohup python3 scripts/collect_full_kr_250days.py > logs/collection.log 2>&1 &
+nohup python3 scripts/collect_full_kr_250days.py > log/collection.log 2>&1 &
 
 # 프로세스 ID 확인
 ps aux | grep collect_full_kr_250days
 
 # 로그 실시간 모니터링
-tail -f logs/full_kr_collection_250days_v2.log
+tail -f log/full_kr_collection_250days_v2.log
 
 # 진행률 확인
-grep "진행률:" logs/full_kr_collection_250days_v2.log | tail -1
+grep "진행률:" log/full_kr_collection_250days_v2.log | tail -1
 ```
 
 ---
@@ -251,7 +251,7 @@ python3 scripts/recalculate_technical_indicators.py
 2. **로그 관리**:
    ```bash
    # 오래된 로그 정리 (30일 이상)
-   find logs/ -name "*.log" -mtime +30 -delete
+   find log/ -name "*.log" -mtime +30 -delete
    ```
 
 3. **성능 모니터링**:

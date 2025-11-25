@@ -512,7 +512,7 @@ def _insert_to_valuation_signals(self, rates: Dict[str, Decimal]) -> int:
 **5. 파생 메트릭 계산 자동화**
 ```bash
 # crontab 추가
-0 10 * * * cd /Users/13ruce/spock && python3 scripts/calculate_fx_metrics.py >> logs/fx_metrics.log 2>&1
+0 10 * * * cd /Users/13ruce/spock && python3 scripts/calculate_fx_metrics.py >> log/fx_metrics.log 2>&1
 ```
 
 ### Phase 4: 장기 조치 (1개월 이내)

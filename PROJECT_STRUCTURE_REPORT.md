@@ -152,7 +152,7 @@ modules/
 ├── 🆕 api/ (Phase 6 - NEW)
 ├── config/ (existing)
 ├── data/ (existing)
-├── logs/ (existing)
+├── log/ (existing)
 ├── scripts/ (existing)
 ├── tests/ (existing)
 └── docs/ (existing)

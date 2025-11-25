@@ -770,7 +770,7 @@ open http://localhost:3000/d/spock-metadata-enrichment
 cp data/backups/spock_local_pre_enrichment_YYYYMMDD.db data/spock_local.db
 
 # Review logs
-tail -f logs/enrichment_YYYYMMDD.log
+tail -f log/enrichment_YYYYMMDD.log
 
 # Fix issues and retry
 python3 scripts/enrich_global_metadata.py --region US --force-refresh

@@ -70,7 +70,7 @@ spock/
 ├── docs/                       # 100+ documentation files
 ├── config/                     # API credentials, market hours
 ├── data/                       # SQLite database + backups
-├── logs/                       # Application logs (7-day retention)
+├── log/                       # Application logs (7-day retention)
 └── monitoring/                 # Prometheus/Grafana stack
 ```
 

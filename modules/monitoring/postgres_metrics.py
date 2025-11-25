@@ -670,7 +670,7 @@ def main():
     args = parser.parse_args()
 
     # Setup logging
-    logger.add("logs/postgres_metrics.log", rotation="100 MB")
+    logger.add("log/postgres_metrics.log", rotation="100 MB")
 
     logger.info("=" * 70)
     logger.info("PostgreSQL Prometheus Metrics Server")

@@ -16,7 +16,7 @@ Usage:
       --end-date 2025-11-12 \\
       --rate-limit 1.0 \\
       --validate-quality \\
-      --log-file logs/hk_tier1_backfill.log
+      --log-file log/hk_tier1_backfill.log
 """
 
 import argparse

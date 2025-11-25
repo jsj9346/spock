@@ -464,7 +464,7 @@ ALTER TABLE factor_scores ADD COLUMN IF NOT EXISTS
 3. **Monitor progress** (real-time):
    ```bash
    # Watch progress
-   tail -f logs/backfill_fundamentals_dart.log
+   tail -f log/backfill_fundamentals_dart.log
 
    # Check progress percentage
    cat phase1_progress.json | jq '.progress_pct'
@@ -878,7 +878,7 @@ LIMIT 20;
 **Monitor Backfill Progress**:
 ```bash
 # Watch backfill log
-tail -f logs/backfill_fundamentals_dart.log
+tail -f log/backfill_fundamentals_dart.log
 
 # Check progress JSON
 cat phase1_progress.json | jq '.progress_pct, .records_added, .errors'

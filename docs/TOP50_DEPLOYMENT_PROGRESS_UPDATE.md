@@ -127,7 +127,7 @@ Expected completion: ~01:18 KST (2025-10-18)
 **Process Details**:
 - PID: 89491 (running)
 - Command: `python3 scripts/deploy_historical_fundamentals.py --top 50`
-- Log: `logs/deployment_top50_20251017_224930.log`
+- Log: `log/deployment_top50_20251017_224930.log`
 - Start Time: 22:49:30 KST
 - Elapsed: ~83 minutes
 
@@ -197,7 +197,7 @@ python3 scripts/check_deployment_status.py --detailed
 ps aux | grep "deploy_historical_fundamentals.py"
 
 # View logs (if available)
-tail -f logs/spock.log | grep "DART"
+tail -f log/spock.log | grep "DART"
 ```
 
 ### Database Queries

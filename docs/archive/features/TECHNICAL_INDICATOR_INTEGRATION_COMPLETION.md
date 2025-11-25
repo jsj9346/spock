@@ -388,7 +388,7 @@ print(f"Total Time: {total_time:.1f} minutes")
 #### Before (subprocess):
 ```
 ⏳ Starting technical indicators calculation...
-Log file: logs/technical_indicators_20251115_123456.log
+Log file: log/technical_indicators_20251115_123456.log
 
 [긴 대기 시간...]
 

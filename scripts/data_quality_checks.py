@@ -583,7 +583,7 @@ def main():
     args = parser.parse_args()
 
     # Setup logging
-    log_file = f"logs/{datetime.now().strftime('%Y%m%d')}_quality_checks.log"
+    log_file = f"log/{datetime.now().strftime('%Y%m%d')}_quality_checks.log"
     logger.add(log_file, rotation="100 MB")
 
     logger.info("=" * 70)

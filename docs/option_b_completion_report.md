@@ -185,8 +185,8 @@ Tickers processed: 74
 **Status**: COMPLETE
 **Deliverables**:
 - Correlation analysis script: `calculate_factor_correlation.py`
-- Scatter plot: `logs/factor_correlation_20251029_102105.png`
-- CSV export: `logs/factor_correlation_20251029_102105.csv`
+- Scatter plot: `log/factor_correlation_20251029_102105.png`
+- CSV export: `log/factor_correlation_20251029_102105.csv`
 
 **Correlation Results**:
 
@@ -333,10 +333,10 @@ scripts/calculate_ev_ebitda.py                    # 385 lines
 modules/factors/value_factors_postgres.py         # 536 lines
 docs/ev_ebitda_validation_report.md               # Validation report
 docs/option_b_completion_report.md                # This file
-logs/ev_ebitda_full_*.log                         # Execution logs
-logs/factor_correlation_*.png                     # Visualization
-logs/factor_correlation_*.csv                     # Correlation data
-logs/composite_value_results.csv                  # Validation results
+log/ev_ebitda_full_*.log                         # Execution logs
+log/factor_correlation_*.png                     # Visualization
+log/factor_correlation_*.csv                     # Correlation data
+log/composite_value_results.csv                  # Validation results
 ```
 
 ### Files Modified

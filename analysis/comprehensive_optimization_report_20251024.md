@@ -659,11 +659,11 @@ risk_management:
 - `data/backtest_results/orthogonal_backtest_2023-01-01_2024-10-09_20251024_224547.csv` - Tier 2 Minimal
 
 **Log Files**:
-- `logs/phase3_tier3_best_factors_20251024.log` - Tier 3 backtest execution log
-- `logs/phase2c_relaxed_filters_20251024.log` - Phase 2C execution log
-- `logs/tier4_diversified_20251024.log` - Tier 4 Diversified log
-- `logs/tier4_momentum_20251024.log` - Tier 4 Momentum log
-- `logs/tier2_minimal_20251024.log` - Tier 2 Minimal log
+- `log/phase3_tier3_best_factors_20251024.log` - Tier 3 backtest execution log
+- `log/phase2c_relaxed_filters_20251024.log` - Phase 2C execution log
+- `log/tier4_diversified_20251024.log` - Tier 4 Diversified log
+- `log/tier4_momentum_20251024.log` - Tier 4 Momentum log
+- `log/tier2_minimal_20251024.log` - Tier 2 Minimal log
 
 ### Appendix D: Command Reference
 

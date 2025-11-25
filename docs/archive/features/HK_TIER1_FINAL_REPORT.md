@@ -255,7 +255,7 @@ python3 scripts/backfill_hk_ohlcv_tiered.py \
   --end-date 2025-11-12 \
   --rate-limit 1.0 \
   --validate-quality \
-  --log-file logs/hk_tier2_backfill.log
+  --log-file log/hk_tier2_backfill.log
 
 # Estimated duration: 8-12 hours (500 tickers × 3 years)
 # Expected records: ~375,000 OHLCV records
@@ -459,8 +459,8 @@ python3 scripts/validate_hk_data_quality.py \
 - ✅ `data/hk_hsi_constituents.csv` (47 tickers, 1.2 KB)
 
 ### Logs
-- ✅ `logs/hk_tier1_test_backfill.log` (4.5 KB)
-- ✅ `logs/hk_tier1_full_backfill.log` (6.8 KB)
+- ✅ `log/hk_tier1_test_backfill.log` (4.5 KB)
+- ✅ `log/hk_tier1_full_backfill.log` (6.8 KB)
 
 ### Reports
 - ✅ `reports/hk_tier1_backfill_results_20251112_155116.json` (test results)

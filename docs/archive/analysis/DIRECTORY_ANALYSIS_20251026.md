@@ -53,7 +53,7 @@
 ├── INFRASTRUCTURE
 │   ├── config/                                        [32M - Market configs, holidays]
 │   ├── monitoring/                                    [504K - Prometheus/Grafana]
-│   ├── logs/                                          [467M - Operational logs]
+│   ├── log/                                          [467M - Operational logs]
 │   ├── data/                                          [3.4G - OHLCV, master files]
 │   ├── backups/                                       [186M - DB backups]
 │   └── api/                                           [132K - FastAPI routes]
@@ -359,7 +359,7 @@
 | Component | Size | Action | Reason |
 |-----------|------|--------|--------|
 | `/monitoring/` | 504K | Keep | Prometheus + Grafana stack (operational monitoring) |
-| `/logs/` | 467M | Archive | Application logs >30 days old (automatic cleanup) |
+| `/log/` | 467M | Archive | Application logs >30 days old (automatic cleanup) |
 | `/data/` | 3.4G | Keep | OHLCV data, master files (research data) |
 | `/backups/` | 186M | Clean | Archive old backups (keep 3 recent) |
 | `/migration_ohlcv.log` | 192M | Delete | One-time migration log (no longer needed) |

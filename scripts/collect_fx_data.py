@@ -125,7 +125,7 @@ Exit Codes:
         '--log-dir',
         type=str,
         default='logs',
-        help='Log file directory (default: logs/)'
+        help='Log file directory (default: log/)'
     )
 
     parser.add_argument(

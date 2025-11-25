@@ -383,13 +383,13 @@ python3 -m cli.commands.backtest \
 
 ```bash
 # 1. 로그 디렉토리 확인
-ls -lh ~/spock/logs/
+ls -lh ~/spock/log/
 
 # 2. 최신 로그 확인
-tail -f ~/spock/logs/$(date +%Y%m%d)_quant_platform.log
+tail -f ~/spock/log/$(date +%Y%m%d)_quant_platform.log
 
 # 3. 에러 로그 검색
-grep -i "error\|exception\|failed" ~/spock/logs/*.log
+grep -i "error\|exception\|failed" ~/spock/log/*.log
 ```
 
 ---
@@ -430,7 +430,7 @@ sudo cat > /opt/aws/amazon-cloudwatch-agent/etc/config.json <<'EOF'
       "files": {
         "collect_list": [
           {
-            "file_path": "/home/ec2-user/spock/logs/*.log",
+            "file_path": "/home/ec2-user/spock/log/*.log",
             "log_group_name": "/aws/ec2/quant-platform",
             "log_stream_name": "{instance_id}/cli"
           }

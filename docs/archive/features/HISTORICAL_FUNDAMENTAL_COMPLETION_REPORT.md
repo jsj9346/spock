@@ -974,7 +974,7 @@ class Backtester:
 **Daily Monitoring**:
 ```bash
 # Check for collection errors in logs
-grep "ERROR.*historical" logs/$(date +%Y%m%d)_spock.log
+grep "ERROR.*historical" log/$(date +%Y%m%d)_spock.log
 
 # Verify database integrity
 python3 -c "

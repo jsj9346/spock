@@ -193,8 +193,8 @@ Phase 2는 **ETF TER (Total Expense Ratio) 데이터 수집 및 업데이트**�
 - `scripts/backfill_etf_aum.py` (240 lines) - AUM & Listed Shares 수집 스크립트
 
 ### 로그
-- `logs/20251014_etf_aum_backfill.log` (0 KB, empty)
-- `logs/20251014_etf_aum_backfill_continued.log` (67 lines) - 실제 수집 로그
+- `log/20251014_etf_aum_backfill.log` (0 KB, empty)
+- `log/20251014_etf_aum_backfill_continued.log` (67 lines) - 실제 수집 로그
 
 ### 문서
 - `docs/PHASE2_TER_COMPLETION_REPORT.md` (이 파일)

@@ -59,7 +59,7 @@ DART API에서 수집한 재무 데이터의 **46.51%가 net_income = 0**으로 
 삽입 레코드: 122건
 ```
 
-**로그 파일**: `logs/20251025_114449_dart_rebackfill_fix_net_income.log`
+**로그 파일**: `log/20251025_114449_dart_rebackfill_fix_net_income.log`
 
 ---
 
@@ -304,7 +304,7 @@ net_income_fields = [
   Records Updated:  0건
 ```
 
-**로그 파일**: `logs/20251025_163516_dart_rebackfill_2020_2021.log`
+**로그 파일**: `log/20251025_163516_dart_rebackfill_2020_2021.log`
 
 ### 5.2 DART API 데이터 제한사항 발견
 

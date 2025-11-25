@@ -234,7 +234,7 @@ python3 scripts/kr_data_quality_workflow.py --skip-collection --force
 **Details**:
 - Script: `scripts/collect_full_kr_250days.py`
 - Process ID: 3357
-- Log File: `logs/full_kr_collection_250days_v2.log`
+- Log File: `log/full_kr_collection_250days_v2.log`
 - Progress: 2052/3745 tickers (54.8%)
 - Remaining: ~15 minutes
 - Rows per ticker: 249 (target: 250)
@@ -261,7 +261,7 @@ python3 scripts/kr_data_quality_workflow.py --skip-collection --force
 **Option A: Manual Execution** (Recommended for verification):
 ```bash
 # 1. Wait for collection to complete
-tail -f logs/full_kr_collection_250days_v2.log
+tail -f log/full_kr_collection_250days_v2.log
 
 # 2. Run validation to verify collection
 python3 scripts/validate_kr_data_quality.py

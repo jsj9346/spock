@@ -1,7 +1,7 @@
 # Comprehensive Cleanup Plan 2025
 **Analysis Date**: 2025-11-03
 **Previous Cleanup**: 2025-10-26 (193MB recovered)
-**Current Disk Usage**: logs/ (971MB), docs/ (6.2MB), archive/ (920KB)
+**Current Disk Usage**: log/ (971MB), docs/ (6.2MB), archive/ (920KB)
 
 ---
 
@@ -30,16 +30,16 @@
 
 ```bash
 # Top 10 Largest Log Files (Total: ~900MB)
-227M  logs/20251027_backfill_kr_ohlcv_pykrx.log          # Week 3 backfill
-191M  logs/20251022_backfill_fundamentals_pykrx.log      # Fundamentals backfill
-166M  logs/backfill_kr_week3_full_universe.log           # Week 3 full universe
-64M   logs/pykrx_production_backfill_RESTART.log         # Production restart
-62M   logs/backfill_kr_ohlcv_week3.log                   # Week 3 OHLCV
-39M   logs/20251023_backfill_kr_ohlcv_pykrx.log          # October 23 backfill
-38M   logs/ohlcv_backfill_2020_2023_20251024_133013.log  # 2020-2023 backfill
-38M   logs/20251024_backfill_kr_ohlcv_pykrx.log          # October 24 backfill
-27M   logs/ohlcv_backfill_20251023_142636.log            # October 23 OHLCV
-23M   logs/20251021_backfill_fundamentals_pykrx.log      # October 21 fundamentals
+227M  log/20251027_backfill_kr_ohlcv_pykrx.log          # Week 3 backfill
+191M  log/20251022_backfill_fundamentals_pykrx.log      # Fundamentals backfill
+166M  log/backfill_kr_week3_full_universe.log           # Week 3 full universe
+64M   log/pykrx_production_backfill_RESTART.log         # Production restart
+62M   log/backfill_kr_ohlcv_week3.log                   # Week 3 OHLCV
+39M   log/20251023_backfill_kr_ohlcv_pykrx.log          # October 23 backfill
+38M   log/ohlcv_backfill_2020_2023_20251024_133013.log  # 2020-2023 backfill
+38M   log/20251024_backfill_kr_ohlcv_pykrx.log          # October 24 backfill
+27M   log/ohlcv_backfill_20251023_142636.log            # October 23 OHLCV
+23M   log/20251021_backfill_fundamentals_pykrx.log      # October 21 fundamentals
 ```
 
 **Recommended Actions**:
@@ -76,22 +76,22 @@
 
 ```bash
 # Empty log files - safe to delete
-logs/20251007_spock.log                                    0B
-logs/20251008_spock.log                                    0B
-logs/20251009_spock.log                                    0B
-logs/20251010_spock.log                                    0B
-logs/20251014_etf_aum_backfill.log                         0B
-logs/20251016_stock_sentiment.log                          0B
-logs/20251017_etf_null_fix.log                             0B
-logs/20251019_stock_sentiment.log                          0B
-logs/20251029_backfill_kr_ohlcv_pykrx.log                  0B
-logs/20251030_stock_sentiment.log                          0B
-logs/20251101_backfill_fundamentals_dart.log               0B
-logs/20251102_collect_ohlcv_orchestrated.log               0B
-logs/us_adapter_deploy_20251015_145814.log                 0B
-logs/us_adapter_deploy_20251015_145820.log                 0B
-logs/us_adapter_deploy_20251015_152718.log                 0B
-logs/us_adapter_deploy_20251019_180023.log                 0B
+log/20251007_spock.log                                    0B
+log/20251008_spock.log                                    0B
+log/20251009_spock.log                                    0B
+log/20251010_spock.log                                    0B
+log/20251014_etf_aum_backfill.log                         0B
+log/20251016_stock_sentiment.log                          0B
+log/20251017_etf_null_fix.log                             0B
+log/20251019_stock_sentiment.log                          0B
+log/20251029_backfill_kr_ohlcv_pykrx.log                  0B
+log/20251030_stock_sentiment.log                          0B
+log/20251101_backfill_fundamentals_dart.log               0B
+log/20251102_collect_ohlcv_orchestrated.log               0B
+log/us_adapter_deploy_20251015_145814.log                 0B
+log/us_adapter_deploy_20251015_145820.log                 0B
+log/us_adapter_deploy_20251015_152718.log                 0B
+log/us_adapter_deploy_20251019_180023.log                 0B
 # ... and more
 ```
 
@@ -495,9 +495,9 @@ test_reports/phase5_task3_20251014/  # DELETED 2025-11-24 (empty directory)
 
 ### Before Any Deletion
 1. **Git Status Check**: Ensure all changes are committed
-2. **Backup**: Create timestamped backup of logs/ directory
+2. **Backup**: Create timestamped backup of log/ directory
    ```bash
-   tar -czf logs_backup_$(date +%Y%m%d_%H%M%S).tar.gz logs/
+   tar -czf logs_backup_$(date +%Y%m%d_%H%M%S).tar.gz log/
    ```
 3. **Test**: Run full test suite before and after
 4. **Documentation**: Update cleanup tracking document
@@ -537,7 +537,7 @@ git mv archive/completion_reports/phase1/*.md docs/
 ## 🎯 Success Criteria
 
 ### Quantitative
-- [ ] Disk usage: logs/ reduced from 971MB to <70MB
+- [ ] Disk usage: log/ reduced from 971MB to <70MB
 - [ ] File count: Reduced by ~230 files
 - [ ] Root directory: 0 test files (all in tests/)
 - [ ] Documentation: Active docs <50 files

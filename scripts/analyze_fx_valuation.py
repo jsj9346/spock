@@ -24,7 +24,7 @@ Usage:
 
 Scheduling (Cron):
     # Run daily at 9:00 AM KST (after FX collection at 8:30 AM)
-    0 9 * * * cd /Users/13ruce/spock && /usr/bin/python3 scripts/analyze_fx_valuation.py >> logs/fx_analysis.log 2>&1
+    0 9 * * * cd /Users/13ruce/spock && /usr/bin/python3 scripts/analyze_fx_valuation.py >> log/fx_analysis.log 2>&1
 
 Exit Codes:
     0 - All analyses successful
@@ -56,7 +56,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('logs/fx_analysis.log', mode='a')
+        logging.FileHandler('log/fx_analysis.log', mode='a')
     ]
 )
 

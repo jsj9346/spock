@@ -403,4 +403,4 @@ python3 scripts/fix_etf_null_fields.py --tracking-errors
 
 **Report Generated**: 2025-10-17 12:48 KST
 **Script**: `scripts/fix_etf_null_fields.py`
-**Log File**: `logs/20251017_etf_null_fix.log`
+**Log File**: `log/20251017_etf_null_fix.log`

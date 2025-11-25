@@ -40,7 +40,7 @@ python3 scripts/backfill_hk_ohlcv_tiered.py \
   --end-date 2025-11-12 \
   --rate-limit 1.0 \
   --validate-quality \
-  --log-file logs/hk_tier1_backfill.log
+  --log-file log/hk_tier1_backfill.log
 
 # Validate results
 python3 scripts/validate_hk_data_quality.py --tier 1 --report
@@ -84,7 +84,7 @@ python3 scripts/backfill_hk_ohlcv_tiered.py \
   --end-date 2025-11-12 \
   --parallel-workers 5 \
   --rate-limit 1.0 \
-  --log-file logs/hk_tier2_backfill.log
+  --log-file log/hk_tier2_backfill.log
 ```
 
 ---
@@ -119,7 +119,7 @@ python3 scripts/backfill_hk_etf_ohlcv.py \
   --start-date 2020-01-01 \
   --end-date 2025-11-12 \
   --collect-nav \
-  --log-file logs/hk_etf_backfill.log
+  --log-file log/hk_etf_backfill.log
 ```
 
 ---
@@ -237,7 +237,7 @@ pytest tests/mcp_server/test_hk_integration.py -v
 # Test all MCP tools with HK data
 python3 tests/mcp_server/test_all_tools_hk.py \
   --comprehensive \
-  --log-file logs/mcp_hk_integration_test.log
+  --log-file log/mcp_hk_integration_test.log
 ```
 
 ---

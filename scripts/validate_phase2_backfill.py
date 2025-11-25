@@ -7,7 +7,7 @@ Author: Claude Code
 Date: 2025-10-24
 
 Usage:
-    python3 scripts/validate_phase2_backfill.py --log logs/phase2_full_backfill_v3.log --report logs/phase2_validation_report.md
+    python3 scripts/validate_phase2_backfill.py --log log/phase2_full_backfill_v3.log --report log/phase2_validation_report.md
 """
 
 import argparse
@@ -399,13 +399,13 @@ def main():
     parser.add_argument(
         '--log',
         type=str,
-        default='logs/phase2_full_backfill_v3.log',
+        default='log/phase2_full_backfill_v3.log',
         help='Path to backfill log file'
     )
     parser.add_argument(
         '--report',
         type=str,
-        default='logs/phase2_validation_report.md',
+        default='log/phase2_validation_report.md',
         help='Output validation report file (Markdown)'
     )
 

@@ -4703,7 +4703,7 @@ def run_equity_backfill(limit=None, dry_run=False, rate_limit=1.0, use_gap_analy
 
     # Show monitoring command
     print(f"  {colored('💡 Monitor progress in another terminal:', Fore.CYAN)}")
-    print(f"     tail -f logs/{datetime.now().strftime('%Y%m%d')}_backfill_fundamentals.log")
+    print(f"     tail -f log/{datetime.now().strftime('%Y%m%d')}_backfill_fundamentals.log")
     print()
 
     # Warnings for long operations
@@ -4747,7 +4747,7 @@ def run_equity_backfill(limit=None, dry_run=False, rate_limit=1.0, use_gap_analy
         print(f"{colored('Error:', Fore.RED)} {e}")
         print()
         print(f"{colored('💡 Check the log file for details:', Fore.YELLOW)}")
-        print(f"   logs/{datetime.now().strftime('%Y%m%d')}_backfill_fundamentals.log")
+        print(f"   log/{datetime.now().strftime('%Y%m%d')}_backfill_fundamentals.log")
 
     except KeyboardInterrupt:
         print(f"\n{colored('⚠️  Interrupted by user', Fore.YELLOW)}")
@@ -5088,7 +5088,7 @@ def run_daily_valuation_update():
     if confirm == 'y':
         try:
             from datetime import datetime
-            log_file = f"logs/daily_valuation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+            log_file = f"log/daily_valuation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 
             cmd = [
                 'python3', 'scripts/update_database.py',

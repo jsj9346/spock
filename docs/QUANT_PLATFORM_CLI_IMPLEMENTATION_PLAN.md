@@ -221,7 +221,7 @@ performance:
 # Logging
 logging:
   level: INFO  # DEBUG, INFO, WARNING, ERROR
-  file: logs/quant_platform.log
+  file: log/quant_platform.log
   rotation: "10 MB"
   retention: "30 days"
 ```
@@ -830,7 +830,7 @@ def setup_logging(verbose: bool = False) -> None:
 
     # File logging
     logger.add(
-        "logs/quant_platform.log",
+        "log/quant_platform.log",
         rotation="10 MB",
         retention="30 days",
         level="DEBUG",
@@ -1044,7 +1044,7 @@ python3 quant_platform.py backtest --help
 python3 quant_platform.py --version
 
 # 로그 확인
-tail -f logs/quant_platform.log
+tail -f log/quant_platform.log
 ```
 
 **Priority 1 완료 체크리스트**:
@@ -1054,7 +1054,7 @@ tail -f logs/quant_platform.log
 - [ ] `ConfigLoader` 구현 및 테스트 통과
 - [ ] `output_formatter` 구현 및 테스트 통과
 - [ ] `quant_platform.py` 실행 가능 (`--help` 동작)
-- [ ] 로그 파일 생성 확인 (`logs/quant_platform.log`)
+- [ ] 로그 파일 생성 확인 (`log/quant_platform.log`)
 
 ---
 

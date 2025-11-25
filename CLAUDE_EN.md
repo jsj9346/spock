@@ -225,7 +225,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    dashboard/                           # Streamlit UI
    config/                              # Configuration files
    data/                                # PostgreSQL database
-   logs/                                # Application logs
+   log/                                # Application logs
    tests/                               # Test suites
    docs/                                # Documentation
 
@@ -462,7 +462,7 @@ python3 quant_platform.py backtest \
 ## Monitoring and Operations
 
 ### Log Files
-- **Location**: `logs/YYYYMMDD_quant_platform.log`
+- **Location**: `log/YYYYMMDD_quant_platform.log`
 - **Retention**: 30 days
 - **Levels**: DEBUG, INFO, WARNING, ERROR, CRITICAL
 

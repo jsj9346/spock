@@ -499,7 +499,7 @@ export BATCH_SIZE=200  # Increase for better throughput
 
 ### Logging
 
-**Log Location**: `logs/YYYYMMDD_mcp_server.log`
+**Log Location**: `log/YYYYMMDD_mcp_server.log`
 **Log Level**: Set via `LOG_LEVEL` environment variable (DEBUG, INFO, WARNING, ERROR)
 
 **Enable Debug Logging**:

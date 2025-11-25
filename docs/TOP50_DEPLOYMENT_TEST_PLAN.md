@@ -107,16 +107,16 @@ python3 scripts/monitor_deployment_progress.py --interval 60
 ### Log Monitoring
 ```bash
 # View last 50 lines
-tail -50 logs/deployment_top50_20251017_224930.log
+tail -50 log/deployment_top50_20251017_224930.log
 
 # Follow log in real-time
-tail -f logs/deployment_top50_20251017_224930.log
+tail -f log/deployment_top50_20251017_224930.log
 
 # Search for specific ticker
-grep "005490" logs/deployment_top50_20251017_224930.log
+grep "005490" log/deployment_top50_20251017_224930.log
 
 # Count completed years
-grep "annual data collected" logs/deployment_top50_20251017_224930.log | wc -l
+grep "annual data collected" log/deployment_top50_20251017_224930.log | wc -l
 ```
 
 ### Progress Calculation

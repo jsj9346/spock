@@ -34,7 +34,7 @@ Usage:
     python3 scripts/update_database.py --resume
 
     # Background execution
-    nohup python3 scripts/update_database.py > logs/db_update_$(date +%Y%m%d).log 2>&1 &
+    nohup python3 scripts/update_database.py > log/db_update_$(date +%Y%m%d).log 2>&1 &
 
 Author: Quant Investment Platform
 Date: 2025-11-01
@@ -138,7 +138,7 @@ Examples:
   %(prog)s --limit 10
 
   # Background execution
-  nohup %(prog)s > logs/db_update_$(date +%%Y%%m%%d).log 2>&1 &
+  nohup %(prog)s > log/db_update_$(date +%%Y%%m%%d).log 2>&1 &
 
 For more information, see docs/DB_UPDATE_UNIFIED_SCRIPT_GUIDE.md
         """
@@ -212,7 +212,7 @@ For more information, see docs/DB_UPDATE_UNIFIED_SCRIPT_GUIDE.md
     parser.add_argument(
         '--log-file',
         metavar='PATH',
-        help='Log file path (default: logs/db_update_YYYYMMDD_HHMMSS.log)'
+        help='Log file path (default: log/db_update_YYYYMMDD_HHMMSS.log)'
     )
 
     return parser.parse_args()
@@ -224,7 +224,7 @@ def main():
     args = parse_arguments()
 
     # Setup logging
-    log_file = args.log_file or f"logs/db_update_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    log_file = args.log_file or f"log/db_update_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
     setup_logging(verbose=args.verbose, log_file=log_file)
 
     logger = logging.getLogger(__name__)

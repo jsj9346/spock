@@ -61,7 +61,7 @@ ORDER BY count DESC;
 
 ### 3. DART Backfill Script Execution History
 
-**Log File**: `logs/20251022_backfill_fundamentals_dart.log`
+**Log File**: `log/20251022_backfill_fundamentals_dart.log`
 
 **Execution Summary** (Oct 22, 2025, 10:19 AM):
 - **Tickers Processed**: 139 (new/IPO stocks)

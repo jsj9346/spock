@@ -532,7 +532,7 @@ generator = ValidationReportGenerator()
 markdown_report = generator.generate_markdown(history)
 
 # Save to file
-report_path = Path('logs/validation_report.md')
+report_path = Path('log/validation_report.md')
 generator.save_markdown(markdown_report, report_path)
 
 print(f"✅ Report generated: {report_path}")

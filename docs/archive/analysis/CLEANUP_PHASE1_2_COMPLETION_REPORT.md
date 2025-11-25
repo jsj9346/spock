@@ -14,7 +14,7 @@ Successfully completed Phase 1-2 of the cleanup plan with significant space reco
 ### Results at a Glance
 | Metric | Before | After | Improvement |
 |--------|--------|-------|-------------|
-| **logs/ Directory** | 971MB | 542MB | **-429MB (44% reduction)** |
+| **log/ Directory** | 971MB | 542MB | **-429MB (44% reduction)** |
 | **Empty Log Files** | 16 files | 0 files | **-16 files** |
 | **Python Cache** | 45 dirs, 322 files | 0 | **-45 dirs, -322 files** |
 | **macOS Metadata** | 2 files | 0 files | **-2 files** |
@@ -32,25 +32,25 @@ Successfully completed Phase 1-2 of the cleanup plan with significant space reco
 
 **Deleted Files**:
 ```
-logs/20251007_spock.log
-logs/20251008_spock.log
-logs/20251009_spock.log
-logs/20251010_spock.log
-logs/20251014_etf_aum_backfill.log
-logs/20251016_stock_sentiment.log
-logs/20251017_etf_null_fix.log
-logs/20251019_stock_sentiment.log
-logs/20251029_backfill_kr_ohlcv_pykrx.log
-logs/20251030_stock_sentiment.log
-logs/20251101_backfill_fundamentals_dart.log
-logs/20251102_collect_ohlcv_orchestrated.log
-logs/us_adapter_deploy_20251015_145814.log
-logs/us_adapter_deploy_20251015_145820.log
-logs/us_adapter_deploy_20251015_152718.log
-logs/us_adapter_deploy_20251019_180023.log
+log/20251007_spock.log
+log/20251008_spock.log
+log/20251009_spock.log
+log/20251010_spock.log
+log/20251014_etf_aum_backfill.log
+log/20251016_stock_sentiment.log
+log/20251017_etf_null_fix.log
+log/20251019_stock_sentiment.log
+log/20251029_backfill_kr_ohlcv_pykrx.log
+log/20251030_stock_sentiment.log
+log/20251101_backfill_fundamentals_dart.log
+log/20251102_collect_ohlcv_orchestrated.log
+log/us_adapter_deploy_20251015_145814.log
+log/us_adapter_deploy_20251015_145820.log
+log/us_adapter_deploy_20251015_152718.log
+log/us_adapter_deploy_20251019_180023.log
 ```
 
-**Impact**: Cleaner logs/ directory, improved file listing performance
+**Impact**: Cleaner log/ directory, improved file listing performance
 
 ---
 
@@ -93,7 +93,7 @@ logs/us_adapter_deploy_20251019_180023.log
 **Added Patterns**:
 ```gitignore
 # Logs
-logs/
+log/
 *.log
 *.log.gz                    # ← NEW: Compressed logs
 log_*.txt
@@ -181,7 +181,7 @@ Breakdown:
 
 ### Directory Size Changes
 ```
-logs/
+log/
   Before:  971MB
   After:   542MB
   Change:  -429MB (-44.2%)
@@ -206,7 +206,7 @@ Breakdown:
 ## 🎯 Success Criteria
 
 ### Quantitative Metrics
-- [x] **Disk Space**: logs/ reduced by >400MB ✅ (429MB recovered)
+- [x] **Disk Space**: log/ reduced by >400MB ✅ (429MB recovered)
 - [x] **File Cleanup**: >350 files removed ✅ (392 files processed)
 - [x] **Compression**: >90% compression ratio ✅ (96.6% achieved)
 - [x] **Zero Data Loss**: All data preserved ✅ (compressed, not deleted)
@@ -224,22 +224,22 @@ Breakdown:
 ### View Compressed Logs
 ```bash
 # View entire compressed log
-zcat logs/20251022_backfill_fundamentals_pykrx.log.gz | less
+zcat log/20251022_backfill_fundamentals_pykrx.log.gz | less
 
 # Search within compressed log
-zgrep "ERROR" logs/20251022_backfill_fundamentals_pykrx.log.gz
+zgrep "ERROR" log/20251022_backfill_fundamentals_pykrx.log.gz
 
 # Extract first 100 lines
-zcat logs/20251022_backfill_fundamentals_pykrx.log.gz | head -100
+zcat log/20251022_backfill_fundamentals_pykrx.log.gz | head -100
 ```
 
 ### Decompress if Needed
 ```bash
 # Decompress single file (creates .log, keeps .log.gz)
-gunzip -k logs/20251022_backfill_fundamentals_pykrx.log.gz
+gunzip -k log/20251022_backfill_fundamentals_pykrx.log.gz
 
 # Decompress all logs (if absolutely necessary)
-gunzip -k logs/*.log.gz
+gunzip -k log/*.log.gz
 ```
 
 ---
@@ -268,7 +268,7 @@ gunzip -k logs/*.log.gz
 ## 🎉 Achievements
 
 ### Space Efficiency
-- **44% reduction** in logs/ directory size
+- **44% reduction** in log/ directory size
 - **96.6% compression** ratio for large logs
 - **428MB** recovered from compression alone
 - **434MB total** space recovered
@@ -318,7 +318,7 @@ gunzip -k logs/*.log.gz
 ### Verify Cleanup Status
 ```bash
 # Check logs directory size
-du -sh logs/
+du -sh log/
 
 # Count compressed logs
 find logs -name "*.log.gz" | wc -l
@@ -336,7 +336,7 @@ grep -A 5 "# Logs" .gitignore
 tar -xzf logs_backup_20251103_105357.tar.gz
 
 # Verify restoration
-du -sh logs/
+du -sh log/
 ```
 
 ---
@@ -354,7 +354,7 @@ du -sh logs/
 
 **Execution Status**: ✅ **COMPLETE**
 **Data Safety**: ✅ **VERIFIED** (full backup, no data loss)
-**Space Recovered**: ✅ **434MB** (44% reduction in logs/)
+**Space Recovered**: ✅ **434MB** (44% reduction in log/)
 **Risk Level**: ✅ **LOW** (all actions reversible)
 
 **Ready for Production**: YES ✅

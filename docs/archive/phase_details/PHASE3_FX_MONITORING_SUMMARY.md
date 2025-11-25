@@ -640,7 +640,7 @@ graph LR
 **Response Steps**:
 1. **Immediate**: Check FX collection logs
    ```bash
-   tail -100 logs/fx_collection_$(date +%Y%m%d).log
+   tail -100 log/fx_collection_$(date +%Y%m%d).log
    ```
 
 2. **Verify API**: Test BOK API connectivity

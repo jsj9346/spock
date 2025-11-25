@@ -689,7 +689,7 @@ recovery = AutoRecoverySystem(db)
 - **Alertmanager**: http://localhost:9093
 
 ### Log Files
-- **Application Logs**: `logs/YYYYMMDD_spock.log` (7-day retention)
+- **Application Logs**: `log/YYYYMMDD_spock.log` (7-day retention)
 - **API Logs**: `kis_api_logs` table in database
 - **Error Logs**: `failure_tracker` module
 
@@ -699,7 +699,7 @@ recovery = AutoRecoverySystem(db)
 
 When encountering issues, follow this checklist:
 
-- [ ] Check application logs: `tail -f logs/$(ls -t logs/ | head -1)`
+- [ ] Check application logs: `tail -f log/$(ls -t log/ | head -1)`
 - [ ] Verify KIS API credentials: `python3 scripts/validate_kis_credentials.py`
 - [ ] Test connection: `python3 scripts/test_kis_connection.py --basic`
 - [ ] Check database integrity: `sqlite3 data/spock_local.db "PRAGMA integrity_check;"`

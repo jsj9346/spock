@@ -273,7 +273,7 @@ All validation criteria passed. System is ready for production backfill of ~2,00
 
 **Command**:
 ```bash
-python3 scripts/backfill_phase2_historical.py --start-year 2022 --end-year 2024 2>&1 | tee logs/phase2_full_backfill.log
+python3 scripts/backfill_phase2_historical.py --start-year 2022 --end-year 2024 2>&1 | tee log/phase2_full_backfill.log
 ```
 
 **Parameters**:
@@ -290,7 +290,7 @@ python3 scripts/backfill_phase2_historical.py --start-year 2022 --end-year 2024 
 - **With optimized batching**: 4-6 hours realistic
 
 **Monitoring**:
-- Progress logs: `logs/phase2_full_backfill.log`
+- Progress logs: `log/phase2_full_backfill.log`
 - Database monitoring: Check `ticker_fundamentals` table growth
 - Error tracking: Review failed tickers for manual investigation
 

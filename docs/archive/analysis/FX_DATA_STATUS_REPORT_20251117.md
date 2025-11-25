@@ -143,7 +143,7 @@ python3 scripts/collect_fx_data.py --dry-run
 ### 문제점 식별
 
 1. **스크립트 미실행**
-   - `logs/fx_collection_*.log` 파일 없음
+   - `log/fx_collection_*.log` 파일 없음
    - cron job 또는 수동 실행 기록 없음
    - 마지막 실행일: 추정 2025-01-10 (JPY/HKD 최신 날짜)
 
@@ -257,7 +257,7 @@ python3 scripts/yfinance_fx_backfill.py \
 crontab -e
 
 # 매일 오전 9시 FX 데이터 수집 (한국시장 개장 후)
-0 9 * * * cd /Users/13ruce/spock && /usr/local/bin/python3 scripts/collect_fx_data.py >> logs/fx_collection_$(date +\%Y\%m\%d).log 2>&1
+0 9 * * * cd /Users/13ruce/spock && /usr/local/bin/python3 scripts/collect_fx_data.py >> log/fx_collection_$(date +\%Y\%m\%d).log 2>&1
 
 # cron 설정 확인
 crontab -l
@@ -275,8 +275,8 @@ Type=oneshot
 User=13ruce
 WorkingDirectory=/Users/13ruce/spock
 ExecStart=/usr/local/bin/python3 scripts/collect_fx_data.py
-StandardOutput=append:/Users/13ruce/spock/logs/fx_collection.log
-StandardError=append:/Users/13ruce/spock/logs/fx_collection_error.log
+StandardOutput=append:/Users/13ruce/spock/log/fx_collection.log
+StandardError=append:/Users/13ruce/spock/log/fx_collection_error.log
 
 # /etc/systemd/system/fx-collection.timer
 [Unit]
@@ -485,10 +485,10 @@ grep -i fx /var/log/cron.log  # Linux
 log show --predicate 'eventMessage contains "fx"' --last 1h  # macOS
 
 # 로그 파일 생성 확인
-ls -lh logs/fx_collection_*.log
+ls -lh log/fx_collection_*.log
 
 # 최근 로그 내용 확인
-tail -50 logs/fx_collection_$(date +%Y%m%d).log
+tail -50 log/fx_collection_$(date +%Y%m%d).log
 ```
 
 ---

@@ -123,7 +123,7 @@ python3 tests/test_auto_cleanup.py
 1. Run spock.py on Sunday (or mock datetime to Sunday)
 2. Check logs for cleanup execution:
    ```bash
-   grep "Weekly cleanup" logs/$(date +%Y%m%d)_spock.log
+   grep "Weekly cleanup" log/$(date +%Y%m%d)_spock.log
    ```
 3. Verify database size before/after:
    ```bash
@@ -131,7 +131,7 @@ python3 tests/test_auto_cleanup.py
    ```
 4. Confirm retention period in logs:
    ```bash
-   grep "retention_days=450" logs/$(date +%Y%m%d)_spock.log
+   grep "retention_days=450" log/$(date +%Y%m%d)_spock.log
    ```
 
 ## Integration with Existing Systems

@@ -85,8 +85,8 @@ class EnrichmentConfig:
     max_retries: int = 3
     retry_delay: float = 5.0
     verbose: bool = False
-    log_file: str = 'logs/enrich_global_metadata.log'
-    report_file: str = 'logs/enrichment_report.txt'
+    log_file: str = 'log/enrich_global_metadata.log'
+    report_file: str = 'log/enrichment_report.txt'
     # Phase 3: Performance optimization flags
     parallel: bool = False
     max_workers: int = 5
@@ -822,15 +822,15 @@ Examples:
     parser.add_argument(
         '--log-file',
         type=str,
-        default='logs/enrich_global_metadata.log',
-        help='Log file path (default: logs/enrich_global_metadata.log)'
+        default='log/enrich_global_metadata.log',
+        help='Log file path (default: log/enrich_global_metadata.log)'
     )
 
     parser.add_argument(
         '--report-file',
         type=str,
-        default='logs/enrichment_report.txt',
-        help='Report output file (default: logs/enrichment_report.txt)'
+        default='log/enrichment_report.txt',
+        help='Report output file (default: log/enrichment_report.txt)'
     )
 
     # Error handling

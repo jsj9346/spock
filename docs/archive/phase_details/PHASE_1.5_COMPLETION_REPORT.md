@@ -739,9 +739,9 @@ ORDER BY records DESC;
 
 ### Appendix B: Log File Locations
 
-- **DART**: `logs/dart_production_backfill.log` (3.8 KB)
-- **pykrx**: `logs/pykrx_production_backfill.log` (11 MB)
-- **yfinance**: `logs/yfinance_production_backfill.log` (8.9 MB)
+- **DART**: `log/dart_production_backfill.log` (3.8 KB)
+- **pykrx**: `log/pykrx_production_backfill.log` (11 MB)
+- **yfinance**: `log/yfinance_production_backfill.log` (8.9 MB)
 
 ### Appendix C: Key Metrics Summary
 

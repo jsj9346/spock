@@ -483,7 +483,7 @@ python3 spock_refresh.py --quick --regions KR
 
 ### 로그 파일 위치
 
-- **업데이트 로그**: `logs/db_update_YYYYMMDD_HHMMSS.log`
+- **업데이트 로그**: `log/db_update_YYYYMMDD_HHMMSS.log`
 - **스케줄 로그** (macOS): `~/spock_refresh.log`
 - **스케줄 로그** (Linux): `~/spock_refresh.log`
 - **스케줄 로그** (Windows): Task Scheduler 로그 확인

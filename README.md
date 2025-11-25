@@ -333,7 +333,7 @@ spock/
 ├── dashboard/                  # Streamlit UI
 ├── config/                     # Configuration files
 ├── data/                       # Data storage
-├── logs/                       # Application logs
+├── log/                       # Application logs
 ├── tests/                      # Test code
 ├── docs/                       # Documentation
 └── examples/                   # Usage examples

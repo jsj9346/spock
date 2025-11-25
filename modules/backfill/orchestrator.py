@@ -382,7 +382,7 @@ class BackfillOrchestrator:
             backfill_type: Type of backfill
 
         Returns:
-            Checkpoint file path in format: logs/backfill_{type}_checkpoint_{timestamp}.json
+            Checkpoint file path in format: log/backfill_{type}_checkpoint_{timestamp}.json
         """
         # Ensure logs directory exists
         logs_dir = Path("logs")

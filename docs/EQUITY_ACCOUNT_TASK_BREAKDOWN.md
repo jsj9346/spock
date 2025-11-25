@@ -1502,7 +1502,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
-        logging.FileHandler('logs/backfill_equity_accounts.log'),
+        logging.FileHandler('log/backfill_equity_accounts.log'),
         logging.StreamHandler()
     ]
 )
@@ -1815,14 +1815,14 @@ Execute backfill in production to populate equity accounts for existing DART dat
 ```bash
 # 1. Start backfill in background
 nohup python scripts/backfill_equity_accounts.py --execute \
-  > logs/backfill_equity_$(date +%Y%m%d_%H%M%S).log 2>&1 &
+  > log/backfill_equity_$(date +%Y%m%d_%H%M%S).log 2>&1 &
 
 # Get process ID
 BACKFILL_PID=$!
 echo "Backfill started with PID: $BACKFILL_PID"
 
 # 2. Monitor progress in real-time
-tail -f logs/backfill_equity_*.log
+tail -f log/backfill_equity_*.log
 
 # 3. Check process status
 ps aux | grep backfill_equity_accounts
@@ -1842,7 +1842,7 @@ psql -h prod-db -U postgres -d quant_platform -c "
 "
 
 # 5. Check error rate
-grep -i "error\|fail" logs/backfill_equity_*.log | wc -l
+grep -i "error\|fail" log/backfill_equity_*.log | wc -l
 
 # 6. Wait for completion
 wait $BACKFILL_PID

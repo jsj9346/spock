@@ -30,10 +30,10 @@ Automated master file updates run daily at 6:00 AM KST to download fresh ticker 
 ### Check Update Status
 ```bash
 # View recent logs
-tail -50 logs/master_file_updates.log
+tail -50 log/master_file_updates.log
 
 # Check last update time
-tail -1 logs/master_file_updates.log | grep "Update Summary"
+tail -1 log/master_file_updates.log | grep "Update Summary"
 
 # View metrics
 cat data/master_file_update_metrics.prom
@@ -77,12 +77,12 @@ systemctl status cron
 
 **Daily Update** (6:00 AM KST):
 ```cron
-0 6 * * * cd /Users/13ruce/spock && /usr/bin/python3 scripts/update_master_files.py >> logs/cron_master_file_updates.log 2>&1
+0 6 * * * cd /Users/13ruce/spock && /usr/bin/python3 scripts/update_master_files.py >> log/cron_master_file_updates.log 2>&1
 ```
 
 **Weekly Full Refresh** (Sunday 3:00 AM KST):
 ```cron
-0 3 * * 0 cd /Users/13ruce/spock && /usr/bin/python3 scripts/update_master_files.py --regions US HK JP CN VN >> logs/cron_weekly_updates.log 2>&1
+0 3 * * 0 cd /Users/13ruce/spock && /usr/bin/python3 scripts/update_master_files.py --regions US HK JP CN VN >> log/cron_weekly_updates.log 2>&1
 ```
 
 ### Installation Steps
@@ -119,25 +119,25 @@ systemctl status cron
 **Daily Update Log**:
 ```bash
 # Real-time monitoring
-tail -f logs/master_file_updates.log
+tail -f log/master_file_updates.log
 
 # View last update
-tail -50 logs/master_file_updates.log
+tail -50 log/master_file_updates.log
 
 # Search for errors
-grep -i error logs/master_file_updates.log | tail -20
+grep -i error log/master_file_updates.log | tail -20
 
 # Count successful updates today
-grep "Update successful" logs/master_file_updates.log | grep "$(date +%Y-%m-%d)" | wc -l
+grep "Update successful" log/master_file_updates.log | grep "$(date +%Y-%m-%d)" | wc -l
 ```
 
 **Cron Log**:
 ```bash
 # View cron execution log
-tail -50 logs/cron_master_file_updates.log
+tail -50 log/cron_master_file_updates.log
 
 # Check for errors
-grep -i error logs/cron_master_file_updates.log
+grep -i error log/cron_master_file_updates.log
 ```
 
 ### Prometheus Metrics
@@ -190,7 +190,7 @@ grep 'update_timestamp' data/master_file_update_metrics.prom
 ### Alert Actions
 
 **Update Failed**:
-1. Check logs: `tail -50 logs/master_file_updates.log`
+1. Check logs: `tail -50 log/master_file_updates.log`
 2. Check KIS API: `python3 scripts/test_kis_connection.py`
 3. Run manual update: `python3 scripts/update_master_files.py`
 4. If persistent, check credentials in `.env`
@@ -199,7 +199,7 @@ grep 'update_timestamp' data/master_file_update_metrics.prom
 1. Check cron status: `crontab -l`
 2. Check cron service: `sudo launchctl list | grep cron`
 3. Run manual update: `python3 scripts/update_master_files.py`
-4. Review cron logs: `tail -50 logs/cron_master_file_updates.log`
+4. Review cron logs: `tail -50 log/cron_master_file_updates.log`
 
 **Low Ticker Count**:
 1. Check master files: `ls -lh data/master_files/`
@@ -219,7 +219,7 @@ grep 'update_timestamp' data/master_file_update_metrics.prom
 **Diagnosis**:
 ```bash
 # Check recent logs
-tail -100 logs/master_file_updates.log | grep -i error
+tail -100 log/master_file_updates.log | grep -i error
 
 # Test update manually
 python3 scripts/update_master_files.py --dry-run
@@ -307,7 +307,7 @@ crontab -e
 **Diagnosis**:
 ```bash
 # Check update duration
-grep "Update successful" logs/master_file_updates.log | tail -10
+grep "Update successful" log/master_file_updates.log | tail -10
 
 # Check metrics
 grep "update_duration" data/master_file_update_metrics.prom
@@ -526,7 +526,7 @@ python3 scripts/test_master_file_integration.py
 ### Monitoring
 - Grafana: http://localhost:3000
 - Prometheus metrics: `data/master_file_update_metrics.prom`
-- Logs: `logs/master_file_updates.log`
+- Logs: `log/master_file_updates.log`
 
 ---
 

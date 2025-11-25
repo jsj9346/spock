@@ -1635,7 +1635,7 @@ cache:
 # Logging
 logging:
   level: "INFO"  # DEBUG, INFO, WARNING, ERROR
-  file: "~/.quant_platform/logs/cli.log"
+  file: "~/.quant_platform/log/cli.log"
   max_file_size_mb: 10
   backup_count: 5
 ```

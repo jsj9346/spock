@@ -33,7 +33,7 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler(f'logs/{datetime.now().strftime("%Y%m%d")}_sector_backfill_kis_mst.log')
+        logging.FileHandler(f'log/{datetime.now().strftime("%Y%m%d")}_sector_backfill_kis_mst.log')
     ]
 )
 logger = logging.getLogger(__name__)

@@ -31,7 +31,7 @@
 ./scripts/verify_deployment.sh
 
 # 2. Review overnight alerts
-tail -50 alert_logs/alerts_*.json | grep -E 'CRITICAL|WARNING'
+tail -50 alert_log/alerts_*.json | grep -E 'CRITICAL|WARNING'
 
 # 3. Check database health
 python3 -c "from modules.db_manager_sqlite import SQLiteDatabaseManager; \
@@ -82,7 +82,7 @@ print(f'Collection Success Rate: {metrics[\"collectors\"][\"collection_rates\"][
 tar -czf data/backups/spock_db_$(date +%Y%m%d).tar.gz data/spock_local.db
 
 # 5. Clean up old logs
-find logs/ -name "*.log" -mtime +7 -delete
+find log/ -name "*.log" -mtime +7 -delete
 find data/backups/ -name "*.tar.gz" -mtime +7 -delete
 ```
 
@@ -128,10 +128,10 @@ python3 monitoring/serve_dashboard.py --port 8080
 python3 modules/alert_system.py
 
 # Check alert history
-ls -lth alert_logs/alerts_*.json | head -5
+ls -lth alert_log/alerts_*.json | head -5
 
 # View specific alert file
-cat alert_logs/alerts_$(date +%Y%m%d)_*.json | python3 -m json.tool
+cat alert_log/alerts_$(date +%Y%m%d)_*.json | python3 -m json.tool
 ```
 
 **Alert Response Matrix**:
@@ -177,7 +177,7 @@ cat alert_logs/alerts_$(date +%Y%m%d)_*.json | python3 -m json.tool
    find metrics_reports/ -name "metrics_*.json" -mtime +7 -delete
 
    # Clean old logs
-   find logs/ -name "*.log" -mtime +7 -delete
+   find log/ -name "*.log" -mtime +7 -delete
 
    # Archive old OHLCV data (if needed)
    python3 -c "from modules.db_manager_sqlite import SQLiteDatabaseManager; \
@@ -262,7 +262,7 @@ sqlite3 data/spock_local.db "PRAGMA integrity_check;"
 
 ```bash
 # Check log sizes
-du -sh logs/*.log
+du -sh log/*.log
 
 # Rotate logs manually
 cd logs
@@ -274,7 +274,7 @@ for log in *.log; do
 done
 
 # Clean old compressed logs
-find logs/ -name "*.log.*.gz" -mtime +7 -delete
+find log/ -name "*.log.*.gz" -mtime +7 -delete
 ```
 
 ### Task 6: Restart Services
@@ -290,11 +290,11 @@ pkill -f "python3.*modules"
 ps aux | grep -E 'spock|kis_data_collector'
 
 # Restart main service (example)
-nohup python3 spock.py --dry-run --no-gpt >> logs/spock.log 2>&1 &
+nohup python3 spock.py --dry-run --no-gpt >> log/spock.log 2>&1 &
 
 # Restart dashboard server
 cd monitoring
-nohup python3 serve_dashboard.py --port 8080 >> ../logs/dashboard.log 2>&1 &
+nohup python3 serve_dashboard.py --port 8080 >> ../log/dashboard.log 2>&1 &
 ```
 
 ---
@@ -580,7 +580,7 @@ crontab -e
 ```bash
 # Full backup
 tar -czf backups/spock_full_$(date +%Y%m%d_%H%M%S).tar.gz \
-    data/ config/ .env logs/ metrics_reports/
+    data/ config/ .env log/ metrics_reports/
 
 # Database only
 cp data/spock_local.db backups/spock_db_$(date +%Y%m%d_%H%M%S).db
@@ -694,9 +694,9 @@ db = SQLiteDatabaseManager(); \
 db.cleanup_old_ohlcv_data(retention_days=250)"
 
 # 4. Clean old logs and reports
-find logs/ -name "*.log" -mtime +7 -delete
+find log/ -name "*.log" -mtime +7 -delete
 find metrics_reports/ -name "metrics_*.json" -mtime +7 -delete
-find alert_logs/ -name "alerts_*.json" -mtime +7 -delete
+find alert_log/ -name "alerts_*.json" -mtime +7 -delete
 find validation_reports/ -name "*.json" -mtime +30 -delete
 
 # 5. Backup database
@@ -761,14 +761,14 @@ pkill -9 -f "python3.*spock"
 # sudo ifconfig en0 down
 
 # 3. Backup current state
-tar -czf emergency_backup_$(date +%Y%m%d_%H%M%S).tar.gz data/ logs/ config/
+tar -czf emergency_backup_$(date +%Y%m%d_%H%M%S).tar.gz data/ log/ config/
 
 # 4. Secure credentials
 chmod 000 .env
 
 # 5. Document incident
-echo "Emergency shutdown at $(date)" >> logs/emergency.log
-echo "Reason: [SPECIFY REASON]" >> logs/emergency.log
+echo "Emergency shutdown at $(date)" >> log/emergency.log
+echo "Reason: [SPECIFY REASON]" >> log/emergency.log
 
 # 6. Notify stakeholders
 # (Add notification commands)
@@ -810,7 +810,7 @@ print(f'Status: {m[\"overall_status\"]} ({m[\"overall_health_score\"]}/100)')"
 sqlite3 data/spock_local.db "SELECT region, COUNT(*) FROM ohlcv_data GROUP BY region;"
 
 # Recent alerts
-ls -t alert_logs/alerts_*.json | head -1 | xargs cat | python3 -m json.tool
+ls -t alert_log/alerts_*.json | head -1 | xargs cat | python3 -m json.tool
 
 # API success rate
 python3 -c "from modules.metrics_collector import MetricsCollector; \
@@ -818,18 +818,18 @@ m = MetricsCollector().collect_all_metrics(); \
 print(f'API Success: {100 - m[\"api\"][\"error_rate\"]:.1f}%')"
 
 # Disk usage
-du -sh data/ logs/ metrics_reports/ alert_logs/
+du -sh data/ log/ metrics_reports/ alert_log/
 ```
 
 ### Log File Locations
 
 | Log Type | Location | Purpose | Retention |
 |----------|----------|---------|-----------|
-| **Application** | `logs/spock.log` | Main application logs | 7 days |
-| **Metrics** | `logs/metrics.log` | Metrics collection logs | 7 days |
-| **Alerts** | `logs/alerts.log` | Alert system logs | 7 days |
-| **Validation** | `logs/validation.log` | Data quality validation logs | 7 days |
-| **Dashboard** | `logs/dashboard.log` | Dashboard server logs | 7 days |
+| **Application** | `log/spock.log` | Main application logs | 7 days |
+| **Metrics** | `log/metrics.log` | Metrics collection logs | 7 days |
+| **Alerts** | `log/alerts.log` | Alert system logs | 7 days |
+| **Validation** | `log/validation.log` | Data quality validation logs | 7 days |
+| **Dashboard** | `log/dashboard.log` | Dashboard server logs | 7 days |
 
 ### Configuration Files
 

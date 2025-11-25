@@ -491,7 +491,7 @@ REINDEX DATABASE quant_platform;
 복원 중 문제가 발생하면:
 1. 백업 디렉토리의 `system_info.txt` 확인
 2. PostgreSQL 로그 확인: `/opt/homebrew/var/log/postgresql@14.log`
-3. Python 오류 로그 확인: `~/spock/logs/`
+3. Python 오류 로그 확인: `~/spock/log/`
 
 **문서 참조**:
 - [QUANT_DEVELOPMENT_WORKFLOWS.md](../docs/QUANT_DEVELOPMENT_WORKFLOWS.md)

@@ -1074,7 +1074,7 @@ class BackfillOrchestrator:
     def _get_checkpoint_path(self, backfill_type: str) -> str:
         """Generate checkpoint file path"""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        return f"logs/backfill_{backfill_type}_checkpoint_{timestamp}.json"
+        return f"log/backfill_{backfill_type}_checkpoint_{timestamp}.json"
 ```
 
 ---

@@ -37,7 +37,7 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('logs/us_adapter_demo.log')
+        logging.FileHandler('log/us_adapter_demo.log')
     ]
 )
 logger = logging.getLogger(__name__)

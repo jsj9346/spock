@@ -23,7 +23,7 @@ from modules.dart_api_client import DARTApiClient
 # Configure logger
 logger.remove()
 logger.add(
-    f"logs/update_dart_tickers_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log",
+    f"log/update_dart_tickers_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log",
     format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
     level="INFO"
 )

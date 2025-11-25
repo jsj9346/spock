@@ -33,7 +33,7 @@ from modules.db_manager_postgres import PostgresDatabaseManager
 from modules.api_clients.krx_data_api import KRXDataAPI
 
 # Setup logging
-log_filename = f"logs/{datetime.now().strftime('%Y%m%d')}_backfill_listing_dates_kr.log"
+log_filename = f"log/{datetime.now().strftime('%Y%m%d')}_backfill_listing_dates_kr.log"
 os.makedirs('logs', exist_ok=True)
 
 logging.basicConfig(

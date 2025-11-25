@@ -97,7 +97,7 @@
 대기: 33 tickers
 ```
 
-**로그 파일**: `logs/deployment_top50_20251017_224930.log`
+**로그 파일**: `log/deployment_top50_20251017_224930.log`
 **프로세스 ID**: 89491
 
 ---
@@ -402,7 +402,7 @@ GROUP BY ticker HAVING year_count < 5;
 watch -n 300 "python3 scripts/check_deployment_status.py"
 
 # 로그 모니터링
-tail -f logs/deployment_top50_20251017_224930.log
+tail -f log/deployment_top50_20251017_224930.log
 
 # 프로세스 상태 확인
 ps aux | grep deploy_historical_fundamentals.py

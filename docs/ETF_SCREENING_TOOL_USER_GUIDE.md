@@ -821,7 +821,7 @@ For issues or feature requests related to the ETF screening tool:
 1. **Check Known Limitations** (Section 5) - Many "issues" are documented limitations
 2. **Review Workarounds** (Section 6) - Alternative approaches available
 3. **Test with Example Queries** (Section 4) - Verify basic functionality
-4. **Check Logs** - `logs/YYYYMMDD_quant_platform.log` for detailed errors
+4. **Check Logs** - `log/YYYYMMDD_quant_platform.log` for detailed errors
 
 **Status Report**: See [`ETF_PHASE1_DAY2_STATUS.md`](ETF_PHASE1_DAY2_STATUS.md) for Phase 1-2 development details.
 

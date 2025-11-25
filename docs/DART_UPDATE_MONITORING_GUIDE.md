@@ -35,27 +35,27 @@ This guide provides commands for monitoring the orphaned ticker backfill process
 
 **Watch live log output**:
 ```bash
-tail -f logs/backfill_orphaned_tickers_20251029_142617.log
+tail -f log/backfill_orphaned_tickers_20251029_142617.log
 ```
 
 **Check current progress**:
 ```bash
-tail -20 logs/backfill_orphaned_tickers_20251029_142617.log | grep "Processing"
+tail -20 log/backfill_orphaned_tickers_20251029_142617.log | grep "Processing"
 ```
 
 **Count progress**:
 ```bash
-grep -c "Processing" logs/backfill_orphaned_tickers_20251029_142617.log
+grep -c "Processing" log/backfill_orphaned_tickers_20251029_142617.log
 ```
 
 **Check timeout warnings** (tickers that will need DART updates):
 ```bash
-grep "pykrx timeout" logs/backfill_orphaned_tickers_20251029_142617.log | wc -l
+grep "pykrx timeout" log/backfill_orphaned_tickers_20251029_142617.log | wc -l
 ```
 
 **View recent successes**:
 ```bash
-grep "✅" logs/backfill_orphaned_tickers_20251029_142617.log | tail -10
+grep "✅" log/backfill_orphaned_tickers_20251029_142617.log | tail -10
 ```
 
 ### Process Status
@@ -141,7 +141,7 @@ python3 scripts/update_inferred_tickers_with_dart.py
 
 **Monitor update log**:
 ```bash
-tail -f logs/update_dart_tickers_YYYYMMDD_HHMMSS.log
+tail -f log/update_dart_tickers_YYYYMMDD_HHMMSS.log
 ```
 
 **Update with limit** (incremental approach):

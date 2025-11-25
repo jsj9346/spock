@@ -484,7 +484,7 @@ GROUP BY hypertable_name, compression_status;
 crontab -e
 
 # Add this line (daily backup at 2 AM):
-0 2 * * * /Users/13ruce/spock/scripts/backup_postgres.sh >> /Users/13ruce/spock/logs/backup.log 2>&1
+0 2 * * * /Users/13ruce/spock/scripts/backup_postgres.sh >> /Users/13ruce/spock/log/backup.log 2>&1
 ```
 
 #### Start Monitoring
@@ -644,7 +644,7 @@ python3 modules/monitoring/postgres_metrics.py --port 8000 &
 
 ```bash
 # Create migration report
-cat > logs/migration_report_$(date +%Y%m%d).txt <<EOF
+cat > log/migration_report_$(date +%Y%m%d).txt <<EOF
 Migration Date: $(date)
 Database: quant_platform
 Source: SQLite (data/spock_local.db)
@@ -770,7 +770,7 @@ ERROR: could not write to file: No space left on device
 df -h
 
 # Clean up old logs
-rm logs/*.log.old
+rm log/*.log.old
 
 # Clean up old backups
 find backups/postgres -name "*.sql.gz" -mtime +30 -delete
@@ -814,7 +814,7 @@ python3 scripts/init_postgres_schema.py
 **Solutions**:
 ```bash
 # Check for errors in migration log
-grep ERROR logs/*_migration.log
+grep ERROR log/*_migration.log
 
 # Identify missing data
 python3 -c "
@@ -861,7 +861,7 @@ ON ohlcv_data (ticker, date DESC);
 
 ```bash
 # Add to crontab (daily at 3 AM)
-0 3 * * * psql -d quant_platform -c "ANALYZE;" >> /Users/13ruce/spock/logs/maintenance.log 2>&1
+0 3 * * * psql -d quant_platform -c "ANALYZE;" >> /Users/13ruce/spock/log/maintenance.log 2>&1
 ```
 
 #### 3. Configure PostgreSQL Settings

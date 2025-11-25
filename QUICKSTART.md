@@ -369,7 +369,7 @@ jupyter notebook notebooks/backtest_analysis.ipynb
 - **Operations**: [OPERATIONS_RUNBOOK.md](docs/OPERATIONS_RUNBOOK.md:1)
 
 ### Log Files
-- **Application Logs**: `logs/YYYYMMDD_spock.log` (7-day retention)
+- **Application Logs**: `log/YYYYMMDD_spock.log` (7-day retention)
 - **API Logs**: `kis_api_logs` table in database
 - **Error Tracking**: `failure_tracker` module
 

@@ -99,7 +99,7 @@ python3 scripts/analyze_fx_valuation.py --dry-run
 **Scheduling**:
 ```bash
 # Cron: Run daily at 9:00 AM KST (after FX collection at 8:30 AM)
-0 9 * * * cd /Users/13ruce/spock && python3 scripts/analyze_fx_valuation.py >> logs/fx_analysis.log 2>&1
+0 9 * * * cd /Users/13ruce/spock && python3 scripts/analyze_fx_valuation.py >> log/fx_analysis.log 2>&1
 ```
 
 ---
@@ -224,7 +224,7 @@ python3 scripts/backfill_fx_history.py \
 **Option 2: Incremental Collection** (Daily Cron)
 ```bash
 # Cron: Collect daily at 8:30 AM KST
-30 8 * * * cd /Users/13ruce/spock && python3 scripts/collect_fx_data.py >> logs/fx_collection.log 2>&1
+30 8 * * * cd /Users/13ruce/spock && python3 scripts/collect_fx_data.py >> log/fx_collection.log 2>&1
 
 # After 365 days, full analysis will be available
 ```
@@ -307,7 +307,7 @@ spock/
   docs/
     PHASE2_FX_VALUATION_SUMMARY.md  # This file
 
-  logs/
+  log/
     fx_analysis.log                 # Analysis execution logs
 ```
 
@@ -445,8 +445,8 @@ spock/
 - **Script**: `scripts/analyze_fx_valuation.py` (CLI help)
 
 ### Logs
-- **Analysis Logs**: `logs/fx_analysis.log`
-- **Collection Logs**: `logs/fx_collection_*.log`
+- **Analysis Logs**: `log/fx_analysis.log`
+- **Collection Logs**: `log/fx_collection_*.log`
 
 ### Database Queries
 

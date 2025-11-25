@@ -147,7 +147,7 @@ def test_gap_analyzer_full_dataset():
     print()
 
     # Load POC results for comparison
-    poc_file = 'logs/poc_gap_analysis_20251111.json'
+    poc_file = 'log/poc_gap_analysis_20251111.json'
     poc_comparison = None
     if os.path.exists(poc_file):
         with open(poc_file, 'r') as f:
@@ -221,7 +221,7 @@ def test_gap_analyzer_full_dataset():
 
 def export_results(summary, test_type='integration'):
     """Export test results to JSON file"""
-    output_file = f"logs/gap_analyzer_{test_type}_{date.today().strftime('%Y%m%d')}.json"
+    output_file = f"log/gap_analyzer_{test_type}_{date.today().strftime('%Y%m%d')}.json"
     os.makedirs('logs', exist_ok=True)
 
     with open(output_file, 'w') as f:

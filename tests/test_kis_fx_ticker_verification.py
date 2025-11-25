@@ -512,7 +512,7 @@ if __name__ == '__main__':
     print(report)
 
     # Save report to file
-    report_path = f"logs/fx_ticker_verification_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+    report_path = f"log/fx_ticker_verification_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
     os.makedirs("logs", exist_ok=True)
     with open(report_path, 'w') as f:
         f.write(report)

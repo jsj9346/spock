@@ -57,7 +57,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(f'logs/us_adapter_deploy_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'),
+        logging.FileHandler(f'log/us_adapter_deploy_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'),
         logging.StreamHandler()
     ]
 )

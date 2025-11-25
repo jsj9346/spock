@@ -589,7 +589,7 @@ Compression (after 1 year):
 
    # 2. Add to crontab
    crontab -e
-   # Add: 0 2 * * * /Users/13ruce/spock/scripts/backup_postgres.sh >> /Users/13ruce/spock/logs/backup.log 2>&1
+   # Add: 0 2 * * * /Users/13ruce/spock/scripts/backup_postgres.sh >> /Users/13ruce/spock/log/backup.log 2>&1
 
    # 3. Verify backup creation
    ls -lh ~/spock/backups/

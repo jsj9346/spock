@@ -26,7 +26,7 @@ SyntaxError: Unexpected token '\x1B', "\x1B[2m2025-1"... is not valid JSON
 
 Added `configure_mcp_logging()` function that:
 - Removes all default loguru handlers (which output colored text to stderr)
-- Configures file-based logging only (`logs/mcp_server.log`)
+- Configures file-based logging only (`log/mcp_server.log`)
 - Disables ANSI color codes globally
 - Adds stderr handler ONLY for CRITICAL errors (without colors)
 - Executes immediately on module import (before other modules are loaded)
@@ -74,7 +74,7 @@ PYTHONPATH=/Users/13ruce/spock python3 -m mcp_server.server
 ```
 ✅ **Success**: Server starts without errors
 ✅ **No ANSI codes**: Hexdump verification shows clean output
-✅ **Proper logging**: All logs written to `logs/mcp_server.log`
+✅ **Proper logging**: All logs written to `log/mcp_server.log`
 
 ### Test 2: MCP Protocol Initialization
 ```bash
@@ -96,7 +96,7 @@ echo '{"jsonrpc":"2.0","id":1,"method":"initialize",...}' | python3 -m mcp_serve
 
 ### Test 3: Log File Output
 ```bash
-tail -20 logs/mcp_server.log
+tail -20 log/mcp_server.log
 ```
 ✅ **Success**: Clean, non-colored logs captured:
 ```

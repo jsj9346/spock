@@ -30,7 +30,7 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler(f'logs/{datetime.now().strftime("%Y%m%d")}_etf_backfill_naver.log')
+        logging.FileHandler(f'log/{datetime.now().strftime("%Y%m%d")}_etf_backfill_naver.log')
     ]
 )
 logger = logging.getLogger(__name__)

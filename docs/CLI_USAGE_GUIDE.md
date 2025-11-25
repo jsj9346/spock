@@ -67,7 +67,7 @@ python3 spock.py --backtest --region CN --risk-level aggressive
 ```
 
 **Output**:
-- Log file: `logs/YYYYMMDD_spock.log`
+- Log file: `log/YYYYMMDD_spock.log`
 - Exit code: 0 (success), 1 (failure)
 - Pipeline summary with candidates scanned/filtered/analyzed/executed
 
@@ -232,7 +232,7 @@ python3 scripts/deploy_us_adapter.py --full --force-scan --metrics-port 8003
 ```
 
 **Output**:
-- Deployment log: `logs/us_adapter_deploy_YYYYMMDD_HHMMSS.log`
+- Deployment log: `log/us_adapter_deploy_YYYYMMDD_HHMMSS.log`
 - Prometheus metrics: `http://localhost:8002/metrics`
 - Data quality validation report
 - Deployment success/failure status
@@ -542,7 +542,7 @@ python3 modules/kis_data_collector.py --cleanup --retention-days 250
 ## Support
 
 For issues or questions:
-- Check logs in `logs/` directory
+- Check logs in `log/` directory
 - Review test reports in `test_reports/`
 - Consult `CLAUDE.md` for project context
 - Validate with `--dry-run` before live operations

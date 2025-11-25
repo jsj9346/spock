@@ -17,8 +17,8 @@ Usage:
     python3 scripts/calculate_dividend_yield.py --dry-run
 
     # Background execution with logging
-    nohup python3 scripts/calculate_dividend_yield.py > logs/dividend_yield_$(date +%Y%m%d_%H%M%S).log 2>&1 &
-    tail -f logs/dividend_yield_*.log
+    nohup python3 scripts/calculate_dividend_yield.py > log/dividend_yield_$(date +%Y%m%d_%H%M%S).log 2>&1 &
+    tail -f log/dividend_yield_*.log
 
 Author: Quant Investment Platform - Option B Implementation
 """
@@ -41,7 +41,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Setup logging
-log_filename = f"logs/{datetime.now().strftime('%Y%m%d')}_calculate_dividend_yield.log"
+log_filename = f"log/{datetime.now().strftime('%Y%m%d')}_calculate_dividend_yield.log"
 os.makedirs('logs', exist_ok=True)
 
 logger.add(

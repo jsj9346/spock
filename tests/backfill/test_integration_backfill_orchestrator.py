@@ -192,7 +192,7 @@ class TestBackfillOrchestratorIntegration:
         """Test checkpoint path generation"""
         path = orchestrator._get_checkpoint_path('equity')
 
-        assert 'logs/backfill_equity_checkpoint_' in path
+        assert 'log/backfill_equity_checkpoint_' in path
         assert path.endswith('.json')
 
     # ============================================================================

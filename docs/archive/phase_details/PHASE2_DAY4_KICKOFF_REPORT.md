@@ -28,7 +28,7 @@ python3 scripts/backfill_fundamentals_dart.py --start-year 2022 --end-year 2023 
 ### Background Process
 - Started: 2025-11-04 10:01:45
 - Process ID: 8776
-- Log file: `logs/20251104_day4_backfill_2022_2023.log`
+- Log file: `log/20251104_day4_backfill_2022_2023.log`
 
 ---
 
@@ -240,16 +240,16 @@ ORDER BY fiscal_year DESC;
 "
 
 # Latest log entries
-tail -20 logs/20251104_day4_backfill_2022_2023.log | grep "Processing"
+tail -20 log/20251104_day4_backfill_2022_2023.log | grep "Processing"
 ```
 
 ### Real-time Monitoring
 ```bash
 # Live log tail (Ctrl+C to exit)
-tail -f logs/20251104_day4_backfill_2022_2023.log | grep --line-buffered "Processing [0-9]"
+tail -f log/20251104_day4_backfill_2022_2023.log | grep --line-buffered "Processing [0-9]"
 
 # Progress only
-tail -f logs/20251104_day4_backfill_2022_2023.log | grep --line-buffered "Completed:"
+tail -f log/20251104_day4_backfill_2022_2023.log | grep --line-buffered "Completed:"
 ```
 
 ### Full Status Report

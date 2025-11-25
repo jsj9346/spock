@@ -174,7 +174,7 @@ Total Time: ~7.5 hours from now
 python3 scripts/check_deployment_status.py --detailed
 
 # Monitor logs
-tail -f logs/deployment_top50_*.log
+tail -f log/deployment_top50_*.log
 
 # Automated monitoring
 python3 scripts/monitor_deployment_progress.py --interval 60

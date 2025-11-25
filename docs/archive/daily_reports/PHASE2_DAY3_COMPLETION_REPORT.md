@@ -348,8 +348,8 @@ python3 scripts/backfill_fundamentals_dart.py --start-year 2022 --end-year 2023
    - Lessons learned
 
 ### Log Files
-- `logs/20251102_task7_backfill.log` (Task 7 sample test)
-- `logs/20251102_task9_full_backfill.log` (26-hour full backfill)
+- `log/20251102_task7_backfill.log` (Task 7 sample test)
+- `log/20251102_task9_full_backfill.log` (26-hour full backfill)
 
 ---
 

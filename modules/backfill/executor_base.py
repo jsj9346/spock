@@ -407,11 +407,11 @@ class BackfillExecutor(ABC):
         기본 체크포인트 파일 경로 생성
 
         Returns:
-            체크포인트 파일 경로 (logs/checkpoints/{executor_name}_{timestamp}.json)
+            체크포인트 파일 경로 (log/checkpoints/{executor_name}_{timestamp}.json)
         """
         executor_name = self.__class__.__name__.lower()
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        return f"logs/checkpoints/{executor_name}_{timestamp}.json"
+        return f"log/checkpoints/{executor_name}_{timestamp}.json"
 
     def get_stats(self) -> BackfillStats:
         """

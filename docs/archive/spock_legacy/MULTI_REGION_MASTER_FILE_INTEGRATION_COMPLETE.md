@@ -144,12 +144,12 @@ if regions is None:
 
 **Daily Update** (6:00 AM KST):
 ```cron
-0 6 * * * cd /Users/13ruce/spock && /usr/bin/python3 scripts/update_master_files.py >> logs/cron_master_file_updates.log 2>&1
+0 6 * * * cd /Users/13ruce/spock && /usr/bin/python3 scripts/update_master_files.py >> log/cron_master_file_updates.log 2>&1
 ```
 
 **Weekly Full Refresh** (Sunday 3:00 AM KST):
 ```cron
-0 3 * * 0 cd /Users/13ruce/spock && /usr/bin/python3 scripts/update_master_files.py --regions US HK JP CN VN >> logs/cron_weekly_updates.log 2>&1
+0 3 * * 0 cd /Users/13ruce/spock && /usr/bin/python3 scripts/update_master_files.py --regions US HK JP CN VN >> log/cron_weekly_updates.log 2>&1
 ```
 
 ### Manual Update Commands
@@ -302,7 +302,7 @@ python3 scripts/update_master_files.py --dry-run
 cat data/master_file_update_metrics.prom
 
 # 4. View logs
-tail -50 logs/master_file_updates.log
+tail -50 log/master_file_updates.log
 ```
 
 ---

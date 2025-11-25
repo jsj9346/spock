@@ -401,7 +401,7 @@ async def load_data_with_fallback(self, tickers, start_date, end_date):
         logger.error(f"Data loading failed: {e}")
         formatter.print_warning(
             "Data loading failed. Returning empty dataset.\n"
-            "Check logs for details: ~/.quant_platform/logs/"
+            "Check logs for details: ~/.quant_platform/log/"
         )
         return pd.DataFrame()
 ```

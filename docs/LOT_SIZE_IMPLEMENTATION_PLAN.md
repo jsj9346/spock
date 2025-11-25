@@ -860,8 +860,8 @@ def extract_lot_size_from_kis_response(response: Dict) -> int:
 
 **Issue Tracking**:
 - Migration issues: Check `migrations/002_add_lot_size_column.log`
-- Adapter issues: Check `logs/YYYYMMDD_spock.log`
-- Trading engine: Check `logs/kis_trading_engine.log`
+- Adapter issues: Check `log/YYYYMMDD_spock.log`
+- Trading engine: Check `log/kis_trading_engine.log`
 
 ---
 

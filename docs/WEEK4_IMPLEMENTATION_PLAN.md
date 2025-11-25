@@ -910,7 +910,7 @@ git checkout main
 - [WEEK3_DAY7_8_COMPLETION_REPORT.md](WEEK3_DAY7_8_COMPLETION_REPORT.md) - 이전 최적화
 
 **실행 중 문제**:
-1. 로그 확인: `logs/YYYYMMDD_spock_refresh.log`
+1. 로그 확인: `log/YYYYMMDD_spock_refresh.log`
 2. DB 연결 확인: `brew services list | grep postgresql`
 3. 테스트 재실행: `pytest tests/ -v --tb=short`
 

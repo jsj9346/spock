@@ -384,13 +384,13 @@ python3 spock_refresh.py
 
 ```bash
 # 1. 로그 파일 실시간 모니터링
-tail -f logs/$(date +%Y%m%d)_backfill_fundamentals.log
+tail -f log/$(date +%Y%m%d)_backfill_fundamentals.log
 
 # 2. 진행 상황 확인
-grep -E "처리 중:|✅|❌" logs/$(date +%Y%m%d)_backfill_fundamentals.log | tail -20
+grep -E "처리 중:|✅|❌" log/$(date +%Y%m%d)_backfill_fundamentals.log | tail -20
 
 # 3. 효율성 메트릭 확인
-grep "API calls saved" logs/$(date +%Y%m%d)_backfill_fundamentals.log
+grep "API calls saved" log/$(date +%Y%m%d)_backfill_fundamentals.log
 
 # 4. 데이터베이스 커버리지 확인
 psql -d quant_platform -c "

@@ -47,7 +47,7 @@
        level=logging.INFO,
        format='%(asctime)s [%(levelname)s] %(message)s',
        handlers=[
-           logging.FileHandler('logs/etf_collection.log'),
+           logging.FileHandler('log/etf_collection.log'),
            logging.StreamHandler()
        ]
    )
@@ -946,16 +946,16 @@
    # crontab -e
 
    # Phase 1: 기본 ETF 목록 수집 (매일 09:00 KST)
-   0 9 * * * cd /Users/13ruce/spock && ./scripts/run_etf_collection.sh phase1 >> logs/etf_collection.log 2>&1
+   0 9 * * * cd /Users/13ruce/spock && ./scripts/run_etf_collection.sh phase1 >> log/etf_collection.log 2>&1
 
    # Phase 2: AUM 업데이트 (매일 16:00 KST)
-   0 16 * * * cd /Users/13ruce/spock && ./scripts/run_etf_collection.sh phase2 >> logs/etf_collection.log 2>&1
+   0 16 * * * cd /Users/13ruce/spock && ./scripts/run_etf_collection.sh phase2 >> log/etf_collection.log 2>&1
 
    # Phase 3: 괴리율 업데이트 (매주 일요일 21:00 KST)
-   0 21 * * 0 cd /Users/13ruce/spock && ./scripts/run_etf_collection.sh phase3 >> logs/etf_collection.log 2>&1
+   0 21 * * 0 cd /Users/13ruce/spock && ./scripts/run_etf_collection.sh phase3 >> log/etf_collection.log 2>&1
 
    # Phase 4: 52주 고저 업데이트 (매일 17:00 KST)
-   0 17 * * * cd /Users/13ruce/spock && ./scripts/run_etf_collection.sh phase4 >> logs/etf_collection.log 2>&1
+   0 17 * * * cd /Users/13ruce/spock && ./scripts/run_etf_collection.sh phase4 >> log/etf_collection.log 2>&1
    ```
 
 3. **Test cron jobs manually**
@@ -967,7 +967,7 @@
    ./scripts/run_etf_collection.sh phase4
 
    # Check logs
-   tail -f logs/etf_collection.log
+   tail -f log/etf_collection.log
    ```
 
 **Deliverables**:

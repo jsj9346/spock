@@ -175,7 +175,7 @@ python3 scripts/backfill_hk_ohlcv_tiered.py \
   --end-date 2025-11-12 \
   --rate-limit 1.0 \
   --validate-quality \
-  --log-file logs/hk_tier1_full_backfill.log
+  --log-file log/hk_tier1_full_backfill.log
 
 # Estimated duration: 2-3 hours
 # Expected records: ~58,750 OHLCV records
@@ -194,7 +194,7 @@ python3 scripts/backfill_hk_ohlcv_tiered.py \
   --end-date 2025-11-12 \
   --rate-limit 1.0 \
   --validate-quality \
-  --log-file logs/hk_tier1_test10_backfill.log
+  --log-file log/hk_tier1_test10_backfill.log
 
 # Estimated duration: 30 minutes
 # Expected records: ~12,500 OHLCV records
@@ -205,7 +205,7 @@ python3 scripts/backfill_hk_ohlcv_tiered.py \
 **Monitor Progress** (during backfill):
 ```bash
 # Check log file
-tail -f logs/hk_tier1_full_backfill.log
+tail -f log/hk_tier1_full_backfill.log
 
 # Check database progress
 psql -d quant_platform -c "
@@ -315,7 +315,7 @@ modules/data_quality/
 ├── __init__.py                (140 bytes) ✅
 └── hk_validator.py            (9.2 KB) ✅
 
-logs/
+log/
 ├── hk_tier1_test_backfill.log (4.5 KB)
 └── (full backfill log pending)
 

@@ -321,7 +321,7 @@ def export_poc_results(result):
     if not result:
         return
 
-    output_file = f"logs/poc_gap_analysis_{date.today().strftime('%Y%m%d')}.json"
+    output_file = f"log/poc_gap_analysis_{date.today().strftime('%Y%m%d')}.json"
     os.makedirs('logs', exist_ok=True)
 
     with open(output_file, 'w') as f:

@@ -121,7 +121,7 @@ class EngineValidator:
         Args:
             config: Backtest configuration
             data_provider: Data provider for OHLCV data
-            history_path: Optional path to store validation history (default: logs/validation_history.json)
+            history_path: Optional path to store validation history (default: log/validation_history.json)
         """
         self.config = config
         self.data_provider = data_provider

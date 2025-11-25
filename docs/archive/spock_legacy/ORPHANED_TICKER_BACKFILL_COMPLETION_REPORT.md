@@ -26,7 +26,7 @@ Successfully backfilled **1,936 orphaned tickers** (OHLCV data without ticker re
 
 **Command**: `python3 scripts/backfill_orphaned_tickers.py --rate-limit 0.5`
 **Duration**: ~2.5 hours (faster than estimated)
-**Log**: `logs/backfill_orphaned_tickers_20251029_142617.log`
+**Log**: `log/backfill_orphaned_tickers_20251029_142617.log`
 
 | Metric | Count | Percentage |
 |--------|-------|------------|
@@ -58,7 +58,7 @@ Backfill used **pykrx** (old code without DART integration):
 
 **Command**: `python3 scripts/update_inferred_tickers_with_dart.py`
 **Duration**: <30 seconds (2,060 tickers processed)
-**Log**: `logs/dart_update_full_20251029_164200.log`
+**Log**: `log/dart_update_full_20251029_164200.log`
 
 | Metric | Count | Percentage |
 |--------|-------|------------|
@@ -255,13 +255,13 @@ CREATE INDEX idx_tickers_timeout_flag ON tickers(timeout_flag) WHERE timeout_fla
 **Real-time backfill monitoring**:
 ```bash
 # Watch live log
-tail -f logs/backfill_orphaned_tickers_20251029_142617.log
+tail -f log/backfill_orphaned_tickers_20251029_142617.log
 
 # Count successes
-grep -c "✅" logs/backfill_orphaned_tickers_20251029_142617.log
+grep -c "✅" log/backfill_orphaned_tickers_20251029_142617.log
 
 # Check completion
-tail -30 logs/backfill_orphaned_tickers_20251029_142617.log
+tail -30 log/backfill_orphaned_tickers_20251029_142617.log
 ```
 
 **Data quality queries**:
@@ -380,8 +380,8 @@ WHERE region = 'KR'
 scripts/update_inferred_tickers_with_dart.py          # 290 lines
 docs/DART_UPDATE_MONITORING_GUIDE.md                  # Monitoring guide
 docs/ORPHANED_TICKER_BACKFILL_COMPLETION_REPORT.md    # This file
-logs/backfill_orphaned_tickers_20251029_142617.log   # Backfill execution log
-logs/dart_update_full_20251029_164200.log            # DART update execution log
+log/backfill_orphaned_tickers_20251029_142617.log   # Backfill execution log
+log/dart_update_full_20251029_164200.log            # DART update execution log
 ```
 
 ### Files Modified

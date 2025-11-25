@@ -405,7 +405,7 @@ git merge origin/main
 3. [QUANT_DEVELOPMENT_WORKFLOWS.md](QUANT_DEVELOPMENT_WORKFLOWS.md) - 개발 워크플로우
 
 ### 로그 확인
-- **Python 오류**: `~/spock/logs/`
+- **Python 오류**: `~/spock/log/`
 - **PostgreSQL 로그**: `/opt/homebrew/var/log/postgresql@14.log`
 - **Backup 로그**: `~/spock/backups/migration_YYYYMMDD_HHMMSS/`
 

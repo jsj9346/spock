@@ -246,7 +246,7 @@ refresher.refresh_all_regions(incremental=True, parallel=False)
 ```bash
 # crontab -e
 # 매일 오전 9시 Quick Refresh
-0 9 * * * cd /Users/13ruce/spock && python3 spock_refresh.py --quick --yes >> logs/daily_refresh.log 2>&1
+0 9 * * * cd /Users/13ruce/spock && python3 spock_refresh.py --quick --yes >> log/daily_refresh.log 2>&1
 ```
 
 ### Python 스크립트
@@ -290,7 +290,7 @@ if __name__ == '__main__':
 ## 📞 지원
 
 **문제 발생 시:**
-1. 로그 파일 확인: `logs/YYYYMMDD_spock_refresh.log`
+1. 로그 파일 확인: `log/YYYYMMDD_spock_refresh.log`
 2. PostgreSQL 상태 확인: `brew services list`
 3. `.env` 설정 확인
 4. 캐시 초기화 시도

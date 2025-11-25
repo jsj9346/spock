@@ -74,7 +74,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Setup logging
-log_filename = f"logs/{datetime.now().strftime('%Y%m%d')}_backfill_fundamentals_dart.log"
+log_filename = f"log/{datetime.now().strftime('%Y%m%d')}_backfill_fundamentals_dart.log"
 os.makedirs('logs', exist_ok=True)
 
 logging.basicConfig(
@@ -859,7 +859,7 @@ class DARTFundamentalBackfiller:
 
         # Checkpoint system: Save progress every 100 tickers
         checkpoint_interval = 100
-        checkpoint_file = f"logs/backfill_checkpoint_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        checkpoint_file = f"log/backfill_checkpoint_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
 
         # Process each ticker
         for idx, ticker_info in enumerate(tickers, 1):

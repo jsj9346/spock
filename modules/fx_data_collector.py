@@ -615,7 +615,7 @@ if __name__ == '__main__':
         format='%(asctime)s [%(levelname)s] %(message)s',
         handlers=[
             logging.StreamHandler(),
-            logging.FileHandler(f'logs/fx_collection_{date.today().strftime("%Y%m%d")}.log')
+            logging.FileHandler(f'log/fx_collection_{date.today().strftime("%Y%m%d")}.log')
         ]
     )
 

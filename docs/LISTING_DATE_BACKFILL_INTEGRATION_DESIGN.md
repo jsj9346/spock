@@ -737,7 +737,7 @@ def run_listing_date_backfill_enhanced(regions: List[str]):
 
         print(f"  Command: {' '.join(cmd_kr)}")
         print(f"\n{colored('💡 Monitor progress:', Fore.CYAN)}")
-        print(f"   tail -f logs/{datetime.now().strftime('%Y%m%d')}_backfill_listing_dates_kr.log")
+        print(f"   tail -f log/{datetime.now().strftime('%Y%m%d')}_backfill_listing_dates_kr.log")
         print()
 
         try:
@@ -764,7 +764,7 @@ def run_listing_date_backfill_enhanced(regions: List[str]):
 
         print(f"  Command: {' '.join(cmd_overseas)}")
         print(f"\n{colored('💡 Monitor progress:', Fore.CYAN)}")
-        print(f"   tail -f logs/{datetime.now().strftime('%Y%m%d')}_backfill_listing_dates_overseas.log")
+        print(f"   tail -f log/{datetime.now().strftime('%Y%m%d')}_backfill_listing_dates_overseas.log")
         print()
 
         try:

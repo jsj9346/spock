@@ -146,7 +146,7 @@ def enrich_stock_metadata(self,
    - Dry run: ✅ VN market (696 stocks, 100% success)
    - Help message: ✅ All flags documented
    - Logging: ✅ Console + file output working
-   - Report: ✅ Generated at `logs/enrichment_report.txt`
+   - Report: ✅ Generated at `log/enrichment_report.txt`
 
 ---
 
@@ -266,7 +266,7 @@ python3 scripts/enrich_global_metadata.py \
 - **Dry Run**: ✅ VN market (696 stocks, 100% success)
 - **Help Message**: ✅ All flags documented
 - **Logging**: ✅ Console + file output
-- **Report Generation**: ✅ `logs/enrichment_report.txt`
+- **Report Generation**: ✅ `log/enrichment_report.txt`
 
 ### Phase 3: Performance Optimization
 - **Parallel Mode**: ✅ ThreadPoolExecutor working

@@ -256,7 +256,7 @@ CET  - HTC HOLDING JOINT STOCK COMPANY
 - `/tmp/update_vn_unavailable_tickers.sql` - 메타데이터 업데이트
 
 ### 백필 로그
-- `logs/20251107_backfill_listing_dates_overseas.log` - 원본 백필 로그
+- `log/20251107_backfill_listing_dates_overseas.log` - 원본 백필 로그
 
 ---
 

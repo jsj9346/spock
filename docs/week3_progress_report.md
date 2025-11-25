@@ -87,7 +87,7 @@ Database Size:           ~185 MB (OHLCV data)
 **Deliverables**:
 - ✅ `scripts/backfill_kr_ohlcv_pykrx.py` - Enhanced backfill script with universe file support
 - ✅ 463,039 OHLCV records in `ohlcv_data` hypertable
-- ✅ Complete backfill logs at `logs/backfill_kr_week3_full_universe.log`
+- ✅ Complete backfill logs at `log/backfill_kr_week3_full_universe.log`
 
 ---
 
@@ -187,7 +187,7 @@ MIN_EXPECTED_DAYS = 1200        # Minimum trading days for 5 years
 **Usage**:
 ```bash
 python3 scripts/monitor_backfill_progress.py \
-  --log logs/backfill_kr_week3_full_universe.log \
+  --log log/backfill_kr_week3_full_universe.log \
   --refresh 10
 ```
 
@@ -468,7 +468,7 @@ Null Values:      0 (NOT NULL constraints enforced)
 
 **Data Files**:
 - `data/kr_universe_week3.csv` - 350 ticker universe definition
-- `logs/backfill_kr_week3_full_universe.log` - Complete backfill log
+- `log/backfill_kr_week3_full_universe.log` - Complete backfill log
 
 **Scripts**:
 - `scripts/week3_define_universe.py` - Universe generation
@@ -530,7 +530,7 @@ python3 scripts/backfill_kr_ohlcv_pykrx.py \
 
 # Monitor progress
 python3 scripts/monitor_backfill_progress.py \
-  --log logs/backfill_kr_week3_full_universe.log \
+  --log log/backfill_kr_week3_full_universe.log \
   --refresh 10
 
 # Validate data quality

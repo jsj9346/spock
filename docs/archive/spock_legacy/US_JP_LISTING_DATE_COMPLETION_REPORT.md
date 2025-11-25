@@ -318,7 +318,7 @@ WHERE region = 'JP' AND is_active = true;
 
 ### 백필 로그
 - **US**: `/tmp/us_backfill_output.log` (515개 ticker, 7분 48초)
-- **JP**: `logs/20251111_backfill_listing_dates_overseas.log` (7개 ticker, ~2분)
+- **JP**: `log/20251111_backfill_listing_dates_overseas.log` (7개 ticker, ~2분)
 
 ### 검증 스크립트
 ```sql

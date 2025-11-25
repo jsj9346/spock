@@ -216,7 +216,7 @@ cp spock_refresh_legacy.py spock_refresh.py
 ## 📞 지원
 
 ### 문제 발생 시
-1. 로그 확인: `logs/YYYYMMDD_spock_refresh.log`
+1. 로그 확인: `log/YYYYMMDD_spock_refresh.log`
 2. 캐시 초기화: `query_cache.invalidate()`
 3. DB 연결 확인: `brew services list | grep postgresql`
 
