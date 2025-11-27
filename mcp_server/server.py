@@ -104,6 +104,9 @@ class SpockMCPServer:
             from .tools.etf_tool import get_etf_screening_tool_def
             from .tools.macro_tool import get_macro_tool_def
             from .tools.cagr_tool import get_cagr_tool_def
+            from .tools.fundamentals_tool import get_fundamentals_tool_def
+            from .tools.ratios_tool import get_ratios_tool_def
+            from .tools.dividend_tool import get_dividend_tool_def
 
             tools = []
             tools.append(get_data_query_tool_def())
@@ -115,6 +118,9 @@ class SpockMCPServer:
             tools.append(get_etf_screening_tool_def())
             tools.append(get_macro_tool_def())
             tools.append(get_cagr_tool_def())
+            tools.append(get_fundamentals_tool_def())
+            tools.append(get_ratios_tool_def())
+            tools.append(get_dividend_tool_def())
 
             logger.info("tools_listed", tool_count=len(tools))
             return tools
@@ -155,10 +161,19 @@ class SpockMCPServer:
             elif name == "get_cagr":
                 from .tools.cagr_tool import handle_get_cagr
                 return await handle_get_cagr(self.data_adapter, arguments)
+            elif name == "query_fundamentals":
+                from .tools.fundamentals_tool import handle_query_fundamentals
+                return await handle_query_fundamentals(self.data_adapter, arguments)
+            elif name == "calculate_financial_ratios":
+                from .tools.ratios_tool import handle_calculate_financial_ratios
+                return await handle_calculate_financial_ratios(self.data_adapter, arguments)
+            elif name == "query_dividend_history":
+                from .tools.dividend_tool import handle_query_dividend_history
+                return await handle_query_dividend_history(self.data_adapter, arguments)
             else:
                 raise ValueError(f"Unknown tool: {name}")
 
-        logger.debug("mcp_unified_handlers_registered", tool_count=10)
+        logger.debug("mcp_unified_handlers_registered", tool_count=13)
 
     async def run(self) -> None:
         """Run MCP server (async main loop)"""

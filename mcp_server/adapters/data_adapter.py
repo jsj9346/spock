@@ -569,6 +569,243 @@ class DataAdapter:
         except (ZeroDivisionError, ValueError, OverflowError):
             return None
 
+    async def get_fundamentals(
+        self,
+        tickers: List[str],
+        fields: List[str],
+        period_type: str = "ANNUAL",
+        periods: int = 1,
+        region: str = "KR",
+    ) -> Dict[str, List[Dict]]:
+        """
+        Get fundamental financial data from ticker_fundamentals table.
+
+        Args:
+            tickers: List of ticker symbols
+            fields: List of column names to retrieve (e.g., ['revenue', 'net_income'])
+            period_type: ANNUAL, QUARTERLY, or DAILY
+            periods: Number of periods to retrieve (most recent first)
+            region: Market region code
+
+        Returns:
+            Dict mapping ticker to list of records:
+            {
+                "005930": [
+                    {
+                        "ticker": "005930",
+                        "date": "2024-12-31",
+                        "fiscal_year": 2024,
+                        "period_type": "ANNUAL",
+                        "revenue": 300000000000000,
+                        "net_income": 35000000000000,
+                        ...
+                    },
+                    ...
+                ]
+            }
+
+        Raises:
+            DataNotFoundError: No data available
+            DatabaseError: Database query failed
+        """
+        import pandas as pd
+
+        logger.info(
+            "get_fundamentals_start",
+            tickers=tickers,
+            fields=fields[:5],  # Log first 5 fields only
+            period_type=period_type,
+            periods=periods,
+            region=region
+        )
+
+        # Build field list (always include base fields)
+        base_fields = ["ticker", "date", "fiscal_year", "period_type"]
+        all_fields = list(set(base_fields + fields))
+        field_str = ", ".join(all_fields)
+
+        # Build query with pagination
+        ticker_placeholders = ", ".join(["%s"] * len(tickers))
+
+        query = f"""
+            WITH ranked_data AS (
+                SELECT {field_str},
+                       ROW_NUMBER() OVER (
+                           PARTITION BY ticker
+                           ORDER BY date DESC
+                       ) as rn
+                FROM ticker_fundamentals
+                WHERE ticker IN ({ticker_placeholders})
+                  AND region = %s
+                  AND period_type = %s
+            )
+            SELECT {field_str}
+            FROM ranked_data
+            WHERE rn <= %s
+            ORDER BY ticker, date DESC
+        """
+
+        try:
+            params = tuple(tickers) + (region, period_type, periods)
+            rows = self.db_manager.execute_query(query, params)
+
+        except Exception as e:
+            logger.error("fundamentals_query_failed", error=str(e))
+            raise DatabaseError(
+                f"Failed to query fundamentals data: {e}",
+                {"tickers": tickers, "region": region}
+            )
+
+        if not rows:
+            raise DataNotFoundError(
+                "No fundamental data available",
+                {"tickers": tickers, "region": region, "period_type": period_type}
+            )
+
+        # Organize data by ticker
+        results: Dict[str, List[Dict]] = {}
+
+        for row in rows:
+            ticker = row.get("ticker")
+            if ticker not in results:
+                results[ticker] = []
+
+            # Convert row to dict with proper types
+            record = {}
+            for key, value in row.items():
+                if key == "rn":  # Skip row number
+                    continue
+                if value is not None:
+                    # Convert date to string
+                    if hasattr(value, 'strftime'):
+                        record[key] = value.strftime('%Y-%m-%d')
+                    # Convert Decimal to float
+                    elif hasattr(value, '__float__'):
+                        record[key] = float(value)
+                    else:
+                        record[key] = value
+                else:
+                    record[key] = None
+
+            results[ticker].append(record)
+
+        logger.info(
+            "get_fundamentals_complete",
+            ticker_count=len(results),
+            total_records=sum(len(r) for r in results.values())
+        )
+
+        return results
+
+    async def get_dividend_history(
+        self,
+        tickers: List[str],
+        region: str = "KR",
+        years: int = 5,
+    ) -> Dict[str, List[Dict]]:
+        """
+        Get dividend history from dividend_history table.
+
+        Args:
+            tickers: List of ticker symbols
+            region: Market region code
+            years: Number of years to retrieve
+
+        Returns:
+            Dict mapping ticker to list of dividend records:
+            {
+                "005930": [
+                    {
+                        "ticker": "005930",
+                        "fiscal_year": 2024,
+                        "dividend_type": "final",
+                        "dividend_per_share": 1444.0,
+                        "dividend_yield": 1.46,
+                        "ex_dividend_date": "2025-03-27",
+                        ...
+                    },
+                    ...
+                ]
+            }
+
+        Raises:
+            DatabaseError: Database query failed
+        """
+        from datetime import datetime
+
+        logger.info(
+            "get_dividend_history_start",
+            tickers=tickers,
+            region=region,
+            years=years
+        )
+
+        # Calculate cutoff year
+        current_year = datetime.now().year
+        cutoff_year = current_year - years
+
+        # Build query
+        ticker_placeholders = ", ".join(["%s"] * len(tickers))
+
+        query = f"""
+            SELECT
+                ticker, region, fiscal_year, dividend_type,
+                dividend_per_share, dividend_yield,
+                declaration_date, ex_dividend_date, record_date, payment_date,
+                currency, total_dividend_amount, payout_ratio, data_source
+            FROM dividend_history
+            WHERE ticker IN ({ticker_placeholders})
+              AND region = %s
+              AND fiscal_year >= %s
+            ORDER BY ticker, fiscal_year DESC, ex_dividend_date DESC NULLS LAST
+        """
+
+        try:
+            params = tuple(tickers) + (region, cutoff_year)
+            rows = self.db_manager.execute_query(query, params)
+
+        except Exception as e:
+            logger.error("dividend_history_query_failed", error=str(e))
+            raise DatabaseError(
+                f"Failed to query dividend history: {e}",
+                {"tickers": tickers, "region": region}
+            )
+
+        # Organize data by ticker
+        results: Dict[str, List[Dict]] = {ticker: [] for ticker in tickers}
+
+        if rows:
+            for row in rows:
+                ticker = row.get("ticker")
+                if ticker in results:
+                    # Convert row to dict with proper types
+                    record = {}
+                    for key, value in row.items():
+                        if value is not None:
+                            # Convert date to string
+                            if hasattr(value, 'strftime'):
+                                record[key] = value.strftime('%Y-%m-%d')
+                            # Convert date object to date
+                            elif hasattr(value, 'isoformat') and not hasattr(value, 'strftime'):
+                                record[key] = str(value)
+                            # Convert Decimal to float
+                            elif hasattr(value, '__float__'):
+                                record[key] = float(value)
+                            else:
+                                record[key] = value
+                        else:
+                            record[key] = None
+
+                    results[ticker].append(record)
+
+        logger.info(
+            "get_dividend_history_complete",
+            ticker_count=len([t for t in results if results[t]]),
+            total_records=sum(len(r) for r in results.values())
+        )
+
+        return results
+
     def _make_cache_key(
         self,
         tickers: List[str],

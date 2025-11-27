@@ -569,6 +569,199 @@ screen_etfs(
 
 ---
 
+### query_dividend_history
+
+Get dividend payment history and growth analysis for stocks.
+
+**Signature**:
+```typescript
+query_dividend_history(
+  tickers: string[],              // 1-20 ticker symbols
+  years?: number,                 // Years of history (1-10, default: 5)
+  include_growth_analysis?: boolean,  // Include CAGR/streak analysis (default: true)
+  include_upcoming?: boolean,     // Include upcoming dividends (default: true)
+  region?: "KR" | "US" | "JP" | "HK" | "CN" | "VN"  // Market region (default: "KR")
+): Promise<DividendResponse>
+```
+
+**Input Parameters**:
+
+| Parameter | Type | Required | Validation | Description |
+|-----------|------|----------|------------|-------------|
+| `tickers` | `string[]` | ✅ Yes | 1-20 items | Ticker symbols |
+| `years` | `number` | No | 1-10 | Years of history (default: 5) |
+| `include_growth_analysis` | `boolean` | No | true/false | Include CAGR and streak analysis |
+| `include_upcoming` | `boolean` | No | true/false | Include upcoming dividend dates |
+| `region` | `string` | No | KR \| US \| JP \| HK \| CN \| VN | Market region (default: KR) |
+
+**Output Format**:
+```json
+{
+  "success": true,
+  "data": {
+    "005930": {
+      "ticker": "005930",
+      "region": "KR",
+      "currency": "KRW",
+      "has_dividends": true,
+      "dividend_history": [
+        {
+          "fiscal_year": 2024,
+          "dividend_type": "annual",
+          "dividend_per_share": 1444,
+          "dividend_yield": 2.15,
+          "ex_dividend_date": "2024-12-28",
+          "payment_date": "2025-04-15"
+        }
+      ],
+      "growth_analysis": {
+        "dividend_cagr_3y": 0.082,
+        "dividend_cagr_5y": 0.105,
+        "consecutive_years": 23,
+        "dividend_streak": "dividend_achiever",
+        "average_payout_ratio": 22.5
+      },
+      "summary": {
+        "annual_dividend_current": 1444,
+        "annual_dividend_last_year": 1444,
+        "payments_current_year": 1,
+        "dividend_types": ["annual"]
+      }
+    }
+  },
+  "metadata": {
+    "ticker_count": 1,
+    "region": "KR",
+    "query_time": "2025-11-27T10:00:00"
+  }
+}
+```
+
+**Dividend Streak Types**:
+- `dividend_aristocrat`: 25+ consecutive years of dividends
+- `dividend_achiever`: 10+ consecutive years
+- `stable`: 5+ consecutive years
+- `maintained`: 1-4 consecutive years
+- `none`: No recent dividends
+
+---
+
+### calculate_financial_ratios
+
+Calculate financial ratios from fundamental data with interpretation.
+
+**Signature**:
+```typescript
+calculate_financial_ratios(
+  tickers: string[],              // 1-20 ticker symbols
+  ratio_categories?: string[],   // Categories to calculate (default: ["all"])
+  period_type?: "ANNUAL" | "QUARTERLY",  // Data period (default: "ANNUAL")
+  include_interpretation?: boolean,  // Include interpretation (default: true)
+  region?: "KR" | "US" | "JP" | "HK" | "CN" | "VN"  // Market region (default: "KR")
+): Promise<RatiosResponse>
+```
+
+**Input Parameters**:
+
+| Parameter | Type | Required | Validation | Description |
+|-----------|------|----------|------------|-------------|
+| `tickers` | `string[]` | ✅ Yes | 1-20 items | Ticker symbols |
+| `ratio_categories` | `string[]` | No | See below | Categories to calculate |
+| `period_type` | `string` | No | ANNUAL \| QUARTERLY | Data period type |
+| `include_interpretation` | `boolean` | No | true/false | Include health assessment |
+| `region` | `string` | No | KR \| US \| JP \| HK \| CN \| VN | Market region |
+
+**Available Ratio Categories**:
+- `liquidity`: current_ratio, quick_ratio, cash_ratio
+- `cash_position`: cash_to_assets, net_cash_position
+- `leverage`: debt_ratio, debt_to_assets, interest_coverage
+- `profitability`: gross_margin, operating_margin, net_margin, roe, roa, ebitda_margin
+- `efficiency`: asset_turnover, inventory_turnover, receivables_turnover, inventory_days, receivables_days
+- `dividend`: dividend_yield, dividend_payout_ratio
+- `all`: All categories (default)
+
+**Output Format**:
+```json
+{
+  "success": true,
+  "data": {
+    "005930": {
+      "ticker": "005930",
+      "fiscal_year": 2024,
+      "period_type": "ANNUAL",
+      "ratios": {
+        "liquidity": {
+          "current_ratio": {
+            "value": 2.58,
+            "unit": "times",
+            "korean": "유동비율",
+            "interpretation": "양호한 유동성",
+            "health_status": "healthy"
+          },
+          "cash_ratio": {
+            "value": 0.85,
+            "unit": "times",
+            "korean": "현금비율",
+            "interpretation": "적정 현금 보유",
+            "health_status": "healthy"
+          }
+        },
+        "efficiency": {
+          "inventory_turnover": {
+            "value": 6.2,
+            "unit": "times",
+            "korean": "재고회전율",
+            "interpretation": "빠른 재고 회전",
+            "health_status": "healthy"
+          },
+          "inventory_days": {
+            "value": 58.9,
+            "unit": "days",
+            "korean": "재고자산회전일수",
+            "interpretation": "적정 재고 회전 기간",
+            "health_status": "healthy"
+          },
+          "receivables_turnover": {
+            "value": 8.5,
+            "unit": "times",
+            "korean": "매출채권회전율",
+            "interpretation": "빠른 채권 회수",
+            "health_status": "healthy"
+          },
+          "receivables_days": {
+            "value": 42.9,
+            "unit": "days",
+            "korean": "매출채권회전일수",
+            "interpretation": "적정 채권 회수 기간",
+            "health_status": "healthy"
+          }
+        }
+      },
+      "summary": {
+        "overall_health": "healthy",
+        "strengths": ["Strong liquidity", "High profitability"],
+        "concerns": [],
+        "recommendation": "Financially strong company"
+      }
+    }
+  },
+  "metadata": {
+    "ticker_count": 1,
+    "categories": ["liquidity", "efficiency"],
+    "ratios_calculated": 8,
+    "region": "KR",
+    "query_time": "2025-11-27T10:00:00"
+  }
+}
+```
+
+**Health Status Values**:
+- `healthy`: Ratio is within optimal range
+- `warning`: Ratio requires attention
+- `critical`: Ratio indicates potential issues
+
+---
+
 ## Usage Examples
 
 ### Example 1: Single Ticker Query (Korean Market)
@@ -1120,9 +1313,9 @@ Found a bug or have a feature request? Please include:
 
 ---
 
-**Last Updated**: 2025-10-31
-**Version**: 0.2.0
-**Status**: Production Ready (Phase 1 Week 2 Complete)
+**Last Updated**: 2025-11-27
+**Version**: 0.3.0
+**Status**: Production Ready (Financial Data Extension Complete)
 
 ## Tool Summary
 
@@ -1133,3 +1326,6 @@ Found a bug or have a feature request? Please include:
 | `optimize_strategy` | Find optimal parameters | Varies by grid size | ✅ Production |
 | `list_available_tickers` | List available stocks | <100ms with caching | ✅ Production |
 | `get_system_status` | Check system health | <50ms | ✅ Production |
+| `screen_etfs` | Screen Korean ETFs | <500ms | ✅ Production |
+| `query_dividend_history` | Get dividend history & growth analysis | <300ms | ✅ Production |
+| `calculate_financial_ratios` | Calculate financial ratios with interpretation | <500ms | ✅ Production |

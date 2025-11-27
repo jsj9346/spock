@@ -76,6 +76,8 @@ class DatabaseUpdateOrchestrator:
         'macro_data',          # New: Global market indices, bonds, commodities, sentiment
         'ohlcv',
         'fundamentals',        # DART annual financial statements
+        'cash_backfill',       # New: Cash and cash equivalents backfill (US market)
+        'fundamental_ratios',  # New: Calculate financial ratios from fundamentals
         'daily_valuation',     # New: pykrx daily PER/PBR for valuation trend analysis
         'technical_indicators', # New: MA, RSI, MACD, BB, ATR, Volume indicators
         'classification',      # New: Stock classification (SPAC, preferred, sector/industry)
@@ -221,6 +223,8 @@ class DatabaseUpdateOrchestrator:
             'macro_data': self._update_macro_data,             # New: Global market data
             'ohlcv': self._update_ohlcv,
             'fundamentals': self._update_fundamentals,
+            'cash_backfill': self._backfill_cash_data,         # New: Cash data backfill
+            'fundamental_ratios': self._calculate_fundamental_ratios,  # New: Financial ratios
             'daily_valuation': self._update_daily_valuation,   # New: pykrx daily PER/PBR
             'technical_indicators': self._update_technical_indicators, # New: Technical analysis
             'classification': self._classify_stocks,           # New step
@@ -1051,16 +1055,293 @@ class DatabaseUpdateOrchestrator:
 
         return results
 
-    def _calculate_dividend(self, regions: List[str], **kwargs) -> Dict:
-        """Calculate dividend yield for all regions"""
-        logger.info("🔄 Calculating dividend yield...")
+    def _backfill_cash_data(self, regions: List[str], **kwargs) -> Dict:
+        """
+        Backfill cash and cash equivalents data for US market.
+
+        This step updates ticker_fundamentals with:
+        - cash_and_equivalents
+        - short_term_investments
+        - marketable_securities
+
+        Required for cash ratio calculation.
+
+        Currently supports:
+        - US: yfinance (balance sheet data)
+        """
+        logger.info("🔄 Backfilling cash data...")
 
         results = {}
 
         for region in regions:
+            if region == 'US':
+                try:
+                    from scripts.backfill_cash_data import CashDataBackfiller
+
+                    backfiller = CashDataBackfiller(self.db)
+
+                    # Run backfill
+                    limit = self.config.get('limit', 100)
+                    result = backfiller.run_backfill(regions=[region], limit=limit)
+
+                    results[region] = {
+                        'success': True,
+                        'updated': result.get('total_updated', 0),
+                        'skipped': result.get('total_skipped', 0),
+                        'errors': result.get('total_errors', 0)
+                    }
+
+                    logger.info(
+                        f"  ✅ [{region}] {result.get('total_updated', 0)} updated, "
+                        f"{result.get('total_skipped', 0)} skipped, "
+                        f"{result.get('total_errors', 0)} errors"
+                    )
+
+                except ImportError as e:
+                    logger.warning(f"  ⚠️ [{region}] Cash data backfiller not available: {e}")
+                    results[region] = {'success': False, 'error': str(e)}
+                except Exception as e:
+                    logger.error(f"  ❌ [{region}] Cash data backfill failed: {e}")
+                    results[region] = {'success': False, 'error': str(e)}
+
+            else:
+                # Cash data backfill not yet implemented for other regions
+                logger.info(f"  [{region}] Cash data backfill not implemented (US only)")
+                results[region] = {
+                    'success': False,
+                    'message': 'Cash data backfill only supports US market currently'
+                }
+
+        return results
+
+    def _calculate_fundamental_ratios(self, regions: List[str], **kwargs) -> Dict:
+        """
+        Calculate fundamental financial ratios from ticker_fundamentals data.
+
+        This step calculates and stores ratios in factor_scores table:
+        - Liquidity: current_ratio, quick_ratio, cash_ratio
+        - Leverage: debt_ratio, debt_to_assets, interest_coverage
+        - Profitability: gross_margin, operating_margin, net_margin, ROE, ROA
+        - Efficiency: asset_turnover, inventory_turnover, receivables_turnover,
+                      inventory_days, receivables_days
+
+        All regions are supported.
+        """
+        logger.info("🔄 Calculating fundamental ratios...")
+
+        results = {}
+
+        for region in regions:
+            try:
+                from mcp_server.calculators.ratio_calculator import RatioCalculator
+
+                # Get tickers with fundamentals data
+                tickers_query = """
+                SELECT DISTINCT tf.ticker
+                FROM ticker_fundamentals tf
+                JOIN tickers t ON tf.ticker = t.ticker AND tf.region = t.region
+                WHERE tf.region = %s
+                  AND t.is_active = TRUE
+                  AND tf.period_type = 'ANNUAL'
+                  AND tf.total_assets IS NOT NULL
+                ORDER BY tf.ticker
+                """
+                limit = self.config.get('limit')
+                if limit:
+                    tickers_query = tickers_query.replace("ORDER BY", f"LIMIT {limit} ORDER BY")
+
+                ticker_rows = self.db.execute_query(tickers_query, (region,))
+                tickers = [row['ticker'] for row in ticker_rows] if ticker_rows else []
+
+                if not tickers:
+                    logger.info(f"  [{region}] No tickers with fundamentals data found")
+                    results[region] = {'success': True, 'processed': 0}
+                    continue
+
+                logger.info(f"  [{region}] Calculating ratios for {len(tickers)} tickers...")
+
+                processed = 0
+                errors = 0
+
+                for ticker in tickers:
+                    try:
+                        # Get latest fundamentals for this ticker
+                        fund_query = """
+                        SELECT *
+                        FROM ticker_fundamentals
+                        WHERE ticker = %s AND region = %s AND period_type = 'ANNUAL'
+                        ORDER BY fiscal_year DESC
+                        LIMIT 1
+                        """
+                        fund_data = self.db.execute_query(fund_query, (ticker, region))
+
+                        if not fund_data:
+                            continue
+
+                        fund = fund_data[0]
+
+                        # Map DB columns to calculator expected keys
+                        calc_data = {
+                            "total_assets": fund.get("total_assets"),
+                            "total_liabilities": fund.get("total_liabilities"),
+                            "total_equity": fund.get("total_equity"),
+                            "current_assets": fund.get("current_assets"),
+                            "current_liabilities": fund.get("current_liabilities"),
+                            "inventory": fund.get("inventory"),
+                            "accounts_receivable": fund.get("accounts_receivable"),
+                            "cash_and_equivalents": fund.get("cash_and_equivalents"),
+                            "short_term_investments": fund.get("short_term_investments"),
+                            "marketable_securities": fund.get("marketable_securities"),
+                            "total_debt": fund.get("total_debt"),
+                            "revenue": fund.get("revenue"),
+                            "cogs": fund.get("cost_of_revenue"),
+                            "gross_profit": fund.get("gross_profit"),
+                            "operating_income": fund.get("operating_income"),
+                            "net_income": fund.get("net_income"),
+                            "interest_expense": fund.get("interest_expense"),
+                            "ebitda": fund.get("ebitda"),
+                        }
+
+                        calculator = RatioCalculator(calc_data)
+
+                        # Calculate efficiency ratios (including new turnover days)
+                        efficiency_ratios = calculator.calculate_category("efficiency")
+
+                        # Calculate liquidity ratios
+                        liquidity_ratios = calculator.calculate_category("liquidity")
+
+                        # Calculate leverage ratios
+                        leverage_ratios = calculator.calculate_category("leverage")
+
+                        # Calculate profitability ratios
+                        profitability_ratios = calculator.calculate_category("profitability")
+
+                        # Store calculated ratios in factor_scores table
+                        ratios_to_store = {
+                            # Efficiency
+                            "Asset_Turnover": efficiency_ratios.get("asset_turnover", {}).get("value"),
+                            "Inventory_Turnover": efficiency_ratios.get("inventory_turnover", {}).get("value"),
+                            "Receivables_Turnover": efficiency_ratios.get("receivables_turnover", {}).get("value"),
+                            "Inventory_Days": efficiency_ratios.get("inventory_days", {}).get("value"),
+                            "Receivables_Days": efficiency_ratios.get("receivables_days", {}).get("value"),
+                            # Liquidity
+                            "Current_Ratio": liquidity_ratios.get("current_ratio", {}).get("value"),
+                            "Quick_Ratio": liquidity_ratios.get("quick_ratio", {}).get("value"),
+                            "Cash_Ratio": liquidity_ratios.get("cash_ratio", {}).get("value"),
+                            # Leverage
+                            "Debt_Ratio": leverage_ratios.get("debt_ratio", {}).get("value"),
+                            "Interest_Coverage": leverage_ratios.get("interest_coverage", {}).get("value"),
+                            # Profitability
+                            "Gross_Margin": profitability_ratios.get("gross_margin", {}).get("value"),
+                            "Operating_Margin": profitability_ratios.get("operating_margin", {}).get("value"),
+                            "Net_Margin": profitability_ratios.get("net_margin", {}).get("value"),
+                            "ROE": profitability_ratios.get("roe", {}).get("value"),
+                            "ROA": profitability_ratios.get("roa", {}).get("value"),
+                        }
+
+                        # Insert/Update factor_scores (current date as reference)
+                        from datetime import date as dt_date
+                        current_date = dt_date.today()
+
+                        for factor_name, value in ratios_to_store.items():
+                            if value is not None:
+                                upsert_query = """
+                                INSERT INTO factor_scores (ticker, region, date, factor_name, raw_value)
+                                VALUES (%s, %s, %s, %s, %s)
+                                ON CONFLICT (ticker, region, date, factor_name)
+                                DO UPDATE SET raw_value = EXCLUDED.raw_value, updated_at = NOW()
+                                """
+                                self.db.execute_update(upsert_query, (
+                                    ticker, region, current_date, factor_name, value
+                                ))
+
+                        processed += 1
+
+                    except Exception as e:
+                        logger.debug(f"  ❌ [{region}] Error processing {ticker}: {e}")
+                        errors += 1
+
+                results[region] = {
+                    'success': True,
+                    'processed': processed,
+                    'errors': errors
+                }
+
+                logger.info(
+                    f"  ✅ [{region}] {processed} tickers processed, {errors} errors"
+                )
+
+            except ImportError as e:
+                logger.warning(f"  ⚠️ [{region}] RatioCalculator not available: {e}")
+                results[region] = {'success': False, 'error': str(e)}
+            except Exception as e:
+                logger.error(f"  ❌ [{region}] Fundamental ratios calculation failed: {e}")
+                results[region] = {'success': False, 'error': str(e)}
+
+        return results
+
+    def _calculate_dividend(self, regions: List[str], **kwargs) -> Dict:
+        """
+        Calculate dividend yield and collect dividend history for all regions.
+
+        This step performs:
+        1. Dividend history collection (US, KR markets) - stores in dividend_history table
+        2. Dividend yield calculation (KR market) - updates ticker_fundamentals
+        """
+        logger.info("🔄 Processing dividends (history collection + yield calculation)...")
+
+        results = {}
+
+        for region in regions:
+            region_result = {
+                'history_collected': 0,
+                'yield_calculated': 0,
+                'success': True
+            }
+
+            # Phase 1: Collect dividend history (US and KR supported)
+            if region in ['US', 'KR']:
+                try:
+                    from modules.collection.dividend_collector import DividendCollector
+
+                    collector = DividendCollector(self.db)
+
+                    # Get tickers for this region
+                    tickers_query = """
+                    SELECT ticker FROM tickers
+                    WHERE region = %s AND is_active = TRUE
+                    ORDER BY ticker
+                    """
+                    limit = self.config.get('limit')
+                    if limit:
+                        tickers_query += f" LIMIT {limit}"
+
+                    ticker_rows = self.db.execute_query(tickers_query, (region,))
+                    tickers = [row['ticker'] for row in ticker_rows] if ticker_rows else []
+
+                    if tickers:
+                        logger.info(f"  [{region}] Collecting dividend history for {len(tickers)} tickers...")
+
+                        # Batch collect dividends
+                        batch_results = collector.collect_batch(tickers, region, years=5)
+                        total_collected = sum(batch_results.values())
+                        region_result['history_collected'] = total_collected
+
+                        logger.info(
+                            f"  ✅ [{region}] Collected {total_collected} dividend records for {len(tickers)} tickers"
+                        )
+                    else:
+                        logger.info(f"  [{region}] No active tickers found for dividend collection")
+
+                except ImportError as e:
+                    logger.warning(f"  ⚠️ [{region}] Dividend collector not available: {e}")
+                except Exception as e:
+                    logger.error(f"  ❌ [{region}] Dividend history collection failed: {e}")
+                    region_result['history_error'] = str(e)
+
+            # Phase 2: Calculate dividend yield (KR market only)
             if region == 'KR':
                 try:
-                    # Use dividend yield calculator for KR market
                     from scripts.calculate_dividend_yield import DividendYieldCalculator
 
                     calculator = DividendYieldCalculator(
@@ -1069,24 +1350,55 @@ class DatabaseUpdateOrchestrator:
                     )
 
                     result = calculator.calculate_all_tickers()
-
-                    results[region] = result
+                    region_result['yield_calculated'] = result.get('tickers_success', 0)
+                    region_result['yield_result'] = result
 
                     logger.info(
-                        f"  ✅ [{region}] {result.get('tickers_success', 0)} tickers calculated"
+                        f"  ✅ [{region}] {result.get('tickers_success', 0)} tickers yield calculated"
                     )
 
                 except Exception as e:
-                    logger.error(f"  ❌ [{region}] Failed: {e}")
-                    results[region] = {'success': False, 'error': str(e)}
+                    logger.error(f"  ❌ [{region}] Dividend yield calculation failed: {e}")
+                    region_result['yield_error'] = str(e)
+                    region_result['success'] = False
 
-            else:
-                # Overseas dividend calculation not implemented
-                logger.info(f"  [{region}] Overseas dividend calculation not implemented")
-                results[region] = {
-                    'success': False,
-                    'message': 'Overseas dividend calculation not implemented'
-                }
+            elif region not in ['US', 'KR']:
+                # JP, HK, CN, VN - dividend history collection via yfinance
+                try:
+                    from modules.collection.dividend_collector import DividendCollector
+
+                    collector = DividendCollector(self.db)
+
+                    # Get tickers for this region
+                    tickers_query = """
+                    SELECT ticker FROM tickers
+                    WHERE region = %s AND is_active = TRUE
+                    ORDER BY ticker
+                    """
+                    limit = self.config.get('limit')
+                    if limit:
+                        tickers_query += f" LIMIT {limit}"
+
+                    ticker_rows = self.db.execute_query(tickers_query, (region,))
+                    tickers = [row['ticker'] for row in ticker_rows] if ticker_rows else []
+
+                    if tickers:
+                        logger.info(f"  [{region}] Collecting dividend history for {len(tickers)} tickers (yfinance)...")
+                        batch_results = collector.collect_batch(tickers, region, years=5)
+                        total_collected = sum(batch_results.values())
+                        region_result['history_collected'] = total_collected
+
+                        logger.info(
+                            f"  ✅ [{region}] Collected {total_collected} dividend records"
+                        )
+                    else:
+                        logger.info(f"  [{region}] No active tickers found")
+
+                except Exception as e:
+                    logger.warning(f"  ⚠️ [{region}] Dividend collection failed: {e}")
+                    region_result['history_error'] = str(e)
+
+            results[region] = region_result
 
         return results
 

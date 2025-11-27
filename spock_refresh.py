@@ -1421,6 +1421,40 @@ def print_fundamental_backfill_status(
         print(f"     • ⚠️ : API 한계 도달 (모든 미처리 종목이 unavailable)")
         print()
 
+    # JP Region Smart Filtering Info
+    if 'JP' in status:
+        try:
+            from modules.backfill.jp_ticker_filter import JPTickerFilter
+            db = PostgresDatabaseManager()
+            jp_filter = JPTickerFilter(db)
+
+            # Get pending JP tickers for filter preview
+            jp_pending_query = """
+            SELECT ticker FROM tickers
+            WHERE region = 'JP' AND is_active = TRUE AND asset_type = 'STOCK'
+              AND (fund_status IS NULL OR fund_status = 'unknown')
+            """
+            jp_pending = db.execute_query(jp_pending_query)
+            if jp_pending:
+                pending_tickers = [r['ticker'] for r in jp_pending]
+                filter_stats = jp_filter.get_filter_statistics(pending_tickers)
+
+                if filter_stats['total'] - filter_stats['passed'] > 0:
+                    print(f"  {colored('🔍 JP 스마트 필터링 미리보기:', Fore.CYAN)}")
+                    print(f"     • Pending ticker: {filter_stats['total']:,}개")
+                    print(f"     • API 조회 예정: {filter_stats['passed']:,}개")
+                    skipped = filter_stats['total'] - filter_stats['passed']
+                    print(f"     • 사전 필터링 대상: {colored(f'{skipped:,}', Fore.GREEN)}개 (API 호출 절감)")
+                    if filter_stats['alpha_suffix_ipo'] > 0:
+                        print(f"       - 신규 IPO (알파벳 접미사): {filter_stats['alpha_suffix_ipo']}개")
+                    if filter_stats['etf_or_fund'] > 0:
+                        print(f"       - ETF/펀드: {filter_stats['etf_or_fund']}개")
+                    if filter_stats['reit'] > 0:
+                        print(f"       - J-REIT: {filter_stats['reit']}개")
+                    print()
+        except Exception as e:
+            pass  # Silent fail for filter preview
+
 
 # Status Formatter (출력 포맷 템플릿)
 # ============================================================================
@@ -2075,7 +2109,11 @@ def print_recent_executions(max_entries: int = 5) -> None:
         'daily_valuation_update': '💹 Daily Valuation',
         'technical_indicators_update': '📉 Technical Indicators',
         'data_validation': '🔍 Data Validation',
-        'stock_screening': '📊 Stock Screening'
+        # Week 2 MCP Extension: Financial Indicators
+        'financial_indicators_dividend_history': '💰 Dividend History',
+        'financial_indicators_cash_position_backfill': '💵 Cash Position',
+        'financial_indicators_financial_ratios': '📈 Financial Ratios',
+        'financial_indicators_all_indicators': '📊 All Indicators'
     }
 
     # Status icons
@@ -3016,7 +3054,7 @@ def interactive_menu():
         print(f"  {colored('10.', Fore.WHITE)} 💹 {colored('Daily Valuation Multiples', Fore.YELLOW)} - 주가배수 업데이트 (PER/PBR/PSR/PCR/EV/배당)")
         print(f"  {colored('11.', Fore.WHITE)} 📉 {colored('Technical Indicators', Fore.CYAN)} - 기술적 지표 계산")
         print(f"  {colored('12.', Fore.WHITE)} 🔍 {colored('Data Validation', Fore.BLUE)} - 백테스트 데이터 검증")
-        print(f"  {colored('13.', Fore.WHITE)} 📊 {colored('Stock Screening', Fore.GREEN)} - 종목 스크리닝")
+        print(f"  {colored('13.', Fore.WHITE)} 📊 {colored('Financial Indicators', Fore.GREEN)} - 재무지표 업데이트 (배당/현금/회전율)")
         print(f"  {colored('0.', Fore.WHITE)} 🚪 {colored('종료', Fore.RED)}")
         print()
 
@@ -3048,7 +3086,7 @@ def interactive_menu():
         elif choice == '12':
             run_data_validation()
         elif choice == '13':
-            run_stock_screening()
+            run_financial_indicators_update()
         elif choice == '0':
             print(f"\n{colored('👋 Bye!', Fore.GREEN)}")
             sys.exit(0)
@@ -3278,6 +3316,28 @@ def run_quick_refresh():
             dry_run=False
         )
 
+        # Phase 3: Financial Indicators (Week 2 MCP Extension)
+        print(f"\n{colored('Phase 3: Financial Indicators Update', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 60)
+
+        try:
+            from modules.orchestration.orchestrator import DatabaseUpdateOrchestrator
+            from modules.db_manager_postgres import PostgresDatabaseManager
+            db = PostgresDatabaseManager()
+            orchestrator = DatabaseUpdateOrchestrator(db, config={})
+
+            # Dividend History (all regions)
+            print(f"  {colored('[1/2] Collecting Dividend History...', Fore.WHITE)}")
+            orchestrator._calculate_dividend(regions)
+
+            # Financial Ratios (efficiency metrics)
+            print(f"  {colored('[2/2] Calculating Financial Ratios...', Fore.WHITE)}")
+            orchestrator._calculate_fundamental_ratios(regions)
+
+            print(f"  {colored('✅ Financial Indicators completed', Fore.GREEN)}")
+        except Exception as e:
+            print(f"  {colored(f'⚠️ Financial Indicators warning: {e}', Fore.YELLOW)}")
+
         # Summary
         total_success = sum(r.get('success_count', 0) for r in results.values())
         total_tickers = sum(r.get('total_tickers', 0) for r in results.values())
@@ -3287,6 +3347,7 @@ def run_quick_refresh():
         print("=" * 60)
         print(f"Regions: {', '.join(regions)}")
         print(f"Technical Indicators: {total_success}/{total_tickers} tickers")
+        print(f"Financial Indicators: Dividend + Ratios")
         print(f"Total Time: {total_time:.1f} minutes")
         print("=" * 60)
 
@@ -3396,6 +3457,35 @@ def run_full_refresh():
             dry_run=False
         )
 
+        # Phase 3: Financial Indicators (Week 2 MCP Extension - Full Update)
+        print(f"\n{colored('Phase 3: Financial Indicators Update (Full)', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 60)
+
+        try:
+            from modules.orchestration.orchestrator import DatabaseUpdateOrchestrator
+            from modules.db_manager_postgres import PostgresDatabaseManager
+            db = PostgresDatabaseManager()
+            orchestrator = DatabaseUpdateOrchestrator(db, config={})
+
+            # Dividend History (all regions)
+            print(f"  {colored('[1/3] Collecting Dividend History...', Fore.WHITE)}")
+            orchestrator._calculate_dividend(regions)
+
+            # Cash Backfill (US only)
+            if 'US' in regions:
+                print(f"  {colored('[2/3] Backfilling Cash Position Data (US)...', Fore.WHITE)}")
+                orchestrator._backfill_cash_data(['US'])
+            else:
+                print(f"  {colored('[2/3] Cash Backfill skipped (US not in regions)', Fore.WHITE)}")
+
+            # Financial Ratios (efficiency metrics)
+            print(f"  {colored('[3/3] Calculating Financial Ratios...', Fore.WHITE)}")
+            orchestrator._calculate_fundamental_ratios(regions)
+
+            print(f"  {colored('✅ Financial Indicators completed', Fore.GREEN)}")
+        except Exception as e:
+            print(f"  {colored(f'⚠️ Financial Indicators warning: {e}', Fore.YELLOW)}")
+
         # Summary
         total_success = sum(r.get('success_count', 0) for r in results.values())
         total_tickers = sum(r.get('total_tickers', 0) for r in results.values())
@@ -3405,6 +3495,7 @@ def run_full_refresh():
         print("=" * 60)
         print(f"Regions: {', '.join(regions)}")
         print(f"Technical Indicators: {total_success}/{total_tickers} tickers")
+        print(f"Financial Indicators: Dividend + Cash + Ratios")
         print(f"Total Time: {total_time:.1f} minutes")
         print("=" * 60)
 
@@ -3462,6 +3553,28 @@ def run_incremental_refresh():
             dry_run=False
         )
 
+        # Phase 3: Financial Indicators (Week 2 MCP Extension - Incremental)
+        print(f"\n{colored('Phase 3: Financial Indicators Update (Incremental)', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 60)
+
+        try:
+            from modules.orchestration.orchestrator import DatabaseUpdateOrchestrator
+            from modules.db_manager_postgres import PostgresDatabaseManager
+            db = PostgresDatabaseManager()
+            orchestrator = DatabaseUpdateOrchestrator(db, config={})
+
+            # Dividend History (all regions)
+            print(f"  {colored('[1/2] Collecting Dividend History...', Fore.WHITE)}")
+            orchestrator._calculate_dividend(regions)
+
+            # Financial Ratios (efficiency metrics)
+            print(f"  {colored('[2/2] Calculating Financial Ratios...', Fore.WHITE)}")
+            orchestrator._calculate_fundamental_ratios(regions)
+
+            print(f"  {colored('✅ Financial Indicators completed', Fore.GREEN)}")
+        except Exception as e:
+            print(f"  {colored(f'⚠️ Financial Indicators warning: {e}', Fore.YELLOW)}")
+
         # Summary
         total_success = sum(r.get('success_count', 0) for r in results.values())
         total_tickers = sum(r.get('total_tickers', 0) for r in results.values())
@@ -3471,6 +3584,7 @@ def run_incremental_refresh():
         print("=" * 60)
         print(f"Regions: {', '.join(regions)}")
         print(f"Technical Indicators: {total_success}/{total_tickers} tickers")
+        print(f"Financial Indicators: Dividend + Ratios")
         print(f"Total Time: {total_time:.1f} minutes")
         print("=" * 60)
 
@@ -3497,7 +3611,9 @@ def run_custom_refresh():
 
     # Select steps
     print(f"\n{colored('Select steps (space-separated):', Fore.CYAN)}")
-    print("  Available: tickers ohlcv fundamentals daily_valuation technical_indicators dividend fx_tracking us_jp_fundamentals")
+    print("  Available: tickers ohlcv fundamentals cash_backfill fundamental_ratios daily_valuation technical_indicators dividend fx_tracking us_jp_fundamentals")
+    print(f"  {colored('💡 cash_backfill:', Fore.YELLOW)} US 현금성자산 데이터 백필 (yfinance)")
+    print(f"  {colored('💡 fundamental_ratios:', Fore.YELLOW)} 재무비율 계산 (부채비율, 유동비율, 회전율, 회전일수 등)")
     print(f"  {colored('💡 us_jp_fundamentals:', Fore.YELLOW)} US(SEC EDGAR) / JP(EDINET) 재무 데이터 백필")
     steps_input = input(f"{colored('Steps [ohlcv fundamentals]:', Fore.CYAN)} ").strip()
     steps = steps_input.split() if steps_input else ['ohlcv', 'fundamentals']
@@ -5068,16 +5184,23 @@ def run_jp_fundamentals_backfill(
     limit: Optional[int] = None,
     dry_run: bool = False,
     start_year: int = 2020,
-    end_year: int = 2024
+    end_year: int = 2024,
+    enable_smart_filter: bool = True
 ) -> Dict[str, Any]:
     """
     Run JP fundamentals backfill using EDINET API
+
+    스마트 필터링이 활성화된 경우:
+    - 신규 IPO 종목 (알파벳 접미사: 131A 등) 사전 필터링
+    - ETF/펀드, J-REIT, 인프라펀드 제외
+    - 불필요한 API 호출 절감
 
     Args:
         limit: Number of tickers to process (None = all)
         dry_run: If True, only show what would be done
         start_year: Start year for backfill
         end_year: End year for backfill
+        enable_smart_filter: If True, pre-filter unsupported tickers (default: True)
 
     Returns:
         Dictionary with execution statistics
@@ -5093,6 +5216,8 @@ def run_jp_fundamentals_backfill(
         'tickers_success': 0,
         'tickers_failed': 0,
         'records_inserted': 0,
+        'pre_filtered': 0,
+        'api_queried': 0,
         'error': None
     }
 
@@ -5116,13 +5241,22 @@ def run_jp_fundamentals_backfill(
         print(f"  Mode:          {colored('DRY RUN' if dry_run else 'PRODUCTION', Fore.YELLOW if dry_run else Fore.GREEN)}")
         print(f"  Period:        {colored(f'{start_year} ~ {end_year}', Fore.CYAN)}")
         print(f"  Limit:         {colored(str(limit) if limit else 'All', Fore.CYAN)}")
+        print(f"  Smart Filter:  {colored('ON' if enable_smart_filter else 'OFF', Fore.GREEN if enable_smart_filter else Fore.YELLOW)}")
+
+        if enable_smart_filter:
+            print(f"\n  {colored('🔍 스마트 필터링 활성화:', Fore.YELLOW)}")
+            print(f"     • 신규 IPO (알파벳 접미사: 131A 등) 사전 필터링")
+            print(f"     • ETF/펀드, J-REIT, 인프라펀드 제외")
+            print(f"     • 불필요한 EDINET API 호출 절감")
+
         print()
 
-        # Run backfill
+        # Run backfill with smart filter option
         stats = executor.run_backfill(
             start_year=start_year,
             end_year=end_year,
-            limit=limit
+            limit=limit,
+            enable_smart_filter=enable_smart_filter
         )
 
         result['success'] = True
@@ -5130,6 +5264,8 @@ def run_jp_fundamentals_backfill(
         result['tickers_success'] = stats.tickers_success
         result['tickers_failed'] = stats.tickers_failed
         result['records_inserted'] = stats.records_inserted
+        result['pre_filtered'] = executor.filter_stats.get('pre_filtered', 0)
+        result['api_queried'] = executor.filter_stats.get('api_queried', 0)
 
         # Print summary
         print(f"\n{colored('📊 JP Backfill Results:', Fore.CYAN + Style.BRIGHT)}")
@@ -5137,6 +5273,12 @@ def run_jp_fundamentals_backfill(
         print(f"  Success:       {colored(f'{stats.tickers_success}', Fore.GREEN)}")
         print(f"  Failed:        {colored(f'{stats.tickers_failed}', Fore.RED if stats.tickers_failed > 0 else Fore.GREEN)}")
         print(f"  Records:       {colored(f'{stats.records_inserted}', Fore.CYAN)}")
+
+        # Print filter statistics if smart filter was used
+        if enable_smart_filter and result['pre_filtered'] > 0:
+            print(f"\n{colored('🔍 스마트 필터링 결과:', Fore.YELLOW)}")
+            print(f"  사전 필터링:   {colored(f'{result['pre_filtered']}', Fore.GREEN)} (API 호출 절감)")
+            print(f"  API 조회:      {colored(f'{result['api_queried']}', Fore.CYAN)}")
 
         executor.close()
 
@@ -6015,88 +6157,155 @@ def run_data_validation():
     input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
 
 
-def run_stock_screening():
-    """Run stock screening (Phase 2.2)"""
+def run_financial_indicators_update():
+    """
+    Run financial indicators update (Week 2 MCP Extension)
+
+    Updates the following financial indicators:
+    1. Dividend History - Collect and store dividend payment history
+    2. Cash Position Ratios - Cash ratio, cash-to-assets, net cash position
+    3. Efficiency Ratios - Inventory days, receivables days (turnover metrics)
+
+    These indicators are used by MCP tools:
+    - query_dividend_history
+    - calculate_financial_ratios (cash_position, efficiency categories)
+    """
     print(f"\n{colored('='*80, Fore.CYAN)}")
-    print(f"{colored('📊 Stock Screening', Fore.CYAN + Style.BRIGHT)}")
+    print(f"{colored('📊 Financial Indicators Update', Fore.CYAN + Style.BRIGHT)}")
     print(f"{colored('='*80, Fore.CYAN)}")
     print()
-    print(f"{colored('Available Filters:', Fore.WHITE)}")
-    print(f"  1. Technical (RSI, MACD, MA trends)")
-    print(f"  2. Value (PER, PBR, dividend yield)")
+
+    print(f"{colored('Available Updates:', Fore.WHITE)}")
+    print(f"  {colored('1.', Fore.WHITE)} 💰 {colored('Dividend History', Fore.GREEN)} - 배당 히스토리 수집 (5년)")
+    print(f"  {colored('2.', Fore.WHITE)} 💵 {colored('Cash Position Backfill', Fore.CYAN)} - 현금 데이터 백필 (US)")
+    print(f"  {colored('3.', Fore.WHITE)} 📈 {colored('Financial Ratios', Fore.YELLOW)} - 재무비율 계산 (회전율/일수)")
+    print(f"  {colored('4.', Fore.WHITE)} 🔄 {colored('All Indicators', Fore.MAGENTA + Style.BRIGHT)} - 전체 업데이트")
     print()
 
-    # Filter type selection
-    filter_choice = input(f"{colored('Select filter (1-2):', Fore.CYAN)} ").strip()
+    choice = input(f"{colored('Select update type (1-4):', Fore.CYAN)} ").strip()
 
-    if filter_choice == '1':
-        filter_type = 'technical'
-    elif filter_choice == '2':
-        filter_type = 'value'
-    else:
+    if choice not in ['1', '2', '3', '4']:
         print(f"{colored('❌ Invalid choice', Fore.RED)}")
         input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
         return
 
     # Region selection
-    if filter_type == 'technical':
-        print(f"\n{colored('Select region:', Fore.CYAN)}")
-        print(f"  1. HK (Hong Kong) - Recommended")
-        print(f"  2. KR (Korea)")
-        region_choice = input(f"{colored('Choice (1-2):', Fore.CYAN)} ").strip()
-        region = 'HK' if region_choice == '1' else 'KR'
-    else:  # value
-        print(f"\n{colored('Select region:', Fore.CYAN)}")
-        print(f"  1. US (United States) - Recommended")
-        print(f"  2. KR (Korea)")
-        region_choice = input(f"{colored('Choice (1-2):', Fore.CYAN)} ").strip()
-        region = 'US' if region_choice == '1' else 'KR'
+    regions = select_regions(default_regions=['KR', 'US'])
 
-    # Build command
-    cmd = ['python3', 'scripts/run_screening.py', filter_type, '--region', region]
+    # Confirmation
+    update_types = {
+        '1': 'Dividend History',
+        '2': 'Cash Position Backfill',
+        '3': 'Financial Ratios',
+        '4': 'All Indicators'
+    }
 
-    # Filter-specific parameters
-    if filter_type == 'technical':
-        print(f"\n{colored('RSI threshold (default: 35 for oversold):', Fore.CYAN)}")
-        rsi_max = input(f"  RSI max (press Enter for 35): ").strip()
-        if rsi_max:
-            cmd.extend(['--rsi-max', rsi_max])
-    else:  # value
-        print(f"\n{colored('Value thresholds (press Enter for defaults):', Fore.CYAN)}")
-        per_max = input(f"  PER max (default: 15): ").strip()
-        pbr_max = input(f"  PBR max (default: 3): ").strip()
-        if per_max:
-            cmd.extend(['--per-max', per_max])
-        if pbr_max:
-            cmd.extend(['--pbr-max', pbr_max])
+    print(f"\n{colored('📋 Update Summary:', Fore.CYAN + Style.BRIGHT)}")
+    print(f"  Update Type: {colored(update_types[choice], Fore.YELLOW)}")
+    print(f"  Regions: {colored(', '.join(regions), Fore.CYAN)}")
+    print()
 
-    # Output file
-    save_choice = input(f"\n{colored('Save results to CSV? (y/n):', Fore.CYAN)} ").strip().lower()
-    if save_choice == 'y':
-        output_file = f"/tmp/{filter_type}_{region}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        cmd.extend(['--output', output_file])
+    confirm = input(f"{colored('Proceed with update? (y/n):', Fore.CYAN)} ").strip().lower()
 
-    # Confirm
-    confirm = input(f"\n{colored(f'Run {filter_type} screening for {region}? (y/n):', Fore.CYAN)} ").strip().lower()
-
-    if confirm == 'y':
-        try:
-            print(f"\n{colored('⏳ Running stock screening...', Fore.YELLOW)}")
-            print()
-
-            result = subprocess.run(cmd, check=False)
-
-            if result.returncode == 0:
-                print(f"\n{colored('✅ Screening completed!', Fore.GREEN + Style.BRIGHT)}")
-                if save_choice == 'y':
-                    print(f"{colored(f'Results saved to: {output_file}', Fore.WHITE)}")
-            else:
-                print(f"\n{colored('❌ Screening failed. Review output above.', Fore.RED + Style.BRIGHT)}")
-
-        except Exception as e:
-            print(f"\n{colored(f'❌ Error: {e}', Fore.RED + Style.BRIGHT)}")
-    else:
+    if confirm != 'y':
         print(f"{colored('❌ Cancelled', Fore.RED)}")
+        input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
+        return
+
+    # Record execution start
+    operation_name = f"financial_indicators_{update_types[choice].lower().replace(' ', '_')}"
+    add_execution_record(operation_name, regions, 'started')
+
+    start_time = datetime.now()
+    success = True
+    error_msg = None
+
+    try:
+        from modules.orchestration.orchestrator import DatabaseUpdateOrchestrator
+        from modules.db_manager_postgres import PostgresDatabaseManager
+        db = PostgresDatabaseManager()
+        orchestrator = DatabaseUpdateOrchestrator(db, config={})
+
+        if choice == '1':
+            # Dividend History Collection
+            print(f"\n{colored('💰 Collecting Dividend History...', Fore.YELLOW)}")
+            result = orchestrator._calculate_dividend(regions)
+            if result.get('errors'):
+                print(f"{colored('⚠️ Some errors occurred:', Fore.YELLOW)}")
+                for err in result['errors'][:3]:
+                    print(f"  - {err}")
+
+        elif choice == '2':
+            # Cash Position Backfill (US only)
+            if 'US' not in regions:
+                print(f"{colored('⚠️ Cash backfill is only available for US market', Fore.YELLOW)}")
+                print(f"{colored('  Adding US to region list...', Fore.WHITE)}")
+                regions = ['US']
+
+            print(f"\n{colored('💵 Backfilling Cash Position Data...', Fore.YELLOW)}")
+            result = orchestrator._backfill_cash_data(regions)
+            if result.get('errors'):
+                print(f"{colored('⚠️ Some errors occurred:', Fore.YELLOW)}")
+                for err in result['errors'][:3]:
+                    print(f"  - {err}")
+
+        elif choice == '3':
+            # Financial Ratios Calculation
+            print(f"\n{colored('📈 Calculating Financial Ratios...', Fore.YELLOW)}")
+            result = orchestrator._calculate_fundamental_ratios(regions)
+            if result.get('errors'):
+                print(f"{colored('⚠️ Some errors occurred:', Fore.YELLOW)}")
+                for err in result['errors'][:3]:
+                    print(f"  - {err}")
+
+        elif choice == '4':
+            # All Indicators
+            print(f"\n{colored('🔄 Running All Financial Indicator Updates...', Fore.YELLOW)}")
+
+            # Step 1: Dividend History
+            print(f"\n{colored('  [1/3] Collecting Dividend History...', Fore.WHITE)}")
+            div_result = orchestrator._calculate_dividend(regions)
+
+            # Step 2: Cash Backfill (US only)
+            if 'US' in regions:
+                print(f"\n{colored('  [2/3] Backfilling Cash Position Data (US)...', Fore.WHITE)}")
+                cash_result = orchestrator._backfill_cash_data(['US'])
+            else:
+                print(f"\n{colored('  [2/3] Cash Backfill skipped (US not in regions)', Fore.WHITE)}")
+
+            # Step 3: Financial Ratios
+            print(f"\n{colored('  [3/3] Calculating Financial Ratios...', Fore.WHITE)}")
+            ratio_result = orchestrator._calculate_fundamental_ratios(regions)
+
+        elapsed = (datetime.now() - start_time).total_seconds()
+
+        print(f"\n{colored('='*60, Fore.GREEN)}")
+        print(f"{colored('✅ Financial Indicators Update Completed!', Fore.GREEN + Style.BRIGHT)}")
+        print(f"{colored('='*60, Fore.GREEN)}")
+        print(f"  Elapsed Time: {colored(f'{elapsed:.1f} seconds', Fore.CYAN)}")
+        print(f"  Regions: {colored(', '.join(regions), Fore.WHITE)}")
+
+        # Record success
+        add_execution_record(
+            operation_name, regions, 'completed',
+            {'elapsed_seconds': round(elapsed, 1)}
+        )
+
+    except Exception as e:
+        success = False
+        error_msg = str(e)
+        print(f"\n{colored(f'❌ Error: {e}', Fore.RED + Style.BRIGHT)}")
+        import traceback
+        traceback.print_exc()
+
+        # Record failure
+        add_execution_record(
+            operation_name, regions, 'failed',
+            {'error': error_msg}
+        )
+
+    # Invalidate cache after update
+    query_cache.invalidate()
 
     input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
 
