@@ -80,16 +80,39 @@ class TechnicalIndicatorCalculator:
 
         return df
 
-    def calculate_indicators_for_ticker(self, ticker: str, region: str) -> bool:
-        """Calculate all technical indicators for a single ticker"""
+    def calculate_indicators_for_ticker(self, ticker: str, region: str, incremental: bool = False) -> bool:
+        """Calculate all technical indicators for a single ticker
+
+        Args:
+            ticker: Stock ticker symbol
+            region: Market region (KR, HK, US, JP, CN, VN)
+            incremental: If True, only process recent data (last 250 days) and
+                        only update records with NULL indicators. If False,
+                        process all historical data and update all records.
+        """
         try:
             # Fetch OHLCV data sorted by date
-            query = """
-                SELECT ticker, region, date, timeframe, open, high, low, close, volume
-                FROM ohlcv_data
-                WHERE ticker = %s AND region = %s AND timeframe = '1d'
-                ORDER BY date ASC
-            """
+            if incremental:
+                # Incremental: Only fetch last 250 records (enough for MA200 calculation window)
+                # Using subquery to get the most recent 250 records
+                query = """
+                    WITH recent_data AS (
+                        SELECT ticker, region, date, timeframe, open, high, low, close, volume, ma5
+                        FROM ohlcv_data
+                        WHERE ticker = %s AND region = %s AND timeframe = '1d'
+                        ORDER BY date DESC
+                        LIMIT 250
+                    )
+                    SELECT * FROM recent_data ORDER BY date ASC
+                """
+            else:
+                # Full: Fetch all data
+                query = """
+                    SELECT ticker, region, date, timeframe, open, high, low, close, volume
+                    FROM ohlcv_data
+                    WHERE ticker = %s AND region = %s AND timeframe = '1d'
+                    ORDER BY date ASC
+                """
 
             # Convert List[Dict] to DataFrame
             result = self.db.execute_query(query, (ticker, region))
@@ -103,22 +126,38 @@ class TechnicalIndicatorCalculator:
             for col in ['open', 'high', 'low', 'close', 'volume']:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
 
+            # In incremental mode, preserve original ma5 to check which rows need update
+            if incremental and 'ma5' in df.columns:
+                df['ma5_orig'] = df['ma5']
+
             # Calculate indicators (matching DB schema: ma5, ma20, ma60, ma120, ma200)
             df = self.calculate_ma(df, periods=[5, 20, 60, 120, 200])
             df = self.calculate_rsi(df, period=14)
             df = self.calculate_macd(df)
 
+            # Rename calculated ma5 to ma5_calc to distinguish from original
+            df['ma5_calc'] = df['ma5']
+
             # Prepare update data (only records with calculated values)
             update_records = []
+            skipped_count = 0
             for _, row in df.iterrows():
                 # Only update if we have at least MA5 (shortest indicator)
-                if pd.notna(row.get('ma5')):
+                ma5_value = row.get('ma5_calc') if incremental else row.get('ma5')
+                if pd.notna(ma5_value):
+                    # In incremental mode, only update records that have NULL indicators
+                    if incremental and 'ma5_orig' in row.index:
+                        # Check if original ma5 was NULL (meaning indicators not calculated yet)
+                        if pd.notna(row.get('ma5_orig')):
+                            skipped_count += 1
+                            continue  # Skip - already has indicators
+
                     update_records.append({
                         'ticker': row['ticker'],
                         'region': row['region'],
                         'date': row['date'],
                         'timeframe': row['timeframe'],
-                        'ma5': row.get('ma5'),
+                        'ma5': ma5_value,
                         'ma20': row.get('ma20'),
                         'ma60': row.get('ma60'),
                         'ma120': row.get('ma120'),
@@ -130,6 +169,9 @@ class TechnicalIndicatorCalculator:
                     })
 
             if not update_records:
+                if incremental and skipped_count > 0:
+                    logger.debug(f"✓ {ticker}: All {skipped_count} records already have indicators (skipped)")
+                    return True  # Not a failure - just nothing to update
                 logger.warning(f"⚠️  {ticker}: No valid indicators calculated")
                 return False
 
@@ -155,7 +197,8 @@ class TechnicalIndicatorCalculator:
             for record in update_records:
                 self.db.execute_update(update_query, record)
 
-            logger.info(f"✅ {ticker}: {len(update_records)} records updated with technical indicators")
+            skip_msg = f" (skipped {skipped_count} existing)" if skipped_count > 0 else ""
+            logger.info(f"✅ {ticker}: {len(update_records)} records updated{skip_msg}")
             return True
 
         except Exception as e:
@@ -176,28 +219,35 @@ class TechnicalIndicatorCalculator:
 
         # Get list of tickers with OHLCV data
         if incremental:
-            # Incremental mode: Only tickers where the LATEST date has missing indicators
+            # Incremental mode: Only tickers where:
+            # 1. The LATEST date has missing indicators (ma5 IS NULL)
+            # 2. Has at least 200 records (enough for MA200 calculation)
             # This targets newly added OHLCV data that hasn't been calculated yet
             query = """
-                WITH latest_dates AS (
-                    SELECT ticker, MAX(date) as max_date
+                WITH ticker_stats AS (
+                    SELECT ticker,
+                           COUNT(*) as record_count,
+                           MAX(date) as max_date
                     FROM ohlcv_data
                     WHERE region = %s AND timeframe = '1d'
                     GROUP BY ticker
+                    HAVING COUNT(*) >= 200
                 )
                 SELECT DISTINCT o.ticker
                 FROM ohlcv_data o
-                INNER JOIN latest_dates ld ON o.ticker = ld.ticker AND o.date = ld.max_date
+                INNER JOIN ticker_stats ts ON o.ticker = ts.ticker AND o.date = ts.max_date
                 WHERE o.region = %s AND o.timeframe = '1d'
                   AND o.ma5 IS NULL
                 ORDER BY o.ticker
             """
         else:
-            # Full recalculation mode: All tickers
+            # Full recalculation mode: All tickers with enough data
             query = """
-                SELECT DISTINCT ticker
+                SELECT ticker
                 FROM ohlcv_data
                 WHERE region = %s AND timeframe = '1d'
+                GROUP BY ticker
+                HAVING COUNT(*) >= 200
                 ORDER BY ticker
             """
 
@@ -220,7 +270,7 @@ class TechnicalIndicatorCalculator:
         for i, ticker in enumerate(tickers, 1):
             logger.info(f"[{i}/{len(tickers)}] Processing {ticker}...")
 
-            if self.calculate_indicators_for_ticker(ticker, region):
+            if self.calculate_indicators_for_ticker(ticker, region, incremental=incremental):
                 success_count += 1
             else:
                 failed_count += 1
@@ -236,14 +286,15 @@ class TechnicalIndicatorCalculator:
 
         # Final summary
         duration = (datetime.now() - start_time).total_seconds()
+        total_tickers = len(tickers)
         results = {
-            'total_tickers': len(tickers),
+            'total_tickers': total_tickers,
             'success_count': success_count,
             'failed_count': failed_count,
-            'success_rate': f"{success_count*100/len(tickers):.2f}%",
+            'success_rate': f"{success_count*100/total_tickers:.2f}%" if total_tickers > 0 else "N/A",
             'duration_seconds': duration,
             'duration_minutes': duration / 60,
-            'rate_per_second': len(tickers) / duration if duration > 0 else 0
+            'rate_per_second': total_tickers / duration if duration > 0 else 0
         }
 
         logger.info(f"\n{'='*60}")

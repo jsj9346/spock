@@ -928,8 +928,100 @@ class DatabaseUpdateOrchestrator:
                     logger.error(f"  ❌ [{region}] Failed: {e}")
                     results[region] = {'success': False, 'error': str(e)}
 
+            elif region == 'US':
+                # Use SEC EDGAR for US market (historical fundamental data)
+                try:
+                    from modules.backfill.sec_executor import SECBackfillExecutor
+
+                    logger.info(f"  [{region}] Using SEC EDGAR (historical fundamentals)")
+
+                    executor = SECBackfillExecutor(
+                        db=self.db,
+                        dry_run=kwargs.get('dry_run', False),
+                        rate_limit_delay=0.1  # 10 requests/second (SEC limit)
+                    )
+
+                    # Validate prerequisites
+                    is_ready, issues = executor.validate_prerequisites()
+                    if not is_ready:
+                        logger.error(f"  ❌ [{region}] Prerequisites failed: {issues}")
+                        results[region] = {'success': False, 'error': str(issues)}
+                        continue
+
+                    # Run backfill
+                    stats = executor.run_backfill(
+                        start_year=kwargs.get('start_year', 2020),
+                        end_year=kwargs.get('end_year', 2024),
+                        limit=self.config.get('limit')
+                    )
+
+                    results[region] = {
+                        'success': stats.tickers_success > 0,
+                        'tickers_success': stats.tickers_success,
+                        'tickers_failed': stats.tickers_failed,
+                        'records_inserted': stats.records_inserted
+                    }
+
+                    logger.info(
+                        f"  ✅ [{region}] {stats.tickers_success} success, "
+                        f"{stats.tickers_failed} failed, "
+                        f"{stats.records_inserted} records"
+                    )
+
+                    executor.close()
+
+                except Exception as e:
+                    logger.error(f"  ❌ [{region}] SEC EDGAR failed: {e}")
+                    results[region] = {'success': False, 'error': str(e)}
+
+            elif region == 'JP':
+                # Use EDINET for JP market (historical fundamental data)
+                try:
+                    from modules.backfill.edinet_executor import EDINETBackfillExecutor
+
+                    logger.info(f"  [{region}] Using EDINET (historical fundamentals)")
+
+                    executor = EDINETBackfillExecutor(
+                        db=self.db,
+                        dry_run=kwargs.get('dry_run', False),
+                        rate_limit_delay=1.0  # 1 request/second (EDINET rate limit)
+                    )
+
+                    # Validate prerequisites
+                    is_ready, issues = executor.validate_prerequisites()
+                    if not is_ready:
+                        logger.error(f"  ❌ [{region}] Prerequisites failed: {issues}")
+                        results[region] = {'success': False, 'error': str(issues)}
+                        continue
+
+                    # Run backfill
+                    stats = executor.run_backfill(
+                        start_year=kwargs.get('start_year', 2020),
+                        end_year=kwargs.get('end_year', 2024),
+                        limit=self.config.get('limit')
+                    )
+
+                    results[region] = {
+                        'success': stats.tickers_success > 0,
+                        'tickers_success': stats.tickers_success,
+                        'tickers_failed': stats.tickers_failed,
+                        'records_inserted': stats.records_inserted
+                    }
+
+                    logger.info(
+                        f"  ✅ [{region}] {stats.tickers_success} success, "
+                        f"{stats.tickers_failed} failed, "
+                        f"{stats.records_inserted} records"
+                    )
+
+                    executor.close()
+
+                except Exception as e:
+                    logger.error(f"  ❌ [{region}] EDINET failed: {e}")
+                    results[region] = {'success': False, 'error': str(e)}
+
             else:
-                # Use yfinance for overseas markets
+                # Use yfinance for other overseas markets (HK, CN, VN)
                 try:
                     from scripts.backfill_fundamentals_yfinance import YFinanceFundamentalBackfiller
 

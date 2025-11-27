@@ -58,6 +58,10 @@ from modules.backfill.gap_analyzer import GapAnalyzer
 from modules.backfill.data_structures import GapPriority
 from modules.db_manager_postgres import PostgresDatabaseManager
 
+# US/JP Fundamentals Backfill (SEC EDGAR & EDINET)
+from modules.backfill.sec_executor import SECBackfillExecutor
+from modules.backfill.edinet_executor import EDINETBackfillExecutor
+
 # Concurrency Control (Lock Management)
 from modules.concurrency import with_lock, LockError, cleanup_stale_locks, is_operation_locked, get_operation_info
 
@@ -86,6 +90,61 @@ except ImportError:
         RED = GREEN = YELLOW = BLUE = CYAN = MAGENTA = WHITE = RESET = ''
     class Style:
         BRIGHT = DIM = NORMAL = RESET_ALL = ''
+
+
+# ============================================================================
+# Fundamental Data Categories (for Fundamental Backfill)
+# ============================================================================
+from enum import Enum
+
+class FundamentalCategory(Enum):
+    """Fundamental data categories for selective backfill"""
+    ALL = 'all'                    # 전체 재무 데이터
+    EQUITY = 'equity'              # 자본 계정 (capital_stock, retained_earnings, treasury_stock)
+    INCOME = 'income'              # 손익계산서 (revenue, gross_profit, net_income, ebitda)
+    BALANCE_SHEET = 'balance'      # 재무상태표 (assets, liabilities, inventory, pp_e)
+    CASH_FLOW = 'cash_flow'        # 현금흐름표 (operating_cf, investing_cf, financing_cf, fcf)
+
+
+# Category to target columns mapping
+FUNDAMENTAL_CATEGORY_COLUMNS = {
+    FundamentalCategory.EQUITY: [
+        'capital_stock', 'capital_surplus', 'retained_earnings', 'treasury_stock'
+    ],
+    FundamentalCategory.INCOME: [
+        'revenue', 'gross_profit', 'operating_profit', 'net_income', 'ebitda', 'cogs', 'sga_expense'
+    ],
+    FundamentalCategory.BALANCE_SHEET: [
+        'total_assets', 'total_liabilities', 'total_equity',
+        'current_assets', 'current_liabilities', 'inventory', 'pp_e', 'accounts_receivable'
+    ],
+    FundamentalCategory.CASH_FLOW: [
+        'operating_cash_flow', 'investing_cf', 'financing_cf', 'capex', 'fcf'
+    ],
+    FundamentalCategory.ALL: [
+        # Equity
+        'capital_stock', 'capital_surplus', 'retained_earnings', 'treasury_stock',
+        # Income
+        'revenue', 'gross_profit', 'operating_profit', 'net_income', 'ebitda', 'cogs', 'sga_expense',
+        # Balance Sheet
+        'total_assets', 'total_liabilities', 'total_equity',
+        'current_assets', 'current_liabilities', 'inventory', 'pp_e', 'accounts_receivable',
+        # Cash Flow
+        'operating_cash_flow', 'investing_cf', 'financing_cf', 'capex', 'fcf',
+        # Per Share
+        'trailing_eps', 'shares_outstanding'
+    ]
+}
+
+# Region to data source mapping
+REGION_DATA_SOURCES = {
+    'KR': {'name': 'DART', 'api': 'dart', 'rate_limit': 1.0, 'emoji': '🇰🇷'},
+    'US': {'name': 'SEC EDGAR', 'api': 'sec', 'rate_limit': 0.1, 'emoji': '🇺🇸'},
+    'JP': {'name': 'EDINET', 'api': 'edinet', 'rate_limit': 1.0, 'emoji': '🇯🇵'},
+    'HK': {'name': 'yfinance', 'api': 'yfinance', 'rate_limit': 0.5, 'emoji': '🇭🇰'},
+    'CN': {'name': 'yfinance', 'api': 'yfinance', 'rate_limit': 0.5, 'emoji': '🇨🇳'},
+    'VN': {'name': 'yfinance', 'api': 'yfinance', 'rate_limit': 0.5, 'emoji': '🇻🇳'},
+}
 
 
 def load_configurations():
@@ -1145,6 +1204,224 @@ def get_equity_backfill_status_cached() -> Optional[Dict]:
         ttl_seconds=RefreshConstants.CacheTTL.DEFAULT
     )
 
+
+def get_fundamental_backfill_status(
+    regions: List[str] = None,
+    category: FundamentalCategory = FundamentalCategory.ALL
+) -> Dict[str, Dict]:
+    """
+    멀티 리전 펀더멘털 백필 상태 조회
+
+    Args:
+        regions: 조회할 리전 목록 (None이면 전체)
+        category: 조회할 데이터 범주
+
+    Returns:
+        dict: {
+            'KR': {'total': 2396, 'with_data': 81, 'coverage_pct': 3.38, ...},
+            'US': {'total': 150, 'with_data': 45, 'coverage_pct': 30.0, ...},
+            ...
+        }
+    """
+    if regions is None:
+        regions = list(REGION_DATA_SOURCES.keys())
+
+    target_columns = FUNDAMENTAL_CATEGORY_COLUMNS.get(category, FUNDAMENTAL_CATEGORY_COLUMNS[FundamentalCategory.ALL])
+    results = {}
+
+    try:
+        db = PostgresDatabaseManager()
+
+        for region in regions:
+            source_info = REGION_DATA_SOURCES.get(region, {})
+
+            # Total tickers and fund_status breakdown for region
+            total_query = """
+            SELECT
+                COUNT(*) as total,
+                COUNT(*) FILTER (WHERE fund_status = 'available') as available,
+                COUNT(*) FILTER (WHERE fund_status = 'unavailable') as unavailable,
+                COUNT(*) FILTER (WHERE fund_status = 'error') as error,
+                COUNT(*) FILTER (WHERE fund_status IS NULL OR fund_status = 'unknown') as unknown
+            FROM tickers
+            WHERE region = %s AND asset_type = 'STOCK' AND is_active = TRUE
+            """
+            total_result = db.execute_query(total_query, (region,))
+            total = total_result[0]['total'] if total_result else 0
+            fund_available = total_result[0]['available'] if total_result else 0
+            fund_unavailable = total_result[0]['unavailable'] if total_result else 0
+            fund_error = total_result[0]['error'] if total_result else 0
+            fund_unknown = total_result[0]['unknown'] if total_result else 0
+
+            if total == 0:
+                results[region] = {
+                    'total': 0,
+                    'with_data': 0,
+                    'without_data': 0,
+                    'coverage_pct': 0.0,
+                    'last_update': None,
+                    'source': source_info.get('name', 'Unknown'),
+                    'emoji': source_info.get('emoji', '🌐'),
+                    'fund_available': 0,
+                    'fund_unavailable': 0,
+                    'fund_error': 0,
+                    'fund_unknown': 0,
+                    'api_limit_reached': False
+                }
+                continue
+
+            # Build dynamic column check (any of the target columns is NOT NULL)
+            column_checks = ' OR '.join([f"{col} IS NOT NULL" for col in target_columns[:3]])  # Check first 3 columns
+
+            # Determine data_source filter based on region
+            if region == 'KR':
+                data_source_filter = "data_source = 'DART'"
+            elif region == 'US':
+                data_source_filter = "data_source = 'SEC_EDGAR'"
+            elif region == 'JP':
+                data_source_filter = "data_source = 'EDINET'"
+            else:
+                data_source_filter = "data_source = 'YFINANCE'"
+
+            # With fundamental data
+            with_data_query = f"""
+            SELECT COUNT(DISTINCT ticker) as count
+            FROM ticker_fundamentals
+            WHERE region = %s
+              AND {data_source_filter}
+              AND ({column_checks})
+            """
+            with_data_result = db.execute_query(with_data_query, (region,))
+            with_data = with_data_result[0]['count'] if with_data_result else 0
+
+            # Last update date
+            last_query = f"""
+            SELECT MAX(created_at) as last_date
+            FROM ticker_fundamentals
+            WHERE region = %s AND {data_source_filter}
+            """
+            last_result = db.execute_query(last_query, (region,))
+            last_date = last_result[0]['last_date'] if last_result else None
+
+            # Calculate statistics
+            without_data = total - with_data
+            coverage = (with_data / total * 100) if total > 0 else 0
+
+            # Estimate time based on rate limit (only for unknown/pending tickers)
+            rate_limit = source_info.get('rate_limit', 1.0)
+            pending_count = fund_unknown  # Only unknown status needs backfill
+            estimated_hours = round(pending_count * rate_limit / 3600, 1) if pending_count > 0 else 0
+
+            # Check if API limit reached (all remaining are unavailable)
+            api_limit_reached = (fund_unavailable > 0 and fund_unknown == 0 and without_data > 0)
+
+            results[region] = {
+                'total': total,
+                'with_data': with_data,
+                'without_data': without_data,
+                'coverage_pct': round(coverage, 2),
+                'last_update': last_date,
+                'estimated_hours': estimated_hours,
+                'source': source_info.get('name', 'Unknown'),
+                'emoji': source_info.get('emoji', '🌐'),
+                'rate_limit': rate_limit,
+                # Fund status breakdown
+                'fund_available': fund_available,
+                'fund_unavailable': fund_unavailable,
+                'fund_error': fund_error,
+                'fund_unknown': fund_unknown,
+                'api_limit_reached': api_limit_reached
+            }
+
+    except Exception as e:
+        print(f"Error in get_fundamental_backfill_status: {e}")
+        return {}
+
+    return results
+
+
+def print_fundamental_backfill_status(
+    regions: List[str] = None,
+    category: FundamentalCategory = FundamentalCategory.ALL
+):
+    """펀더멘털 백필 상태 출력"""
+    print(f"\n{colored('📊 Fundamental Data Coverage', Fore.CYAN + Style.BRIGHT)}")
+    print("=" * 80)
+
+    status = get_fundamental_backfill_status(regions, category)
+
+    if not status:
+        print(f"  {colored('❌ Cannot retrieve status', Fore.RED)}")
+        return
+
+    # Category info
+    category_name = {
+        FundamentalCategory.ALL: "All Fundamentals",
+        FundamentalCategory.EQUITY: "Equity (자본계정)",
+        FundamentalCategory.INCOME: "Income Statement (손익계산서)",
+        FundamentalCategory.BALANCE_SHEET: "Balance Sheet (재무상태표)",
+        FundamentalCategory.CASH_FLOW: "Cash Flow (현금흐름표)"
+    }.get(category, "Unknown")
+
+    print(f"  Category: {colored(category_name, Fore.YELLOW)}")
+    print()
+
+    # Table header
+    print(f"  {'Region':<8} {'Source':<12} {'Total':>8} {'With Data':>10} {'Unavail':>8} {'Coverage':>10} {'Pending':>8}")
+    print(f"  {'-'*8} {'-'*12} {'-'*8} {'-'*10} {'-'*8} {'-'*10} {'-'*8}")
+
+    total_all = 0
+    with_data_all = 0
+    unavailable_all = 0
+
+    for region, data in status.items():
+        emoji = data.get('emoji', '🌐')
+        source = data.get('source', 'Unknown')
+        total = data.get('total', 0)
+        with_data = data.get('with_data', 0)
+        coverage = data.get('coverage_pct', 0)
+        fund_unavailable = data.get('fund_unavailable', 0)
+        fund_unknown = data.get('fund_unknown', 0)
+        api_limit_reached = data.get('api_limit_reached', False)
+
+        total_all += total
+        with_data_all += with_data
+        unavailable_all += fund_unavailable
+
+        # Color based on coverage
+        if coverage >= 80:
+            cov_color = Fore.GREEN
+        elif coverage >= 50:
+            cov_color = Fore.YELLOW
+        else:
+            cov_color = Fore.RED
+
+        # Unavailable display
+        if api_limit_reached:
+            unavail_str = colored(f'{fund_unavailable:>8,}', Fore.RED) + ' ⚠️'
+        elif fund_unavailable > 0:
+            unavail_str = colored(f'{fund_unavailable:>8,}', Fore.YELLOW)
+        else:
+            unavail_str = f'{fund_unavailable:>8,}'
+
+        print(f"  {emoji} {region:<5} {source:<12} {total:>8,} {with_data:>10,} "
+              f"{unavail_str} {colored(f'{coverage:>9.1f}%', cov_color)} {fund_unknown:>8,}")
+
+    # Total
+    print(f"  {'-'*8} {'-'*12} {'-'*8} {'-'*10} {'-'*8} {'-'*10} {'-'*8}")
+    total_coverage = (with_data_all / total_all * 100) if total_all > 0 else 0
+    print(f"  {'Total':<8} {'':<12} {total_all:>8,} {with_data_all:>10,} {unavailable_all:>8,} {total_coverage:>9.1f}%")
+    print()
+
+    # Legend
+    if unavailable_all > 0:
+        print(f"  {colored('💡 Legend:', Fore.YELLOW)}")
+        print(f"     • Unavail: API에서 데이터를 제공하지 않는 종목 (CIK/EDINET코드 미존재 등)")
+        print(f"     • Pending: 아직 조회하지 않은 종목 (다음 백필 대상)")
+        print(f"     • ⚠️ : API 한계 도달 (모든 미처리 종목이 unavailable)")
+        print()
+
+
 # Status Formatter (출력 포맷 템플릿)
 # ============================================================================
 
@@ -1794,6 +2071,7 @@ def print_recent_executions(max_entries: int = 5) -> None:
         'listing_date_backfill_enhanced': '📅 Listing Date (Enhanced)',
         'equity_backfill': '💰 Equity Backfill',
         'macro_data_update': '💵 Bonds & Commodities',
+        'macro_data_unified': '📈 Unified Macro Data',
         'daily_valuation_update': '💹 Daily Valuation',
         'technical_indicators_update': '📉 Technical Indicators',
         'data_validation': '🔍 Data Validation',
@@ -2733,7 +3011,7 @@ def interactive_menu():
         print(f"  {colored('5.', Fore.WHITE)} 📅 {colored('Listing Date Setup', Fore.BLUE)} - 상장일 관리")
         print(f"  {colored('6.', Fore.WHITE)} 📅 {colored('Schedule Setup', Fore.BLUE)} - 자동화 설정")
         print(f"  {colored('7.', Fore.WHITE)} 📊 {colored('Status', Fore.WHITE)} - 현재 데이터 상태 확인")
-        print(f"  {colored('8.', Fore.WHITE)} 💰 {colored('Equity Backfill', Fore.CYAN)} - 자본계정 백필")
+        print(f"  {colored('8.', Fore.WHITE)} 📊 {colored('Fundamental Backfill', Fore.CYAN)} - 재무제표 백필 (KR/US/JP)")
         print(f"  {colored('9.', Fore.WHITE)} 📈 {colored('All Macro Data', Fore.MAGENTA)} - 통합 매크로 데이터")
         print(f"  {colored('10.', Fore.WHITE)} 💹 {colored('Daily Valuation Multiples', Fore.YELLOW)} - 주가배수 업데이트 (PER/PBR/PSR/PCR/EV/배당)")
         print(f"  {colored('11.', Fore.WHITE)} 📉 {colored('Technical Indicators', Fore.CYAN)} - 기술적 지표 계산")
@@ -2760,7 +3038,7 @@ def interactive_menu():
             print_status()
             input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
         elif choice == '8':
-            setup_equity_backfill_submenu()
+            setup_fundamental_backfill_submenu()
         elif choice == '9':
             setup_macro_data_submenu()
         elif choice == '10':
@@ -2957,7 +3235,7 @@ def select_regions_custom() -> List[str]:
 
 @with_lock('quick_refresh', timeout=300)
 def run_quick_refresh():
-    """Quick refresh - OHLCV + Daily Valuation + Technical Indicators (2-phase execution)"""
+    """Quick refresh - OHLCV + Daily Valuation + Technical Indicators + US/JP Fundamentals (2-phase execution)"""
     regions = select_regions(default_regions=['KR'], prompt_message="🚀 Quick Refresh - Select regions:")
 
     # Record execution start
@@ -2971,9 +3249,23 @@ def run_quick_refresh():
             '--regions'] + regions + [
             '--steps', 'ohlcv', 'daily_valuation', 'dividend', 'fx_tracking',
             '--incremental',
+            '--days', '7',  # Quick Refresh: 최근 7일만 업데이트 (250일 → 7일로 최적화)
             '--verbose'
         ]
         run_update_database(args, f'Quick Refresh - Data Update ({", ".join(regions)})')
+
+        # Phase 1.5: US/JP Fundamentals (if applicable, limited for quick mode)
+        us_jp_regions = [r for r in regions if r.upper() in ['US', 'JP']]
+        if us_jp_regions:
+            print(f"\n{colored('Phase 1.5: US/JP Fundamentals (Quick Mode - 5 tickers each)', Fore.CYAN + Style.BRIGHT)}")
+            print("=" * 60)
+            run_us_jp_fundamentals_backfill(
+                regions=us_jp_regions,
+                limit=5,  # Quick mode: only 5 tickers per region
+                dry_run=False,
+                start_year=2022,
+                end_year=2024
+            )
 
         # Phase 2: Technical Indicators (direct calculation, incremental mode)
         print(f"\n{colored('Phase 2: Technical Indicators Calculation (Incremental)', Fore.CYAN + Style.BRIGHT)}")
@@ -3055,7 +3347,7 @@ def check_and_warn_listing_dates():
 
 @with_lock('full_refresh', timeout=600)
 def run_full_refresh():
-    """Full refresh - Tickers + OHLCV + Fundamentals + Daily Valuation + Dividend + Technical Indicators (2-phase execution)"""
+    """Full refresh - Tickers + OHLCV + Fundamentals + Daily Valuation + Dividend + US/JP Fundamentals + Technical Indicators (2-phase execution)"""
     print(f"\n{colored('⚠️  Warning:', Fore.YELLOW)} Full refresh may take 30+ minutes")
 
     regions = select_regions(default_regions=['KR', 'US'], prompt_message="📈 Full Refresh - Select regions:")
@@ -3079,6 +3371,19 @@ def run_full_refresh():
             '--verbose'
         ]
         run_update_database(args, f'Full Refresh - Data Update ({", ".join(regions)})')
+
+        # Phase 1.5: US/JP Fundamentals (if applicable, full mode with more tickers)
+        us_jp_regions = [r for r in regions if r.upper() in ['US', 'JP']]
+        if us_jp_regions:
+            print(f"\n{colored('Phase 1.5: US/JP Fundamentals (Full Mode - 50 tickers each)', Fore.CYAN + Style.BRIGHT)}")
+            print("=" * 60)
+            run_us_jp_fundamentals_backfill(
+                regions=us_jp_regions,
+                limit=50,  # Full mode: 50 tickers per region
+                dry_run=False,
+                start_year=2020,
+                end_year=2024
+            )
 
         # Phase 2: Technical Indicators (direct calculation, full recalculation)
         print(f"\n{colored('Phase 2: Technical Indicators Calculation (Full Recalculation)', Fore.CYAN + Style.BRIGHT)}")
@@ -3115,7 +3420,7 @@ def run_full_refresh():
 
 @with_lock('incremental_refresh', timeout=600)
 def run_incremental_refresh():
-    """Incremental refresh - Missing Tickers + OHLCV + Fundamentals + Daily Valuation + Dividend + Technical Indicators (2-phase execution)"""
+    """Incremental refresh - Missing Tickers + OHLCV + Fundamentals + Daily Valuation + Dividend + US/JP Fundamentals + Technical Indicators (2-phase execution)"""
     regions = select_regions(default_regions=['KR'], prompt_message="🔄 Incremental Refresh - Select regions:")
 
     # Record execution start
@@ -3132,6 +3437,19 @@ def run_incremental_refresh():
             '--verbose'
         ]
         run_update_database(args, f'Incremental Refresh - Data Update ({", ".join(regions)})')
+
+        # Phase 1.5: US/JP Fundamentals (if applicable, incremental mode)
+        us_jp_regions = [r for r in regions if r.upper() in ['US', 'JP']]
+        if us_jp_regions:
+            print(f"\n{colored('Phase 1.5: US/JP Fundamentals (Incremental - 20 tickers each)', Fore.CYAN + Style.BRIGHT)}")
+            print("=" * 60)
+            run_us_jp_fundamentals_backfill(
+                regions=us_jp_regions,
+                limit=20,  # Incremental mode: 20 tickers per region
+                dry_run=False,
+                start_year=2022,
+                end_year=2024
+            )
 
         # Phase 2: Technical Indicators (direct calculation, incremental mode)
         print(f"\n{colored('Phase 2: Technical Indicators Calculation (Incremental)', Fore.CYAN + Style.BRIGHT)}")
@@ -3167,7 +3485,7 @@ def run_incremental_refresh():
 
 
 def run_custom_refresh():
-    """Custom refresh with user input (supports 2-phase execution for technical indicators)"""
+    """Custom refresh with user input (supports 2-phase execution for technical indicators and US/JP fundamentals)"""
     print(f"\n{colored('⚙️  Custom Refresh', Fore.MAGENTA + Style.BRIGHT)}")
     print("=" * 60)
 
@@ -3179,7 +3497,8 @@ def run_custom_refresh():
 
     # Select steps
     print(f"\n{colored('Select steps (space-separated):', Fore.CYAN)}")
-    print("  Available: tickers ohlcv fundamentals daily_valuation technical_indicators dividend fx_tracking")
+    print("  Available: tickers ohlcv fundamentals daily_valuation technical_indicators dividend fx_tracking us_jp_fundamentals")
+    print(f"  {colored('💡 us_jp_fundamentals:', Fore.YELLOW)} US(SEC EDGAR) / JP(EDINET) 재무 데이터 백필")
     steps_input = input(f"{colored('Steps [ohlcv fundamentals]:', Fore.CYAN)} ").strip()
     steps = steps_input.split() if steps_input else ['ohlcv', 'fundamentals']
 
@@ -3191,27 +3510,49 @@ def run_custom_refresh():
     dry_run_input = input(f"{colored('Dry run (preview only)? [y/N]:', Fore.CYAN)} ").strip().lower()
     dry_run = dry_run_input == 'y'
 
-    # Check if technical_indicators is in steps
+    # Check special steps
     has_technical_indicators = 'technical_indicators' in steps
+    has_us_jp_fundamentals = 'us_jp_fundamentals' in steps
 
-    if has_technical_indicators:
-        # 2-phase execution: separate technical_indicators from other steps
-        other_steps = [s for s in steps if s != 'technical_indicators']
+    # Separate special steps from regular steps
+    regular_steps = [s for s in steps if s not in ['technical_indicators', 'us_jp_fundamentals']]
 
-        # Phase 1: Other data updates (if any)
-        if other_steps:
-            print(f"\n{colored('Phase 1: Data Update', Fore.CYAN + Style.BRIGHT)}")
+    # Phase 1: Regular data updates (if any)
+    if regular_steps:
+        print(f"\n{colored('Phase 1: Data Update', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 60)
+        args = ['--regions'] + regions + ['--steps'] + regular_steps
+        if incremental:
+            args.append('--incremental')
+        if dry_run:
+            args.append('--dry-run')
+        args.append('--verbose')
+
+        run_update_database(args, f"Custom Refresh - Data Update (regions={regions}, steps={regular_steps})")
+
+    # Phase 1.5: US/JP Fundamentals (if selected)
+    if has_us_jp_fundamentals:
+        us_jp_regions = [r for r in regions if r.upper() in ['US', 'JP']]
+        if us_jp_regions:
+            print(f"\n{colored('Phase 1.5: US/JP Fundamentals (SEC EDGAR & EDINET)', Fore.CYAN + Style.BRIGHT)}")
             print("=" * 60)
-            args = ['--regions'] + regions + ['--steps'] + other_steps
-            if incremental:
-                args.append('--incremental')
-            if dry_run:
-                args.append('--dry-run')
-            args.append('--verbose')
 
-            run_update_database(args, f"Custom Refresh - Data Update (regions={regions}, steps={other_steps})")
+            # Ask for limit
+            limit_input = input(f"{colored('Ticker limit per region [20]:', Fore.CYAN)} ").strip()
+            limit = int(limit_input) if limit_input else 20
 
-        # Phase 2: Technical Indicators (direct calculation)
+            run_us_jp_fundamentals_backfill(
+                regions=us_jp_regions,
+                limit=limit,
+                dry_run=dry_run,
+                start_year=2020,
+                end_year=2024
+            )
+        else:
+            print(f"\n{colored('⚠️  us_jp_fundamentals 선택되었으나 US/JP 리전이 없습니다.', Fore.YELLOW)}")
+
+    # Phase 2: Technical Indicators (if selected)
+    if has_technical_indicators:
         print(f"\n{colored('Phase 2: Technical Indicators Calculation', Fore.CYAN + Style.BRIGHT)}")
         print("=" * 60)
 
@@ -3235,16 +3576,16 @@ def run_custom_refresh():
         print(f"Total Time: {total_time:.1f} minutes")
         print("=" * 60)
 
-    else:
-        # No technical_indicators: use original subprocess approach
-        args = ['--regions'] + regions + ['--steps'] + steps
-        if incremental:
-            args.append('--incremental')
-        if dry_run:
-            args.append('--dry-run')
-        args.append('--verbose')
-
-        run_update_database(args, f"Custom Refresh (regions={regions}, steps={steps})")
+    elif not regular_steps and not has_us_jp_fundamentals:
+        # No steps at all
+        print(f"\n{colored('⚠️  No steps selected.', Fore.YELLOW)}")
+    elif not has_technical_indicators:
+        # Just show completion message
+        print(f"\n{colored('✅ Custom Refresh Complete!', Fore.GREEN + Style.BRIGHT)}")
+        print("=" * 60)
+        print(f"Regions: {', '.join(regions)}")
+        print(f"Steps: {', '.join(steps)}")
+        print("=" * 60)
 
 
 @with_lock('listing_date_backfill_enhanced', timeout=1800)
@@ -4064,6 +4405,10 @@ def run_macro_data_update(start_date=None, end_date=None, components=None, inclu
         print(f"{colored('❌ Cancelled', Fore.YELLOW)}")
         return
 
+    # Record execution start
+    add_execution_record('macro_data_update', regions=[], status='started',
+                        details={'components': components, 'date_range': f'{start_date} → {end_date}'})
+
     # Run Phase 1: Bonds & Commodities
     try:
         start_time = datetime.now()
@@ -4083,11 +4428,15 @@ def run_macro_data_update(start_date=None, end_date=None, components=None, inclu
         print(f"\n{colored('❌ Phase 1 failed!', Fore.RED)}")
         print(f"{colored('Error:', Fore.RED)} {e}")
         print(f"\n{colored('⚠️  Skipping FX tracking due to Phase 1 failure', Fore.YELLOW)}")
+        add_execution_record('macro_data_update', regions=[], status='failed',
+                            details={'error': str(e), 'phase': 'bonds_commodities'})
         return
 
     except KeyboardInterrupt:
         print(f"\n{colored('⚠️  Interrupted by user', Fore.YELLOW)}")
         print(f"{colored('💡 Partial progress may have been saved to database', Fore.CYAN)}")
+        add_execution_record('macro_data_update', regions=[], status='failed',
+                            details={'error': 'Interrupted by user'})
         return
 
     # Run Phase 2: FX Tracking
@@ -4141,6 +4490,10 @@ def run_macro_data_update(start_date=None, end_date=None, components=None, inclu
     print(f"  Total Duration: {total_elapsed:.1f}s")
     print("=" * 70)
 
+    # Record execution completion
+    add_execution_record('macro_data_update', regions=[], status='completed',
+                        details={'components': components, 'duration_sec': total_elapsed})
+
 
 @with_lock('macro_data_unified_update', timeout=600)
 def run_macro_data_unified(components=None, days=7, dry_run=False):
@@ -4185,6 +4538,10 @@ def run_macro_data_unified(components=None, days=7, dry_run=False):
     if confirm and confirm != 'y':
         print(f"{colored('❌ Cancelled', Fore.YELLOW)}")
         return {'success': False, 'cancelled': True}
+
+    # Record execution start
+    add_execution_record('macro_data_unified', regions=[], status='started',
+                        details={'components': components, 'days': days})
 
     # Run collection using MacroDataAdapter
     try:
@@ -4248,6 +4605,10 @@ def run_macro_data_unified(components=None, days=7, dry_run=False):
 
         db.close_pool()
 
+        # Record execution completion
+        add_execution_record('macro_data_unified', regions=[], status='completed',
+                            details={'components': components, 'total_records': total_records, 'duration_sec': elapsed})
+
         return result
 
     except Exception as e:
@@ -4256,6 +4617,10 @@ def run_macro_data_unified(components=None, days=7, dry_run=False):
         print(f"{colored('Error:', Fore.RED)} {e}")
         print(f"{colored('Duration:', Fore.YELLOW)} {elapsed:.1f}s")
         print("=" * 80)
+
+        # Record execution failure
+        add_execution_record('macro_data_unified', regions=[], status='failed',
+                            details={'error': str(e), 'duration_sec': elapsed})
 
         return {
             'success': False,
@@ -4612,6 +4977,243 @@ def print_equity_backfill_status():
     print("=" * 70)
 
 
+# ============================================================================
+# US/JP Fundamentals Backfill Functions (SEC EDGAR & EDINET)
+# ============================================================================
+
+def run_us_fundamentals_backfill(
+    limit: Optional[int] = None,
+    dry_run: bool = False,
+    start_year: int = 2020,
+    end_year: int = 2024
+) -> Dict[str, Any]:
+    """
+    Run US fundamentals backfill using SEC EDGAR API
+
+    Args:
+        limit: Number of tickers to process (None = all)
+        dry_run: If True, only show what would be done
+        start_year: Start year for backfill
+        end_year: End year for backfill
+
+    Returns:
+        Dictionary with execution statistics
+    """
+    print(f"\n{colored('🇺🇸 US Fundamentals Backfill (SEC EDGAR)', Fore.CYAN + Style.BRIGHT)}")
+    print("=" * 70)
+
+    result = {
+        'region': 'US',
+        'source': 'SEC_EDGAR',
+        'success': False,
+        'tickers_processed': 0,
+        'tickers_success': 0,
+        'tickers_failed': 0,
+        'records_inserted': 0,
+        'error': None
+    }
+
+    try:
+        db = PostgresDatabaseManager()
+        executor = SECBackfillExecutor(
+            db=db,
+            dry_run=dry_run,
+            rate_limit_delay=0.1  # SEC allows 10 req/sec
+        )
+
+        # Validate prerequisites
+        is_ready, issues = executor.validate_prerequisites()
+        if not is_ready:
+            print(f"{colored('❌ Prerequisites not met:', Fore.RED)}")
+            for issue in issues:
+                print(f"   - {issue}")
+            result['error'] = '; '.join(issues)
+            return result
+
+        print(f"  Mode:          {colored('DRY RUN' if dry_run else 'PRODUCTION', Fore.YELLOW if dry_run else Fore.GREEN)}")
+        print(f"  Period:        {colored(f'{start_year} ~ {end_year}', Fore.CYAN)}")
+        print(f"  Limit:         {colored(str(limit) if limit else 'All', Fore.CYAN)}")
+        print()
+
+        # Run backfill
+        stats = executor.run_backfill(
+            start_year=start_year,
+            end_year=end_year,
+            limit=limit
+        )
+
+        result['success'] = True
+        result['tickers_processed'] = stats.tickers_processed
+        result['tickers_success'] = stats.tickers_success
+        result['tickers_failed'] = stats.tickers_failed
+        result['records_inserted'] = stats.records_inserted
+
+        # Print summary
+        print(f"\n{colored('📊 US Backfill Results:', Fore.CYAN + Style.BRIGHT)}")
+        print(f"  Processed:     {colored(f'{stats.tickers_processed}', Fore.CYAN)}")
+        print(f"  Success:       {colored(f'{stats.tickers_success}', Fore.GREEN)}")
+        print(f"  Failed:        {colored(f'{stats.tickers_failed}', Fore.RED if stats.tickers_failed > 0 else Fore.GREEN)}")
+        print(f"  Records:       {colored(f'{stats.records_inserted}', Fore.CYAN)}")
+
+        executor.close()
+
+    except Exception as e:
+        print(f"{colored(f'❌ US backfill failed: {e}', Fore.RED)}")
+        result['error'] = str(e)
+
+    return result
+
+
+def run_jp_fundamentals_backfill(
+    limit: Optional[int] = None,
+    dry_run: bool = False,
+    start_year: int = 2020,
+    end_year: int = 2024
+) -> Dict[str, Any]:
+    """
+    Run JP fundamentals backfill using EDINET API
+
+    Args:
+        limit: Number of tickers to process (None = all)
+        dry_run: If True, only show what would be done
+        start_year: Start year for backfill
+        end_year: End year for backfill
+
+    Returns:
+        Dictionary with execution statistics
+    """
+    print(f"\n{colored('🇯🇵 JP Fundamentals Backfill (EDINET)', Fore.CYAN + Style.BRIGHT)}")
+    print("=" * 70)
+
+    result = {
+        'region': 'JP',
+        'source': 'EDINET',
+        'success': False,
+        'tickers_processed': 0,
+        'tickers_success': 0,
+        'tickers_failed': 0,
+        'records_inserted': 0,
+        'error': None
+    }
+
+    try:
+        db = PostgresDatabaseManager()
+        executor = EDINETBackfillExecutor(
+            db=db,
+            dry_run=dry_run,
+            rate_limit_delay=1.0  # EDINET: 1 req/sec
+        )
+
+        # Validate prerequisites
+        is_ready, issues = executor.validate_prerequisites()
+        if not is_ready:
+            print(f"{colored('❌ Prerequisites not met:', Fore.RED)}")
+            for issue in issues:
+                print(f"   - {issue}")
+            result['error'] = '; '.join(issues)
+            return result
+
+        print(f"  Mode:          {colored('DRY RUN' if dry_run else 'PRODUCTION', Fore.YELLOW if dry_run else Fore.GREEN)}")
+        print(f"  Period:        {colored(f'{start_year} ~ {end_year}', Fore.CYAN)}")
+        print(f"  Limit:         {colored(str(limit) if limit else 'All', Fore.CYAN)}")
+        print()
+
+        # Run backfill
+        stats = executor.run_backfill(
+            start_year=start_year,
+            end_year=end_year,
+            limit=limit
+        )
+
+        result['success'] = True
+        result['tickers_processed'] = stats.tickers_processed
+        result['tickers_success'] = stats.tickers_success
+        result['tickers_failed'] = stats.tickers_failed
+        result['records_inserted'] = stats.records_inserted
+
+        # Print summary
+        print(f"\n{colored('📊 JP Backfill Results:', Fore.CYAN + Style.BRIGHT)}")
+        print(f"  Processed:     {colored(f'{stats.tickers_processed}', Fore.CYAN)}")
+        print(f"  Success:       {colored(f'{stats.tickers_success}', Fore.GREEN)}")
+        print(f"  Failed:        {colored(f'{stats.tickers_failed}', Fore.RED if stats.tickers_failed > 0 else Fore.GREEN)}")
+        print(f"  Records:       {colored(f'{stats.records_inserted}', Fore.CYAN)}")
+
+        executor.close()
+
+    except Exception as e:
+        print(f"{colored(f'❌ JP backfill failed: {e}', Fore.RED)}")
+        result['error'] = str(e)
+
+    return result
+
+
+def run_us_jp_fundamentals_backfill(
+    regions: List[str] = None,
+    limit: Optional[int] = None,
+    dry_run: bool = False,
+    start_year: int = 2020,
+    end_year: int = 2024
+) -> Dict[str, Any]:
+    """
+    Run US and/or JP fundamentals backfill
+
+    Args:
+        regions: List of regions to backfill ('US', 'JP'). None = both
+        limit: Number of tickers per region (None = all)
+        dry_run: If True, only show what would be done
+        start_year: Start year for backfill
+        end_year: End year for backfill
+
+    Returns:
+        Dictionary with combined execution statistics
+    """
+    if regions is None:
+        regions = ['US', 'JP']
+
+    results = {
+        'total_success': 0,
+        'total_failed': 0,
+        'total_records': 0,
+        'regions': {}
+    }
+
+    for region in regions:
+        if region.upper() == 'US':
+            result = run_us_fundamentals_backfill(
+                limit=limit,
+                dry_run=dry_run,
+                start_year=start_year,
+                end_year=end_year
+            )
+            results['regions']['US'] = result
+            if result['success']:
+                results['total_success'] += result['tickers_success']
+                results['total_failed'] += result['tickers_failed']
+                results['total_records'] += result['records_inserted']
+
+        elif region.upper() == 'JP':
+            result = run_jp_fundamentals_backfill(
+                limit=limit,
+                dry_run=dry_run,
+                start_year=start_year,
+                end_year=end_year
+            )
+            results['regions']['JP'] = result
+            if result['success']:
+                results['total_success'] += result['tickers_success']
+                results['total_failed'] += result['tickers_failed']
+                results['total_records'] += result['records_inserted']
+
+    # Print combined summary
+    print(f"\n{colored('📊 US/JP Combined Results:', Fore.CYAN + Style.BRIGHT)}")
+    print("=" * 70)
+    print(f"  Total Success:   {colored(f'{results['total_success']}', Fore.GREEN)}")
+    print(f"  Total Failed:    {colored(f'{results['total_failed']}', Fore.RED if results['total_failed'] > 0 else Fore.GREEN)}")
+    print(f"  Total Records:   {colored(f'{results['total_records']}', Fore.CYAN)}")
+
+    return results
+
+
 def run_equity_backfill(limit=None, dry_run=False, rate_limit=1.0, use_gap_analysis=True):
     """
     Run equity account backfill using backfill_fundamentals_dart.py
@@ -4757,158 +5359,269 @@ def run_equity_backfill(limit=None, dry_run=False, rate_limit=1.0, use_gap_analy
         print_equity_backfill_status()
 
 
-@with_lock('equity_backfill_submenu', timeout=3600)
-def setup_equity_backfill_submenu():
-    """Equity account backfill submenu"""
+@with_lock('fundamental_backfill_submenu', timeout=3600)
+def setup_fundamental_backfill_submenu():
+    """Fundamental data backfill submenu - Multi-region, Multi-category support"""
     while True:
-        print(f"\n{colored('💰 Equity Account Backfill', Fore.CYAN + Style.BRIGHT)}")
-        print("=" * 70)
+        print(f"\n{colored('📊 Fundamental Data Backfill', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 80)
 
-        # Current status summary
-        status = get_equity_backfill_status()
-        if status:
-            coverage = status['coverage_pct']
-            remaining = status['without_equity']
-            cov_color = Fore.GREEN if coverage >= 80 else (Fore.YELLOW if coverage >= 50 else Fore.RED)
-            print(f"Current Coverage: {colored(f'{coverage:.2f}%', cov_color)} "
-                  f"({colored(f'{remaining:,} tickers remaining', Fore.YELLOW)})")
-        else:
-            print(f"Current Coverage: {colored('❌ Database unavailable', Fore.RED)}")
+        # Current status summary (multi-region)
+        print_fundamental_backfill_status()
+
+        # Main menu options
+        print(f"{colored('Select Operation:', Fore.CYAN)}")
+        print(f"  {colored('--- Status & Analysis ---', Fore.BLUE)}")
+        print(f"  {colored('1.', Fore.WHITE)} 📊 {colored('View Detailed Status', Fore.CYAN)} - 리전별 상세 커버리지")
+        print(f"  {colored('2.', Fore.WHITE)} 🔍 {colored('Gap Analysis Preview', Fore.CYAN)} - 데이터 갭 분석")
         print()
-
-        # Submenu options
-        print(f"{colored('Options:', Fore.CYAN)}")
-        print(f"  {colored('1.', Fore.WHITE)} 📊 {colored('Check Backfill Status', Fore.CYAN)} - 현재 커버리지 확인")
-        print(f"  {colored('2.', Fore.WHITE)} 🔍 {colored('Gap Analysis Preview', Fore.CYAN)} (데이터 스캔만 수행)")
-        print(f"  {colored('3.', Fore.WHITE)} 🧪 {colored('Dry Run Test', Fore.YELLOW)} (2 tickers, gap-aware)")
-        print(f"  {colored('4.', Fore.WHITE)} 🔵 {colored('Quick Batch', Fore.GREEN)} (100 tickers, gap-aware)")
-        print(f"  {colored('5.', Fore.WHITE)} 🟠 {colored('Medium Batch', Fore.YELLOW)} (500 tickers, gap-aware)")
-        print(f"  {colored('6.', Fore.WHITE)} 🔴 {colored('Full Backfill', Fore.MAGENTA)} (모든 remaining, gap-aware)")
-        print(f"  {colored('7.', Fore.WHITE)} 🔧 {colored('Legacy Mode', Fore.BLUE)} (without gap analysis)")
+        print(f"  {colored('--- By Region ---', Fore.BLUE)}")
+        print(f"  {colored('3.', Fore.WHITE)} 🇰🇷 {colored('KR Market (DART)', Fore.GREEN)} - 한국 재무 데이터")
+        print(f"  {colored('4.', Fore.WHITE)} 🇺🇸 {colored('US Market (SEC EDGAR)', Fore.GREEN)} - 미국 재무 데이터")
+        print(f"  {colored('5.', Fore.WHITE)} 🇯🇵 {colored('JP Market (EDINET)', Fore.GREEN)} - 일본 재무 데이터")
+        print(f"  {colored('6.', Fore.WHITE)} 🌐 {colored('Other Markets (yfinance)', Fore.GREEN)} - HK/CN/VN 재무 데이터")
+        print()
+        print(f"  {colored('--- Batch Operations ---', Fore.BLUE)}")
+        print(f"  {colored('7.', Fore.WHITE)} 🚀 {colored('Quick All Regions', Fore.YELLOW)} - 전체 리전 빠른 백필 (10 tickers each)")
+        print(f"  {colored('8.', Fore.WHITE)} 📈 {colored('Full All Regions', Fore.MAGENTA)} - 전체 리전 전체 백필")
+        print()
         print(f"  {colored('0.', Fore.WHITE)} ◀️  {colored('Back to Main Menu', Fore.RED)}")
         print()
 
-        choice = input(f"{colored('Select (0-7):', Fore.CYAN)} ").strip()
+        choice = input(f"{colored('Select (0-8):', Fore.CYAN)} ").strip()
 
         if choice == '1':
-            # Check status
-            print_equity_backfill_status()
+            # Detailed status by category
+            print(f"\n{colored('Select Category for Status:', Fore.CYAN)}")
+            print(f"  A. All Fundamentals (전체)")
+            print(f"  E. Equity (자본계정)")
+            print(f"  I. Income Statement (손익계산서)")
+            print(f"  B. Balance Sheet (재무상태표)")
+            print(f"  C. Cash Flow (현금흐름표)")
+            cat_choice = input(f"{colored('Category [A]:', Fore.CYAN)} ").strip().upper() or 'A'
+
+            category_map = {
+                'A': FundamentalCategory.ALL,
+                'E': FundamentalCategory.EQUITY,
+                'I': FundamentalCategory.INCOME,
+                'B': FundamentalCategory.BALANCE_SHEET,
+                'C': FundamentalCategory.CASH_FLOW
+            }
+            category = category_map.get(cat_choice, FundamentalCategory.ALL)
+            print_fundamental_backfill_status(category=category)
             input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
 
         elif choice == '2':
-            # Gap Analysis Preview (read-only scan)
+            # Gap Analysis Preview
             print(f"\n{colored('🔍 Gap Analysis Preview', Fore.CYAN + Style.BRIGHT)}")
             print("=" * 70)
-            print(f"Scanning database for missing equity data (read-only)...")
-            print()
+            region_input = input(f"{colored('Select region [KR]:', Fore.CYAN)} ").strip().upper() or 'KR'
+
             try:
                 db = PostgresDatabaseManager()
                 analyzer = GapAnalyzer(db)
                 gap_result = analyzer.analyze_gaps(
                     table='ticker_fundamentals',
-                    target_columns=['capital_stock', 'capital_surplus', 'retained_earnings'],
-                    region='KR',
+                    target_columns=FUNDAMENTAL_CATEGORY_COLUMNS[FundamentalCategory.ALL][:5],
+                    region=region_input,
                     asset_type='STOCK',
                     backfill_start_date=date(2022, 1, 1),
-                    limit=None  # Analyze all tickers
+                    limit=None
                 )
-
                 summary = gap_result.get_summary()
-                print(f"📊 {colored('Gap Analysis Results:', Fore.CYAN + Style.BRIGHT)}")
-                print(f'  Total tickers analyzed:  {colored(f"{summary['total_analyzed']:,}", Fore.CYAN)}')
+                print(f"\n📊 {colored(f'Gap Analysis Results ({region_input}):', Fore.CYAN + Style.BRIGHT)}")
+                print(f'  Total tickers analyzed:  {colored(f"{summary["total_analyzed"]:,}", Fore.CYAN)}')
                 print(f"  {colored('✅ Already complete:', Fore.GREEN)}       {summary['complete']} tickers")
                 print(f"  {colored('⚠️  Need backfill:', Fore.YELLOW)}        {summary['needs_backfill']} tickers")
                 print(f"    - Fully missing:       {summary['fully_missing']} tickers")
                 print(f"    - Partially missing:   {summary['partially_missing']} tickers")
-                print()
-                print(f"  {colored(f'💡 Efficiency Gain:', Fore.GREEN + Style.BRIGHT)}")
-                print(f"    API calls saved:       {summary['complete']} ({summary['efficiency_gain_pct']:.1f}%)")
-                print()
             except Exception as e:
                 print(f"  {colored(f'❌ Gap analysis failed: {e}', Fore.RED)}")
             input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
 
         elif choice == '3':
-            # Dry run test with 2 tickers (gap-aware)
-            print(f"\n{colored('🧪 Dry Run Test (Gap-Aware)', Fore.YELLOW)}")
-            print(f"This will simulate gap-aware backfill for 2 tickers without writing to database")
-            run_equity_backfill(limit=2, dry_run=True, rate_limit=1.0, use_gap_analysis=True)
-            input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
+            # KR Market (DART)
+            _run_kr_fundamental_backfill_submenu()
 
         elif choice == '4':
-            # Quick batch: 100 tickers (gap-aware)
-            if not status:
-                print(f"{colored('❌ Database unavailable', Fore.RED)}")
-                input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
-                continue
+            # US Market (SEC EDGAR)
+            print(f"\n{colored('🇺🇸 US Fundamentals Backfill (SEC EDGAR)', Fore.CYAN + Style.BRIGHT)}")
+            print("=" * 70)
+            print(f"{colored('💡 SEC EDGAR API:', Fore.YELLOW)} 무료, User-Agent만 필요, 10 req/sec")
+            print()
 
-            actual = min(100, status['without_equity'])
-            time_per_ticker = REFRESH_CONFIG.equity_backfill_time_per_ticker if REFRESH_CONFIG else 0.09
-            print(f"\n{colored('🔵 Quick Batch - Gap-Aware (100 tickers)', Fore.GREEN)}")
-            print(f"Will process {actual:,} tickers (estimated: ~{actual * time_per_ticker:.1f} hours)")
-            run_equity_backfill(limit=100, dry_run=False, rate_limit=1.0, use_gap_analysis=True)
+            # Execution mode
+            print(f"  Q. Quick (10 tickers)")
+            print(f"  M. Medium (50 tickers)")
+            print(f"  F. Full (all tickers)")
+            print(f"  D. Dry Run Test (5 tickers)")
+            mode = input(f"{colored('Select mode [Q]:', Fore.CYAN)} ").strip().upper() or 'Q'
+
+            limit_map = {'Q': 10, 'M': 50, 'F': None, 'D': 5}
+            limit_val = limit_map.get(mode, 10)
+            dry_run = mode == 'D'
+
+            run_us_fundamentals_backfill(
+                limit=limit_val,
+                dry_run=dry_run,
+                start_year=2020,
+                end_year=2024
+            )
+            input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
 
         elif choice == '5':
-            # Medium batch: 500 tickers (gap-aware)
-            if not status:
-                print(f"{colored('❌ Database unavailable', Fore.RED)}")
-                input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
-                continue
+            # JP Market (EDINET)
+            print(f"\n{colored('🇯🇵 JP Fundamentals Backfill (EDINET)', Fore.CYAN + Style.BRIGHT)}")
+            print("=" * 70)
+            print(f"{colored('💡 EDINET API:', Fore.YELLOW)} 무료, API Key 필요")
+            print(f"{colored('⚠️  Rate Limit:', Fore.YELLOW)} 1 req/sec (느림)")
+            print()
 
-            actual = min(500, status['without_equity'])
-            time_per_ticker = REFRESH_CONFIG.equity_backfill_time_per_ticker if REFRESH_CONFIG else 0.09
-            print(f"\n{colored('🟠 Medium Batch - Gap-Aware (500 tickers)', Fore.YELLOW)}")
-            print(f"Will process {actual:,} tickers (estimated: ~{actual * time_per_ticker:.1f} hours)")
-            print(f"{colored('⚠️  Recommendation:', Fore.YELLOW)} Run in screen/tmux session for long operations")
-            run_equity_backfill(limit=500, dry_run=False, rate_limit=1.0, use_gap_analysis=True)
+            # Execution mode
+            print(f"  Q. Quick (5 tickers)")
+            print(f"  M. Medium (20 tickers)")
+            print(f"  F. Full (all tickers)")
+            print(f"  D. Dry Run Test (2 tickers)")
+            mode = input(f"{colored('Select mode [Q]:', Fore.CYAN)} ").strip().upper() or 'Q'
+
+            limit_map = {'Q': 5, 'M': 20, 'F': None, 'D': 2}
+            limit_val = limit_map.get(mode, 5)
+            dry_run = mode == 'D'
+
+            run_jp_fundamentals_backfill(
+                limit=limit_val,
+                dry_run=dry_run,
+                start_year=2020,
+                end_year=2024
+            )
+            input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
 
         elif choice == '6':
-            # Full backfill: all remaining (gap-aware)
-            if not status:
-                print(f"{colored('❌ Database unavailable', Fore.RED)}")
-                input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
-                continue
-
-            remaining = status['without_equity']
-            estimated = status['estimated_time_hours']
-
-            print(f"\n{colored('🔴 Full Backfill - Gap-Aware', Fore.MAGENTA + Style.BRIGHT)}")
-            print(f"⚠️  This will process ALL {remaining:,} remaining tickers")
-            print(f"⏱  Estimated time: ~{estimated} hours")
-            print()
-            print(f"{colored('💡 Recommendations:', Fore.CYAN)}")
-            print(f"   • Run in screen/tmux session")
-            print(f"   • Consider lower --rate-limit for stability")
-            print(f"   • Monitor logs for any issues")
-            print()
-
-            confirm = input(f"{colored('Proceed with full backfill? [y/N]:', Fore.YELLOW)} ").strip().lower()
-            if confirm == 'y':
-                run_equity_backfill(limit=None, dry_run=False, rate_limit=1.0, use_gap_analysis=True)
-            else:
-                print(f"{colored('⏭️  Cancelled', Fore.YELLOW)}")
-                input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
-
-        elif choice == '7':
-            # Legacy mode (without gap analysis)
-            print(f"\n{colored('🔧 Legacy Mode', Fore.BLUE + Style.BRIGHT)}")
+            # Other Markets (yfinance)
+            print(f"\n{colored('🌐 Other Markets Fundamentals (yfinance)', Fore.CYAN + Style.BRIGHT)}")
             print("=" * 70)
-            print(f"{colored('⚠️  Note:', Fore.YELLOW)} This mode processes all tickers without gap analysis.")
-            print(f"Consider using gap-aware mode for better efficiency.")
+            print(f"{colored('💡 yfinance:', Fore.YELLOW)} HK, CN, VN 시장 지원")
             print()
 
-            limit_input = input(f"Enter ticker limit (or press Enter for 10): ").strip()
+            # Region selection
+            print(f"  1. 🇭🇰 HK (Hong Kong)")
+            print(f"  2. 🇨🇳 CN (China)")
+            print(f"  3. 🇻🇳 VN (Vietnam)")
+            print(f"  4. All (HK + CN + VN)")
+            region_choice = input(f"{colored('Select region [4]:', Fore.CYAN)} ").strip() or '4'
+
+            region_map = {'1': ['HK'], '2': ['CN'], '3': ['VN'], '4': ['HK', 'CN', 'VN']}
+            selected_regions = region_map.get(region_choice, ['HK', 'CN', 'VN'])
+
+            limit_input = input(f"{colored('Ticker limit per region [10]:', Fore.CYAN)} ").strip()
             limit_val = int(limit_input) if limit_input else 10
 
-            run_equity_backfill(limit=limit_val, dry_run=False, rate_limit=1.0, use_gap_analysis=False)
+            print(f"\n{colored('⚠️  yfinance backfill not yet implemented for these regions', Fore.YELLOW)}")
+            print(f"   Selected: {', '.join(selected_regions)}")
+            input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
+
+        elif choice == '7':
+            # Quick All Regions
+            print(f"\n{colored('🚀 Quick All Regions Backfill', Fore.YELLOW + Style.BRIGHT)}")
+            print("=" * 70)
+            print(f"Will process 10 tickers per region (KR, US, JP)")
+            print()
+
+            confirm = input(f"{colored('Proceed? [Y/n]:', Fore.CYAN)} ").strip().lower()
+            if confirm != 'n':
+                # KR (DART)
+                print(f"\n{colored('--- KR Market (DART) ---', Fore.BLUE)}")
+                run_equity_backfill(limit=10, dry_run=False, rate_limit=1.0, use_gap_analysis=True)
+
+                # US (SEC EDGAR)
+                run_us_fundamentals_backfill(limit=10, dry_run=False, start_year=2022, end_year=2024)
+
+                # JP (EDINET)
+                run_jp_fundamentals_backfill(limit=10, dry_run=False, start_year=2022, end_year=2024)
+
+                print(f"\n{colored('✅ Quick All Regions completed!', Fore.GREEN + Style.BRIGHT)}")
+
+            input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
+
+        elif choice == '8':
+            # Full All Regions
+            print(f"\n{colored('📈 Full All Regions Backfill', Fore.MAGENTA + Style.BRIGHT)}")
+            print("=" * 70)
+            print(f"{colored('⚠️  Warning:', Fore.YELLOW)} This will process ALL tickers in KR, US, JP")
+            print(f"   This may take several hours!")
+            print()
+
+            confirm = input(f"{colored('Are you sure? [y/N]:', Fore.YELLOW)} ").strip().lower()
+            if confirm == 'y':
+                # KR (DART)
+                print(f"\n{colored('--- KR Market (DART) ---', Fore.BLUE)}")
+                run_equity_backfill(limit=None, dry_run=False, rate_limit=1.0, use_gap_analysis=True)
+
+                # US (SEC EDGAR)
+                run_us_fundamentals_backfill(limit=None, dry_run=False, start_year=2020, end_year=2024)
+
+                # JP (EDINET)
+                run_jp_fundamentals_backfill(limit=None, dry_run=False, start_year=2020, end_year=2024)
+
+                print(f"\n{colored('✅ Full All Regions completed!', Fore.GREEN + Style.BRIGHT)}")
+            else:
+                print(f"{colored('⏭️  Cancelled', Fore.YELLOW)}")
+
+            input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
 
         elif choice == '0':
             # Back to main menu
             break
 
         else:
-            print(f"{colored('❌ Invalid choice. Please select 0-7.', Fore.RED)}")
+            print(f"{colored('❌ Invalid choice. Please select 0-8.', Fore.RED)}")
             input(f"{colored('Press Enter to continue...', Fore.CYAN)}")
+
+
+def _run_kr_fundamental_backfill_submenu():
+    """KR Market (DART) Fundamental Backfill Submenu"""
+    print(f"\n{colored('🇰🇷 KR Fundamentals Backfill (DART)', Fore.CYAN + Style.BRIGHT)}")
+    print("=" * 70)
+
+    # Get KR status
+    status = get_equity_backfill_status()
+    if status:
+        coverage = status['coverage_pct']
+        remaining = status['without_equity']
+        cov_color = Fore.GREEN if coverage >= 80 else (Fore.YELLOW if coverage >= 50 else Fore.RED)
+        print(f"  Coverage: {colored(f'{coverage:.2f}%', cov_color)} ({remaining:,} remaining)")
+    print()
+
+    print(f"  {colored('Execution Mode:', Fore.CYAN)}")
+    print(f"    Q. Quick (100 tickers, gap-aware)")
+    print(f"    M. Medium (500 tickers, gap-aware)")
+    print(f"    F. Full (all remaining, gap-aware)")
+    print(f"    D. Dry Run Test (2 tickers)")
+    print(f"    L. Legacy Mode (without gap analysis)")
+    mode = input(f"\n{colored('Select mode [Q]:', Fore.CYAN)} ").strip().upper() or 'Q'
+
+    if mode == 'Q':
+        run_equity_backfill(limit=100, dry_run=False, rate_limit=1.0, use_gap_analysis=True)
+    elif mode == 'M':
+        run_equity_backfill(limit=500, dry_run=False, rate_limit=1.0, use_gap_analysis=True)
+    elif mode == 'F':
+        confirm = input(f"{colored('Process ALL remaining? [y/N]:', Fore.YELLOW)} ").strip().lower()
+        if confirm == 'y':
+            run_equity_backfill(limit=None, dry_run=False, rate_limit=1.0, use_gap_analysis=True)
+    elif mode == 'D':
+        run_equity_backfill(limit=2, dry_run=True, rate_limit=1.0, use_gap_analysis=True)
+    elif mode == 'L':
+        limit_input = input(f"Enter ticker limit [10]: ").strip()
+        limit_val = int(limit_input) if limit_input else 10
+        run_equity_backfill(limit=limit_val, dry_run=False, rate_limit=1.0, use_gap_analysis=False)
+
+    input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
+
+
+# Legacy alias for backward compatibility
+def setup_equity_backfill_submenu():
+    """Alias for setup_fundamental_backfill_submenu (backward compatibility)"""
+    return setup_fundamental_backfill_submenu()
 
 
 def main():
@@ -5083,11 +5796,43 @@ def run_daily_valuation_update():
         prompt_message="💹 Daily Valuation Update - Select regions:"
     )
 
+    # Check if US/JP is selected - offer fundamentals update
+    us_jp_regions = [r for r in regions if r.upper() in ['US', 'JP']]
+    update_fundamentals = False
+    fundamentals_limit = 10
+
+    if us_jp_regions:
+        print(f"\n{colored('💡 US/JP Fundamentals Option:', Fore.YELLOW)}")
+        print(f"   선택된 US/JP 리전에 대해 재무 데이터(SEC EDGAR/EDINET)도 함께 업데이트할 수 있습니다.")
+        print(f"   이는 valuation 계산에 필요한 최신 재무 데이터를 확보합니다.")
+        fundamentals_input = input(f"\n{colored('US/JP Fundamentals도 업데이트? [y/N]:', Fore.CYAN)} ").strip().lower()
+        update_fundamentals = fundamentals_input == 'y'
+
+        if update_fundamentals:
+            limit_input = input(f"{colored('Ticker limit per region [10]:', Fore.CYAN)} ").strip()
+            fundamentals_limit = int(limit_input) if limit_input else 10
+
     confirm = input(f"\n{colored('Proceed with daily valuation update? (y/n):', Fore.CYAN)} ").strip().lower()
 
     if confirm == 'y':
         try:
-            from datetime import datetime
+            # Step 1: US/JP Fundamentals (if selected)
+            if update_fundamentals and us_jp_regions:
+                print(f"\n{colored('Step 1: US/JP Fundamentals Update', Fore.CYAN + Style.BRIGHT)}")
+                print("=" * 60)
+                run_us_jp_fundamentals_backfill(
+                    regions=us_jp_regions,
+                    limit=fundamentals_limit,
+                    dry_run=False,
+                    start_year=2022,
+                    end_year=2024
+                )
+
+            # Step 2: Daily Valuation Update
+            step_num = "Step 2" if update_fundamentals else "Step 1"
+            print(f"\n{colored(f'{step_num}: Daily Valuation Update', Fore.CYAN + Style.BRIGHT)}")
+            print("=" * 60)
+
             log_file = f"log/daily_valuation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 
             cmd = [
@@ -5099,7 +5844,7 @@ def run_daily_valuation_update():
             ]
 
             print(f"\n{colored('⏳ Starting daily valuation update...', Fore.YELLOW)}")
-            print(f"{colored(f'Regions: {', '.join(regions)}', Fore.WHITE)}")
+            print(f"{colored(f'Regions: {", ".join(regions)}', Fore.WHITE)}")
             print(f"{colored(f'Log file: {log_file}', Fore.WHITE)}")
             print()
 
@@ -5107,7 +5852,9 @@ def run_daily_valuation_update():
 
             if result.returncode == 0:
                 print(f"\n{colored('✅ Daily valuation update completed successfully!', Fore.GREEN + Style.BRIGHT)}")
-                print(f"{colored(f'   Regions processed: {', '.join(regions)}', Fore.GREEN)}")
+                print(f"{colored(f'   Regions processed: {", ".join(regions)}', Fore.GREEN)}")
+                if update_fundamentals:
+                    print(f"{colored(f'   US/JP Fundamentals: {", ".join(us_jp_regions)} ({fundamentals_limit} tickers each)', Fore.GREEN)}")
             else:
                 print(f"\n{colored('❌ Daily valuation update failed. Check log file.', Fore.RED + Style.BRIGHT)}")
 

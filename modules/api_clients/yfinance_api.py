@@ -78,6 +78,27 @@ class YFinanceAPI:
                 result = func(*args, **kwargs)
                 return result
             except Exception as e:
+                error_msg = str(e).lower()
+
+                # Check if error indicates delisted/unavailable ticker (no point retrying)
+                non_retryable_errors = [
+                    'delisted',
+                    'no data found',
+                    'no data',  # Catch "No OHLCV data for {ticker}" errors
+                    'no ohlcv data',  # More specific pattern for OHLCV errors
+                    'not found',
+                    'symbol may be delisted',
+                    'no timezone found',
+                    'quote not found'
+                ]
+
+                is_non_retryable = any(err in error_msg for err in non_retryable_errors)
+
+                if is_non_retryable:
+                    # Skip retry for delisted/unavailable tickers
+                    logger.debug(f"⚠️ Non-retryable error (delisted/not found): {e}")
+                    return None
+
                 wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
                 logger.warning(f"⚠️ Attempt {attempt+1}/{max_retries} failed: {e}")
 

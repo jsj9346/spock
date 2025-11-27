@@ -195,6 +195,14 @@ For more information, see docs/DB_UPDATE_UNIFIED_SCRIPT_GUIDE.md
         help='Limit number of tickers per step (for testing)'
     )
 
+    parser.add_argument(
+        '--days',
+        type=int,
+        default=250,
+        metavar='N',
+        help='Number of days to collect per ticker (default: 250, use 7 for quick refresh)'
+    )
+
     # Validation
     parser.add_argument(
         '--no-validate',
@@ -260,7 +268,8 @@ def main():
             steps=steps,
             dry_run=args.dry_run,
             incremental=args.incremental,
-            resume=args.resume
+            resume=args.resume,
+            days=args.days  # Pass days parameter for OHLCV collection
         )
 
         # Check success

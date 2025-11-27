@@ -103,6 +103,7 @@ class SpockMCPServer:
             from .tools.technical_tool import get_technical_tool_def
             from .tools.etf_tool import get_etf_screening_tool_def
             from .tools.macro_tool import get_macro_tool_def
+            from .tools.cagr_tool import get_cagr_tool_def
 
             tools = []
             tools.append(get_data_query_tool_def())
@@ -113,6 +114,7 @@ class SpockMCPServer:
             tools.append(get_technical_tool_def())
             tools.append(get_etf_screening_tool_def())
             tools.append(get_macro_tool_def())
+            tools.append(get_cagr_tool_def())
 
             logger.info("tools_listed", tool_count=len(tools))
             return tools
@@ -150,10 +152,13 @@ class SpockMCPServer:
             elif name == "analyze_macro_environment":
                 from .tools.macro_tool import handle_analyze_macro
                 return await handle_analyze_macro(self.macro_adapter, arguments)
+            elif name == "get_cagr":
+                from .tools.cagr_tool import handle_get_cagr
+                return await handle_get_cagr(self.data_adapter, arguments)
             else:
                 raise ValueError(f"Unknown tool: {name}")
 
-        logger.debug("mcp_unified_handlers_registered", tool_count=9)
+        logger.debug("mcp_unified_handlers_registered", tool_count=10)
 
     async def run(self) -> None:
         """Run MCP server (async main loop)"""

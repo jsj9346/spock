@@ -352,7 +352,7 @@ class BackfillOrchestrator:
         Creates executor instance with shared database connection and dry_run setting.
 
         Args:
-            backfill_type: Type of backfill ('equity', 'listing_date', etc.)
+            backfill_type: Type of backfill ('equity', 'listing_date', 'sec', 'edinet', etc.)
 
         Returns:
             BackfillExecutor instance for the specified type
@@ -368,10 +368,20 @@ class BackfillOrchestrator:
             from modules.backfill.listing_date_executor import ListingDateBackfillExecutor
             return ListingDateBackfillExecutor(self.db, dry_run=self.dry_run)
 
+        elif backfill_type == 'sec':
+            # SEC EDGAR for US market fundamentals
+            from modules.backfill.sec_executor import SECBackfillExecutor
+            return SECBackfillExecutor(self.db, dry_run=self.dry_run)
+
+        elif backfill_type == 'edinet':
+            # EDINET for JP market fundamentals (to be implemented)
+            from modules.backfill.edinet_executor import EDINETBackfillExecutor
+            return EDINETBackfillExecutor(self.db, dry_run=self.dry_run)
+
         else:
             raise ValueError(
                 f"Unknown backfill type: {backfill_type}. "
-                f"Supported types: equity, fundamentals, listing_date"
+                f"Supported types: equity, fundamentals, listing_date, sec, edinet"
             )
 
     def _get_checkpoint_path(self, backfill_type: str) -> str:
