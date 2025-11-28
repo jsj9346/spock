@@ -68,6 +68,9 @@ from modules.concurrency import with_lock, LockError, cleanup_stale_locks, is_op
 # Technical Indicator Calculation (Direct Integration)
 from scripts.calculate_technical_indicators import TechnicalIndicatorCalculator
 
+# TTM (Trailing Twelve Months) Calculation
+from modules.fundamentals.ttm_service import TTMService
+
 # Infrastructure Components (Phase 1 - Configuration Management)
 try:
     from infrastructure.config import RefreshConfig, UIConfig
@@ -2099,6 +2102,7 @@ def print_recent_executions(max_entries: int = 5) -> None:
     # Operation name mapping for better display
     operation_names = {
         'quick_refresh': '🚀 Quick Refresh',
+        'standard_refresh': '📦 Standard Refresh',
         'full_refresh': '📈 Full Refresh',
         'incremental_refresh': '🔄 Incremental',
         'listing_date_backfill': '📅 Listing Date',
@@ -3021,8 +3025,9 @@ def interactive_menu():
 
         # Check for currently running operations
         locked_operations = []
-        for operation in ['quick_refresh', 'full_refresh', 'incremental_refresh', 'listing_date_backfill',
-                          'listing_date_backfill_enhanced', 'macro_data_update', 'equity_backfill']:
+        for operation in ['quick_refresh', 'standard_refresh', 'full_refresh', 'incremental_refresh',
+                          'listing_date_backfill', 'listing_date_backfill_enhanced', 'macro_data_update',
+                          'equity_backfill']:
             if is_operation_locked(operation):
                 info = get_operation_info(operation)
                 if info:
@@ -3042,56 +3047,59 @@ def interactive_menu():
 
         # Menu options
         print(f"{colored('선택하세요:', Fore.CYAN + Style.BRIGHT)}")
-        print(f"  {colored('1.', Fore.WHITE)} 🚀 {colored('Quick Refresh', Fore.GREEN)} (5분) - OHLCV + 기본적 + 기술적 지표")
-        print(f"  {colored('2.', Fore.WHITE)} 📈 {colored('Full Refresh', Fore.YELLOW)} (30분) - 전체 데이터 업데이트")
-        print(f"  {colored('3.', Fore.WHITE)} 🔄 {colored('Incremental', Fore.CYAN)} (10분) - 누락된 데이터만")
-        print(f"  {colored('4.', Fore.WHITE)} ⚙️  {colored('Custom', Fore.MAGENTA)} - 직접 설정")
-        print(f"  {colored('5.', Fore.WHITE)} 📅 {colored('Listing Date Setup', Fore.BLUE)} - 상장일 관리")
-        print(f"  {colored('6.', Fore.WHITE)} 📅 {colored('Schedule Setup', Fore.BLUE)} - 자동화 설정")
-        print(f"  {colored('7.', Fore.WHITE)} 📊 {colored('Status', Fore.WHITE)} - 현재 데이터 상태 확인")
-        print(f"  {colored('8.', Fore.WHITE)} 📊 {colored('Fundamental Backfill', Fore.CYAN)} - 재무제표 백필 (KR/US/JP)")
-        print(f"  {colored('9.', Fore.WHITE)} 📈 {colored('All Macro Data', Fore.MAGENTA)} - 통합 매크로 데이터")
-        print(f"  {colored('10.', Fore.WHITE)} 💹 {colored('Daily Valuation Multiples', Fore.YELLOW)} - 주가배수 업데이트 (PER/PBR/PSR/PCR/EV/배당)")
-        print(f"  {colored('11.', Fore.WHITE)} 📉 {colored('Technical Indicators', Fore.CYAN)} - 기술적 지표 계산")
-        print(f"  {colored('12.', Fore.WHITE)} 🔍 {colored('Data Validation', Fore.BLUE)} - 백테스트 데이터 검증")
-        print(f"  {colored('13.', Fore.WHITE)} 📊 {colored('Financial Indicators', Fore.GREEN)} - 재무지표 업데이트 (배당/현금/회전율)")
+        print(f"  {colored('1.', Fore.WHITE)} 🚀 {colored('Quick Refresh', Fore.GREEN)} (3분) - OHLCV + 주가배수 + 환율")
+        print(f"  {colored('2.', Fore.WHITE)} 📦 {colored('Standard Refresh', Fore.YELLOW)} (10분) - Quick + 기술적/재무지표 + TTM")
+        print(f"  {colored('3.', Fore.WHITE)} 📈 {colored('Full Refresh', Fore.RED)} (30분) - 전체 데이터 업데이트")
+        print(f"  {colored('4.', Fore.WHITE)} 🔄 {colored('Incremental', Fore.CYAN)} (10분) - 누락된 데이터만")
+        print(f"  {colored('5.', Fore.WHITE)} ⚙️  {colored('Custom', Fore.MAGENTA)} - 직접 설정")
+        print(f"  {colored('6.', Fore.WHITE)} 📅 {colored('Listing Date Setup', Fore.BLUE)} - 상장일 관리")
+        print(f"  {colored('7.', Fore.WHITE)} 📅 {colored('Schedule Setup', Fore.BLUE)} - 자동화 설정")
+        print(f"  {colored('8.', Fore.WHITE)} 📊 {colored('Status', Fore.WHITE)} - 현재 데이터 상태 확인")
+        print(f"  {colored('9.', Fore.WHITE)} 📊 {colored('Fundamental Backfill', Fore.CYAN)} - 재무제표 백필 (KR/US/JP)")
+        print(f"  {colored('10.', Fore.WHITE)} 📈 {colored('All Macro Data', Fore.MAGENTA)} - 통합 매크로 데이터")
+        print(f"  {colored('11.', Fore.WHITE)} 💹 {colored('Daily Valuation Multiples', Fore.YELLOW)} - 주가배수 업데이트")
+        print(f"  {colored('12.', Fore.WHITE)} 📉 {colored('Technical Indicators', Fore.CYAN)} - 기술적 지표 계산")
+        print(f"  {colored('13.', Fore.WHITE)} 🔍 {colored('Data Validation', Fore.BLUE)} - 백테스트 데이터 검증")
+        print(f"  {colored('14.', Fore.WHITE)} 📊 {colored('Financial Indicators', Fore.GREEN)} - 재무지표 업데이트")
         print(f"  {colored('0.', Fore.WHITE)} 🚪 {colored('종료', Fore.RED)}")
         print()
 
-        choice = input(f"{colored('선택 (0-13):', Fore.CYAN)} ").strip()
+        choice = input(f"{colored('선택 (0-14):', Fore.CYAN)} ").strip()
 
         if choice == '1':
             run_quick_refresh()
         elif choice == '2':
-            run_full_refresh()
+            run_standard_refresh()
         elif choice == '3':
-            run_incremental_refresh()
+            run_full_refresh()
         elif choice == '4':
-            run_custom_refresh()
+            run_incremental_refresh()
         elif choice == '5':
-            setup_listing_dates_enhanced()
+            run_custom_refresh()
         elif choice == '6':
-            setup_schedule()
+            setup_listing_dates_enhanced()
         elif choice == '7':
+            setup_schedule()
+        elif choice == '8':
             print_status()
             input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
-        elif choice == '8':
-            setup_fundamental_backfill_submenu()
         elif choice == '9':
-            setup_macro_data_submenu()
+            setup_fundamental_backfill_submenu()
         elif choice == '10':
-            run_daily_valuation_update()
+            setup_macro_data_submenu()
         elif choice == '11':
-            run_technical_indicators_update()
+            run_daily_valuation_update()
         elif choice == '12':
-            run_data_validation()
+            run_technical_indicators_update()
         elif choice == '13':
+            run_data_validation()
+        elif choice == '14':
             run_financial_indicators_update()
         elif choice == '0':
             print(f"\n{colored('👋 Bye!', Fore.GREEN)}")
             sys.exit(0)
         else:
-            print(f"{colored('❌ Invalid choice. Please select 0-13.', Fore.RED)}")
+            print(f"{colored('❌ Invalid choice. Please select 0-14.', Fore.RED)}")
             input(f"{colored('Press Enter to continue...', Fore.CYAN)}")
 
 
@@ -3271,13 +3279,126 @@ def select_regions_custom() -> List[str]:
     return selected
 
 
-@with_lock('quick_refresh', timeout=300)
+# ============================================================================
+# TTM (Trailing Twelve Months) Calculation Helper
+# ============================================================================
+
+def _run_ttm_calculation(
+    regions: List[str],
+    limit: Optional[int] = None,
+    skip_calculated: bool = True,
+    dry_run: bool = False
+) -> Dict[str, Any]:
+    """
+    TTM 계산 실행 헬퍼 함수
+
+    Args:
+        regions: 대상 지역 목록
+        limit: 지역별 최대 ticker 수
+        skip_calculated: 이미 계산된 ticker 스킵
+        dry_run: 실제 저장 없이 테스트
+
+    Returns:
+        계산 통계 dict
+    """
+    try:
+        db = PostgresDatabaseManager()
+        service = TTMService(db, dry_run=dry_run)
+
+        stats = service.run_ttm_calculation(
+            regions=regions,
+            limit=limit,
+            skip_calculated=skip_calculated
+        )
+
+        return {
+            'success': True,
+            'stats': stats
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
+
+@with_lock('quick_refresh', timeout=180)
 def run_quick_refresh():
-    """Quick refresh - OHLCV + Daily Valuation + Technical Indicators + US/JP Fundamentals (2-phase execution)"""
+    """
+    Quick Refresh - OHLCV + Daily Valuation + FX Tracking (3-5분)
+
+    진정한 Quick 모드: 가격 데이터만 빠르게 업데이트
+    - OHLCV: 최근 7일 가격/거래량
+    - Daily Valuation: PER/PBR 등 일일 주가배수
+    - FX Tracking: 환율 데이터
+
+    Technical Indicators, Fundamentals, TTM은 Standard Refresh 사용
+    """
     regions = select_regions(default_regions=['KR'], prompt_message="🚀 Quick Refresh - Select regions:")
 
     # Record execution start
     add_execution_record('quick_refresh', regions=regions, status='started')
+
+    start_time = datetime.now()
+
+    try:
+        # Single Phase: OHLCV + Daily Valuation + FX (Essential data only)
+        print(f"\n{colored('📊 Quick Refresh: Essential Data Update', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 60)
+        print(f"  • OHLCV (최근 7일)")
+        print(f"  • Daily Valuation (PER/PBR/PSR/PCR)")
+        print(f"  • FX Tracking (환율)")
+        print("=" * 60)
+
+        args = [
+            '--regions'] + regions + [
+            '--steps', 'ohlcv', 'daily_valuation', 'fx_tracking',
+            '--incremental',
+            '--days', '7',
+            '--verbose'
+        ]
+        run_update_database(args, f'Quick Refresh ({", ".join(regions)})')
+
+        # Summary
+        elapsed = (datetime.now() - start_time).total_seconds() / 60
+
+        print(f"\n{colored('✅ Quick Refresh Complete!', Fore.GREEN + Style.BRIGHT)}")
+        print("=" * 60)
+        print(f"Regions: {', '.join(regions)}")
+        print(f"Updated: OHLCV + Daily Valuation + FX")
+        print(f"Total Time: {elapsed:.1f} minutes")
+        print("=" * 60)
+        print(f"\n{colored('💡 Tip:', Fore.YELLOW)} Technical Indicators나 Fundamentals가 필요하면:")
+        print(f"   • Standard Refresh (옵션 2) - 전체 업데이트")
+        print(f"   • Technical Indicators (옵션 11) - 기술적 지표만")
+
+        # Record successful completion
+        add_execution_record('quick_refresh', regions=regions, status='completed',
+                           details={'elapsed_minutes': round(elapsed, 1)})
+
+    except Exception as e:
+        # Record failure
+        add_execution_record('quick_refresh', regions=regions, status='failed',
+                           details={'error': str(e)})
+        raise
+
+
+@with_lock('standard_refresh', timeout=600)
+def run_standard_refresh():
+    """
+    Standard Refresh - OHLCV + Valuation + Technical + Financial + TTM (10-15분)
+
+    기존 Quick Refresh의 모든 기능 포함:
+    - Phase 1: OHLCV + Daily Valuation + Dividend + FX
+    - Phase 2: Technical Indicators (incremental)
+    - Phase 3: Financial Indicators
+    - Phase 4: TTM Calculation (limited)
+    - Phase 5: US/JP Fundamentals (limited, if applicable)
+    """
+    regions = select_regions(default_regions=['KR'], prompt_message="📦 Standard Refresh - Select regions:")
+
+    # Record execution start
+    add_execution_record('standard_refresh', regions=regions, status='started')
 
     try:
         # Phase 1: OHLCV + Daily Valuation (via update_database.py)
@@ -3287,23 +3408,10 @@ def run_quick_refresh():
             '--regions'] + regions + [
             '--steps', 'ohlcv', 'daily_valuation', 'dividend', 'fx_tracking',
             '--incremental',
-            '--days', '7',  # Quick Refresh: 최근 7일만 업데이트 (250일 → 7일로 최적화)
+            '--days', '7',
             '--verbose'
         ]
-        run_update_database(args, f'Quick Refresh - Data Update ({", ".join(regions)})')
-
-        # Phase 1.5: US/JP Fundamentals (if applicable, limited for quick mode)
-        us_jp_regions = [r for r in regions if r.upper() in ['US', 'JP']]
-        if us_jp_regions:
-            print(f"\n{colored('Phase 1.5: US/JP Fundamentals (Quick Mode - 5 tickers each)', Fore.CYAN + Style.BRIGHT)}")
-            print("=" * 60)
-            run_us_jp_fundamentals_backfill(
-                regions=us_jp_regions,
-                limit=5,  # Quick mode: only 5 tickers per region
-                dry_run=False,
-                start_year=2022,
-                end_year=2024
-            )
+        run_update_database(args, f'Standard Refresh - Data Update ({", ".join(regions)})')
 
         # Phase 2: Technical Indicators (direct calculation, incremental mode)
         print(f"\n{colored('Phase 2: Technical Indicators Calculation (Incremental)', Fore.CYAN + Style.BRIGHT)}")
@@ -3312,7 +3420,7 @@ def run_quick_refresh():
         results = _run_technical_indicators_direct(
             regions=regions,
             batch_size=100,
-            incremental=True,  # Only calculate missing indicators
+            incremental=True,
             dry_run=False
         )
 
@@ -3326,11 +3434,9 @@ def run_quick_refresh():
             db = PostgresDatabaseManager()
             orchestrator = DatabaseUpdateOrchestrator(db, config={})
 
-            # Dividend History (all regions)
             print(f"  {colored('[1/2] Collecting Dividend History...', Fore.WHITE)}")
             orchestrator._calculate_dividend(regions)
 
-            # Financial Ratios (efficiency metrics)
             print(f"  {colored('[2/2] Calculating Financial Ratios...', Fore.WHITE)}")
             orchestrator._calculate_fundamental_ratios(regions)
 
@@ -3338,27 +3444,66 @@ def run_quick_refresh():
         except Exception as e:
             print(f"  {colored(f'⚠️ Financial Indicators warning: {e}', Fore.YELLOW)}")
 
+        # Phase 4: TTM Calculation (limited tickers)
+        print(f"\n{colored('Phase 4: TTM (Trailing Twelve Months) Calculation', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 60)
+
+        ttm_stats = {'success': 0, 'skipped': 0, 'failed': 0}
+        try:
+            ttm_result = _run_ttm_calculation(
+                regions=regions,
+                limit=20,
+                skip_calculated=True
+            )
+            if ttm_result['success']:
+                stats = ttm_result['stats']
+                ttm_stats = {
+                    'success': stats.get('tickers_success', 0),
+                    'skipped': stats.get('tickers_skipped', 0),
+                    'failed': stats.get('tickers_failed', 0)
+                }
+                print(f"  {colored(f'TTM completed: {ttm_stats['success']} tickers', Fore.GREEN)}")
+            else:
+                print(f"  {colored(f'TTM warning: {ttm_result.get('error', 'Unknown')}', Fore.YELLOW)}")
+        except Exception as e:
+            print(f"  {colored(f'⚠️ TTM warning: {e}', Fore.YELLOW)}")
+
+        # Phase 5: US/JP Fundamentals (if applicable)
+        us_jp_regions = [r for r in regions if r.upper() in ['US', 'JP']]
+        if us_jp_regions:
+            print(f"\n{colored('Phase 5: US/JP Fundamentals (5 tickers each)', Fore.CYAN + Style.BRIGHT)}")
+            print("=" * 60)
+            run_us_jp_fundamentals_backfill(
+                regions=us_jp_regions,
+                limit=5,
+                dry_run=False,
+                start_year=2022,
+                end_year=2024
+            )
+
         # Summary
         total_success = sum(r.get('success_count', 0) for r in results.values())
         total_tickers = sum(r.get('total_tickers', 0) for r in results.values())
         total_time = sum(r.get('duration_minutes', 0.0) for r in results.values())
 
-        print(f"\n{colored('✅ Quick Refresh Complete!', Fore.GREEN + Style.BRIGHT)}")
+        print(f"\n{colored('✅ Standard Refresh Complete!', Fore.GREEN + Style.BRIGHT)}")
         print("=" * 60)
         print(f"Regions: {', '.join(regions)}")
         print(f"Technical Indicators: {total_success}/{total_tickers} tickers")
         print(f"Financial Indicators: Dividend + Ratios")
+        print(f"TTM Calculation: {ttm_stats['success']} success, {ttm_stats['skipped']} skipped")
         print(f"Total Time: {total_time:.1f} minutes")
         print("=" * 60)
 
         # Record successful completion
-        add_execution_record('quick_refresh', regions=regions, status='completed',
+        add_execution_record('standard_refresh', regions=regions, status='completed',
                            details={'total_tickers': total_tickers, 'success_count': total_success})
 
     except Exception as e:
         # Record failure
-        add_execution_record('quick_refresh', regions=regions, status='failed',
+        add_execution_record('standard_refresh', regions=regions, status='failed',
                            details={'error': str(e)})
+        raise
 
 
 def check_and_warn_listing_dates():
@@ -3486,6 +3631,32 @@ def run_full_refresh():
         except Exception as e:
             print(f"  {colored(f'⚠️ Financial Indicators warning: {e}', Fore.YELLOW)}")
 
+        # Phase 4: TTM Calculation (Full Mode - all tickers)
+        print(f"\n{colored('Phase 4: TTM (Trailing Twelve Months) Calculation (Full)', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 60)
+
+        ttm_stats = {'success': 0, 'skipped': 0, 'failed': 0}
+        try:
+            ttm_result = _run_ttm_calculation(
+                regions=regions,
+                limit=None,  # Full mode: all tickers
+                skip_calculated=False  # Recalculate all
+            )
+            if ttm_result['success']:
+                stats = ttm_result['stats']
+                ttm_stats = {
+                    'success': stats.get('tickers_success', 0),
+                    'skipped': stats.get('tickers_skipped', 0),
+                    'failed': stats.get('tickers_failed', 0)
+                }
+                ttm_msg = f"TTM completed: {ttm_stats['success']} tickers"
+                print(f"  {colored(ttm_msg, Fore.GREEN)}")
+            else:
+                ttm_err = ttm_result.get('error', 'Unknown error')
+                print(f"  {colored(f'TTM warning: {ttm_err}', Fore.YELLOW)}")
+        except Exception as e:
+            print(f"  {colored(f'⚠️ TTM warning: {e}', Fore.YELLOW)}")
+
         # Summary
         total_success = sum(r.get('success_count', 0) for r in results.values())
         total_tickers = sum(r.get('total_tickers', 0) for r in results.values())
@@ -3496,6 +3667,7 @@ def run_full_refresh():
         print(f"Regions: {', '.join(regions)}")
         print(f"Technical Indicators: {total_success}/{total_tickers} tickers")
         print(f"Financial Indicators: Dividend + Cash + Ratios")
+        print(f"TTM Calculation: {ttm_stats['success']} success, {ttm_stats['skipped']} skipped")
         print(f"Total Time: {total_time:.1f} minutes")
         print("=" * 60)
 
@@ -3575,6 +3747,32 @@ def run_incremental_refresh():
         except Exception as e:
             print(f"  {colored(f'⚠️ Financial Indicators warning: {e}', Fore.YELLOW)}")
 
+        # Phase 4: TTM Calculation (Incremental Mode)
+        print(f"\n{colored('Phase 4: TTM (Trailing Twelve Months) Calculation (Incremental)', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 60)
+
+        ttm_stats = {'success': 0, 'skipped': 0, 'failed': 0}
+        try:
+            ttm_result = _run_ttm_calculation(
+                regions=regions,
+                limit=50,  # Incremental mode: 50 tickers per region
+                skip_calculated=True  # Skip already calculated
+            )
+            if ttm_result['success']:
+                stats = ttm_result['stats']
+                ttm_stats = {
+                    'success': stats.get('tickers_success', 0),
+                    'skipped': stats.get('tickers_skipped', 0),
+                    'failed': stats.get('tickers_failed', 0)
+                }
+                ttm_msg = f"TTM completed: {ttm_stats['success']} tickers"
+                print(f"  {colored(ttm_msg, Fore.GREEN)}")
+            else:
+                ttm_err = ttm_result.get('error', 'Unknown error')
+                print(f"  {colored(f'TTM warning: {ttm_err}', Fore.YELLOW)}")
+        except Exception as e:
+            print(f"  {colored(f'⚠️ TTM warning: {e}', Fore.YELLOW)}")
+
         # Summary
         total_success = sum(r.get('success_count', 0) for r in results.values())
         total_tickers = sum(r.get('total_tickers', 0) for r in results.values())
@@ -3585,6 +3783,7 @@ def run_incremental_refresh():
         print(f"Regions: {', '.join(regions)}")
         print(f"Technical Indicators: {total_success}/{total_tickers} tickers")
         print(f"Financial Indicators: Dividend + Ratios")
+        print(f"TTM Calculation: {ttm_stats['success']} success, {ttm_stats['skipped']} skipped")
         print(f"Total Time: {total_time:.1f} minutes")
         print("=" * 60)
 
@@ -6200,9 +6399,14 @@ def run_financial_indicators_update():
         '4': 'All Indicators'
     }
 
+    # Force option (중복 방지 스킵 비활성화)
+    force_input = input(f"{colored('Force recollection (skip duplicate prevention)? (y/N):', Fore.CYAN)} ").strip().lower()
+    force = force_input == 'y'
+
     print(f"\n{colored('📋 Update Summary:', Fore.CYAN + Style.BRIGHT)}")
     print(f"  Update Type: {colored(update_types[choice], Fore.YELLOW)}")
     print(f"  Regions: {colored(', '.join(regions), Fore.CYAN)}")
+    print(f"  Force Mode: {colored('Yes (recollect all)', Fore.YELLOW) if force else colored('No (skip already collected)', Fore.GREEN)}")
     print()
 
     confirm = input(f"{colored('Proceed with update? (y/n):', Fore.CYAN)} ").strip().lower()
@@ -6229,11 +6433,13 @@ def run_financial_indicators_update():
         if choice == '1':
             # Dividend History Collection
             print(f"\n{colored('💰 Collecting Dividend History...', Fore.YELLOW)}")
-            result = orchestrator._calculate_dividend(regions)
-            if result.get('errors'):
-                print(f"{colored('⚠️ Some errors occurred:', Fore.YELLOW)}")
-                for err in result['errors'][:3]:
-                    print(f"  - {err}")
+            result = orchestrator._calculate_dividend(regions, force=force)
+            # 스킵된 수 출력
+            total_skipped = sum(r.get('skipped', 0) for r in result.values() if isinstance(r, dict))
+            if total_skipped > 0:
+                print(f"{colored(f'  ⏭️  {total_skipped} tickers skipped (already collected today)', Fore.WHITE)}")
+            if any(r.get('history_error') for r in result.values() if isinstance(r, dict)):
+                print(f"{colored('⚠️ Some errors occurred', Fore.YELLOW)}")
 
         elif choice == '2':
             # Cash Position Backfill (US only)
@@ -6262,9 +6468,12 @@ def run_financial_indicators_update():
             # All Indicators
             print(f"\n{colored('🔄 Running All Financial Indicator Updates...', Fore.YELLOW)}")
 
-            # Step 1: Dividend History
+            # Step 1: Dividend History (force 옵션 전달)
             print(f"\n{colored('  [1/3] Collecting Dividend History...', Fore.WHITE)}")
-            div_result = orchestrator._calculate_dividend(regions)
+            div_result = orchestrator._calculate_dividend(regions, force=force)
+            total_skipped = sum(r.get('skipped', 0) for r in div_result.values() if isinstance(r, dict))
+            if total_skipped > 0:
+                print(f"{colored(f'        ⏭️  {total_skipped} tickers skipped (already collected today)', Fore.WHITE)}")
 
             # Step 2: Cash Backfill (US only)
             if 'US' in regions:
