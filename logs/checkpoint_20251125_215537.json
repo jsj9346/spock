@@ -1,0 +1,69 @@
+{
+  "timestamp": "2025-11-25T21:55:37.848324",
+  "step": "ohlcv",
+  "result": {
+    "CN": {
+      "tickers_processed": 3,
+      "tickers_collected": 0,
+      "tickers_failed": 3,
+      "records_inserted": 0,
+      "success": true,
+      "duration": 4.653854846954346
+    },
+    "VN": {
+      "tickers_processed": 18,
+      "tickers_collected": 17,
+      "tickers_failed": 1,
+      "records_inserted": 53,
+      "success": true,
+      "duration": 17.927478075027466
+    },
+    "HK": {
+      "tickers_processed": 42,
+      "tickers_collected": 2,
+      "tickers_failed": 40,
+      "records_inserted": 4,
+      "success": true,
+      "duration": 43.23193287849426
+    },
+    "KR": {
+      "tickers_queried": 0,
+      "tickers_collected": 3,
+      "tickers_skipped": 12,
+      "tickers_failed": 0,
+      "records_inserted": 10,
+      "records_updated": 0,
+      "errors": 0,
+      "duration": 189.72309494018555,
+      "success": true
+    },
+    "US": {
+      "tickers_processed": 525,
+      "tickers_collected": 19,
+      "tickers_failed": 506,
+      "records_inserted": 27,
+      "success": true,
+      "duration": 531.1348819732666
+    },
+    "JP": {
+      "tickers_processed": 4036,
+      "tickers_collected": 4002,
+      "tickers_failed": 34,
+      "records_inserted": 16003,
+      "success": true,
+      "duration": 4058.450049161911
+    }
+  },
+  "next_step": "fundamentals",
+  "metadata": {
+    "regions": [
+      "KR",
+      "US",
+      "HK",
+      "JP",
+      "CN",
+      "VN"
+    ],
+    "dry_run": false
+  }
+}

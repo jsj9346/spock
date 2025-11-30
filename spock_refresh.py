@@ -71,6 +71,9 @@ from scripts.calculate_technical_indicators import TechnicalIndicatorCalculator
 # TTM (Trailing Twelve Months) Calculation
 from modules.fundamentals.ttm_service import TTMService
 
+# ETF Data Collection (ETF Details & Holdings)
+from modules.collection.etf_collector import ETFCollector
+
 # Infrastructure Components (Phase 1 - Configuration Management)
 try:
     from infrastructure.config import RefreshConfig, UIConfig
@@ -2117,7 +2120,11 @@ def print_recent_executions(max_entries: int = 5) -> None:
         'financial_indicators_dividend_history': '💰 Dividend History',
         'financial_indicators_cash_position_backfill': '💵 Cash Position',
         'financial_indicators_financial_ratios': '📈 Financial Ratios',
-        'financial_indicators_all_indicators': '📊 All Indicators'
+        'financial_indicators_all_indicators': '📊 All Indicators',
+        # ETF Data Collection
+        'etf_data_collection': '📦 ETF Data Collection',
+        'etf_details_update': '📋 ETF Details',
+        'etf_holdings_update': '📊 ETF Holdings'
     }
 
     # Status icons
@@ -3061,10 +3068,11 @@ def interactive_menu():
         print(f"  {colored('12.', Fore.WHITE)} 📉 {colored('Technical Indicators', Fore.CYAN)} - 기술적 지표 계산")
         print(f"  {colored('13.', Fore.WHITE)} 🔍 {colored('Data Validation', Fore.BLUE)} - 백테스트 데이터 검증")
         print(f"  {colored('14.', Fore.WHITE)} 📊 {colored('Financial Indicators', Fore.GREEN)} - 재무지표 업데이트")
+        print(f"  {colored('15.', Fore.WHITE)} 📦 {colored('ETF Data Collection', Fore.MAGENTA)} - ETF 상세정보/구성종목")
         print(f"  {colored('0.', Fore.WHITE)} 🚪 {colored('종료', Fore.RED)}")
         print()
 
-        choice = input(f"{colored('선택 (0-14):', Fore.CYAN)} ").strip()
+        choice = input(f"{colored('선택 (0-15):', Fore.CYAN)} ").strip()
 
         if choice == '1':
             run_quick_refresh()
@@ -3095,11 +3103,13 @@ def interactive_menu():
             run_data_validation()
         elif choice == '14':
             run_financial_indicators_update()
+        elif choice == '15':
+            run_etf_data_collection()
         elif choice == '0':
             print(f"\n{colored('👋 Bye!', Fore.GREEN)}")
             sys.exit(0)
         else:
-            print(f"{colored('❌ Invalid choice. Please select 0-14.', Fore.RED)}")
+            print(f"{colored('❌ Invalid choice. Please select 0-15.', Fore.RED)}")
             input(f"{colored('Press Enter to continue...', Fore.CYAN)}")
 
 
@@ -3481,6 +3491,21 @@ def run_standard_refresh():
                 end_year=2024
             )
 
+        # Phase 6: ETF Details (incremental, limited)
+        print(f"\n{colored('Phase 6: ETF Details Collection (Incremental)', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 60)
+        etf_stats = {'collected': 0, 'skipped': 0}
+        try:
+            etf_results = _run_etf_details_update(
+                regions=regions,
+                force=False,  # Skip already collected today
+                limit=20  # Standard mode: 20 ETFs per region
+            )
+            etf_stats['collected'] = sum(r.get('collected', 0) for r in etf_results.values())
+            etf_stats['skipped'] = sum(r.get('skipped', 0) for r in etf_results.values())
+        except Exception as e:
+            print(f"  {colored(f'⚠️ ETF Details warning: {e}', Fore.YELLOW)}")
+
         # Summary
         total_success = sum(r.get('success_count', 0) for r in results.values())
         total_tickers = sum(r.get('total_tickers', 0) for r in results.values())
@@ -3492,6 +3517,7 @@ def run_standard_refresh():
         print(f"Technical Indicators: {total_success}/{total_tickers} tickers")
         print(f"Financial Indicators: Dividend + Ratios")
         print(f"TTM Calculation: {ttm_stats['success']} success, {ttm_stats['skipped']} skipped")
+        print(f"ETF Details: {etf_stats['collected']} collected, {etf_stats['skipped']} skipped")
         print(f"Total Time: {total_time:.1f} minutes")
         print("=" * 60)
 
@@ -3657,6 +3683,30 @@ def run_full_refresh():
         except Exception as e:
             print(f"  {colored(f'⚠️ TTM warning: {e}', Fore.YELLOW)}")
 
+        # Phase 5: ETF Data Collection (Full Mode - all ETFs, with holdings)
+        print(f"\n{colored('Phase 5: ETF Data Collection (Full)', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 60)
+        etf_stats = {'details_collected': 0, 'holdings_collected': 0}
+        try:
+            # ETF Details for all regions
+            etf_details_results = _run_etf_details_update(
+                regions=regions,
+                force=False,  # Skip already collected today
+                limit=None  # Full mode: all ETFs
+            )
+            etf_stats['details_collected'] = sum(r.get('collected', 0) for r in etf_details_results.values())
+
+            # ETF Holdings for KR only
+            if 'KR' in regions:
+                etf_holdings_results = _run_etf_holdings_update(
+                    regions=['KR'],
+                    force=False,
+                    limit=50  # Full mode: top 50 ETFs
+                )
+                etf_stats['holdings_collected'] = sum(r.get('total_holdings', 0) for r in etf_holdings_results.values())
+        except Exception as e:
+            print(f"  {colored(f'⚠️ ETF Collection warning: {e}', Fore.YELLOW)}")
+
         # Summary
         total_success = sum(r.get('success_count', 0) for r in results.values())
         total_tickers = sum(r.get('total_tickers', 0) for r in results.values())
@@ -3668,6 +3718,7 @@ def run_full_refresh():
         print(f"Technical Indicators: {total_success}/{total_tickers} tickers")
         print(f"Financial Indicators: Dividend + Cash + Ratios")
         print(f"TTM Calculation: {ttm_stats['success']} success, {ttm_stats['skipped']} skipped")
+        print(f"ETF Data: {etf_stats['details_collected']} details, {etf_stats['holdings_collected']} holdings")
         print(f"Total Time: {total_time:.1f} minutes")
         print("=" * 60)
 
@@ -3773,6 +3824,21 @@ def run_incremental_refresh():
         except Exception as e:
             print(f"  {colored(f'⚠️ TTM warning: {e}', Fore.YELLOW)}")
 
+        # Phase 5: ETF Details (Incremental Mode)
+        print(f"\n{colored('Phase 5: ETF Details Collection (Incremental)', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 60)
+        etf_stats = {'collected': 0, 'skipped': 0}
+        try:
+            etf_results = _run_etf_details_update(
+                regions=regions,
+                force=False,  # Skip already collected today
+                limit=30  # Incremental mode: 30 ETFs per region
+            )
+            etf_stats['collected'] = sum(r.get('collected', 0) for r in etf_results.values())
+            etf_stats['skipped'] = sum(r.get('skipped', 0) for r in etf_results.values())
+        except Exception as e:
+            print(f"  {colored(f'⚠️ ETF Details warning: {e}', Fore.YELLOW)}")
+
         # Summary
         total_success = sum(r.get('success_count', 0) for r in results.values())
         total_tickers = sum(r.get('total_tickers', 0) for r in results.values())
@@ -3784,6 +3850,7 @@ def run_incremental_refresh():
         print(f"Technical Indicators: {total_success}/{total_tickers} tickers")
         print(f"Financial Indicators: Dividend + Ratios")
         print(f"TTM Calculation: {ttm_stats['success']} success, {ttm_stats['skipped']} skipped")
+        print(f"ETF Details: {etf_stats['collected']} collected, {etf_stats['skipped']} skipped")
         print(f"Total Time: {total_time:.1f} minutes")
         print("=" * 60)
 
@@ -6511,6 +6578,249 @@ def run_financial_indicators_update():
         add_execution_record(
             operation_name, regions, 'failed',
             {'error': error_msg}
+        )
+
+    # Invalidate cache after update
+    query_cache.invalidate()
+
+    input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
+
+
+# =============================================================================
+# ETF Data Collection Functions
+# =============================================================================
+
+def _run_etf_details_update(
+    regions: List[str],
+    force: bool = False,
+    limit: Optional[int] = None
+) -> Dict[str, Any]:
+    """
+    Run ETF details collection for specified regions.
+
+    Args:
+        regions: List of region codes (KR, US, JP, HK, CN, VN)
+        force: Force re-collection even if already collected today
+        limit: Limit number of ETFs per region (None = all)
+
+    Returns:
+        dict: Results with keys per region
+    """
+    db = PostgresDatabaseManager()
+    collector = ETFCollector(db_manager=db, skip_same_day=not force)
+
+    results = {}
+    for region in regions:
+        try:
+            print(f"  {colored(f'[{region}]', Fore.CYAN)} Collecting ETF details...")
+
+            # Get ETF tickers from database
+            tickers = collector.get_etf_tickers_from_db(region)
+            if not tickers:
+                print(f"    {colored(f'No ETF tickers found for {region}', Fore.YELLOW)}")
+                results[region] = {'total': 0, 'collected': 0, 'skipped': 0, 'failed': 0}
+                continue
+
+            if limit:
+                tickers = tickers[:limit]
+
+            # Collect batch details
+            result = collector.collect_batch_details(tickers, region, force=force)
+            results[region] = result
+
+            print(f"    {colored(f'Collected: {result['collected']}/{result['total']}', Fore.GREEN)}"
+                  f" (skipped: {result['skipped']}, failed: {result['failed']})")
+
+        except Exception as e:
+            print(f"    {colored(f'Error: {e}', Fore.RED)}")
+            results[region] = {'total': 0, 'collected': 0, 'skipped': 0, 'failed': 0, 'error': str(e)}
+
+    return results
+
+
+def _run_etf_holdings_update(
+    regions: List[str],
+    force: bool = False,
+    limit: Optional[int] = None
+) -> Dict[str, Any]:
+    """
+    Run ETF holdings collection for specified regions.
+
+    Note: Currently only KR region is supported via KRX API.
+
+    Args:
+        regions: List of region codes (only KR supported)
+        force: Force re-collection even if already collected today
+        limit: Limit number of ETFs per region (None = all)
+
+    Returns:
+        dict: Results with keys per region
+    """
+    db = PostgresDatabaseManager()
+    collector = ETFCollector(db_manager=db, skip_same_day=not force)
+
+    results = {}
+
+    for region in regions:
+        if region != 'KR':
+            print(f"  {colored(f'[{region}]', Fore.YELLOW)} Holdings collection not yet supported")
+            results[region] = {'total': 0, 'collected': 0, 'skipped': 0, 'failed': 0, 'note': 'Not supported'}
+            continue
+
+        try:
+            print(f"  {colored(f'[{region}]', Fore.CYAN)} Collecting ETF holdings...")
+
+            # Get ETF tickers from database
+            tickers = collector.get_etf_tickers_from_db(region)
+            if not tickers:
+                print(f"    {colored(f'No ETF tickers found for {region}', Fore.YELLOW)}")
+                results[region] = {'total': 0, 'collected': 0, 'skipped': 0, 'failed': 0}
+                continue
+
+            if limit:
+                tickers = tickers[:limit]
+
+            # Collect batch holdings
+            result = collector.collect_batch_holdings(tickers, region, force=force)
+            results[region] = result
+
+            total_holdings = result.get('total_holdings', 0)
+            print(f"    {colored(f'Collected: {result['collected']}/{result['total']}', Fore.GREEN)}"
+                  f" ({total_holdings} holdings, skipped: {result['skipped']}, failed: {result['failed']})")
+
+        except Exception as e:
+            print(f"    {colored(f'Error: {e}', Fore.RED)}")
+            results[region] = {'total': 0, 'collected': 0, 'skipped': 0, 'failed': 0, 'error': str(e)}
+
+    return results
+
+
+def run_etf_data_collection():
+    """
+    Run ETF data collection (ETF Details & Holdings)
+
+    Collects:
+    1. ETF Details - issuer, tracking_index, expense_ratio, AUM, etc.
+    2. ETF Holdings - constituent stocks and weights (KR only)
+
+    Data Sources:
+    - KR: KIS API + KRX API
+    - US/JP/HK/CN/VN: yfinance
+    """
+    print(f"\n{colored('='*80, Fore.CYAN)}")
+    print(f"{colored('📦 ETF Data Collection', Fore.CYAN + Style.BRIGHT)}")
+    print(f"{colored('='*80, Fore.CYAN)}")
+    print()
+
+    print(f"{colored('Available Updates:', Fore.WHITE)}")
+    print(f"  {colored('1.', Fore.WHITE)} 📋 {colored('ETF Details', Fore.GREEN)} - ETF 상세정보 (발행사, 추적지수, 비용비율 등)")
+    print(f"  {colored('2.', Fore.WHITE)} 📊 {colored('ETF Holdings', Fore.CYAN)} - ETF 구성종목 (KR only)")
+    print(f"  {colored('3.', Fore.WHITE)} 🔄 {colored('All ETF Data', Fore.MAGENTA + Style.BRIGHT)} - 전체 ETF 데이터 업데이트")
+    print()
+
+    choice = input(f"{colored('Select update type (1-3):', Fore.CYAN)} ").strip()
+
+    if choice not in ['1', '2', '3']:
+        print(f"{colored('❌ Invalid choice', Fore.RED)}")
+        input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
+        return
+
+    # Region selection
+    if choice == '2':
+        # Holdings only supports KR
+        print(f"\n{colored('Note:', Fore.YELLOW)} ETF Holdings collection currently only supports KR region.")
+        regions = ['KR']
+    else:
+        regions = select_regions(default_regions=['KR', 'US', 'JP', 'HK', 'CN'])
+
+    # Limit option
+    limit_input = input(f"{colored('Limit ETFs per region (Enter for all, or number):', Fore.CYAN)} ").strip()
+    limit = int(limit_input) if limit_input.isdigit() else None
+
+    # Force option
+    force_input = input(f"{colored('Force recollection (skip duplicate prevention)? (y/N):', Fore.CYAN)} ").strip().lower()
+    force = force_input == 'y'
+
+    # Confirmation
+    update_types = {
+        '1': 'ETF Details',
+        '2': 'ETF Holdings',
+        '3': 'All ETF Data'
+    }
+
+    print(f"\n{colored('📋 Update Summary:', Fore.CYAN + Style.BRIGHT)}")
+    print(f"  Update Type: {colored(update_types[choice], Fore.YELLOW)}")
+    print(f"  Regions: {colored(', '.join(regions), Fore.CYAN)}")
+    print(f"  Limit: {colored(str(limit) if limit else 'All ETFs', Fore.WHITE)}")
+    print(f"  Force Mode: {colored('Yes', Fore.YELLOW) if force else colored('No', Fore.GREEN)}")
+    print()
+
+    confirm = input(f"{colored('Proceed with update? (y/n):', Fore.CYAN)} ").strip().lower()
+
+    if confirm != 'y':
+        print(f"{colored('❌ Cancelled', Fore.RED)}")
+        input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
+        return
+
+    # Record execution start
+    add_execution_record('etf_data_collection', regions, 'started')
+
+    start_time = datetime.now()
+    details_results = {}
+    holdings_results = {}
+
+    try:
+        if choice in ['1', '3']:
+            # ETF Details
+            print(f"\n{colored('📋 Phase 1: ETF Details Collection', Fore.CYAN + Style.BRIGHT)}")
+            print("=" * 60)
+            details_results = _run_etf_details_update(regions, force=force, limit=limit)
+
+        if choice in ['2', '3']:
+            # ETF Holdings (KR only)
+            holdings_regions = ['KR'] if 'KR' in regions else []
+            if holdings_regions:
+                print(f"\n{colored('📊 Phase 2: ETF Holdings Collection', Fore.CYAN + Style.BRIGHT)}")
+                print("=" * 60)
+                holdings_results = _run_etf_holdings_update(holdings_regions, force=force, limit=limit)
+
+        elapsed = (datetime.now() - start_time).total_seconds()
+
+        # Summary
+        print(f"\n{colored('='*60, Fore.GREEN)}")
+        print(f"{colored('✅ ETF Data Collection Completed!', Fore.GREEN + Style.BRIGHT)}")
+        print(f"{colored('='*60, Fore.GREEN)}")
+
+        if details_results:
+            total_details = sum(r.get('collected', 0) for r in details_results.values())
+            print(f"  ETF Details: {colored(f'{total_details} collected', Fore.CYAN)}")
+
+        if holdings_results:
+            total_holdings = sum(r.get('total_holdings', 0) for r in holdings_results.values())
+            print(f"  ETF Holdings: {colored(f'{total_holdings} holdings', Fore.CYAN)}")
+
+        print(f"  Elapsed Time: {colored(f'{elapsed:.1f} seconds', Fore.WHITE)}")
+        print(f"  Regions: {colored(', '.join(regions), Fore.WHITE)}")
+
+        # Record success
+        add_execution_record(
+            'etf_data_collection', regions, 'completed',
+            {
+                'elapsed_seconds': round(elapsed, 1),
+                'details_collected': sum(r.get('collected', 0) for r in details_results.values()),
+                'holdings_collected': sum(r.get('total_holdings', 0) for r in holdings_results.values())
+            }
+        )
+
+    except Exception as e:
+        print(f"\n{colored(f'❌ Error: {e}', Fore.RED + Style.BRIGHT)}")
+        import traceback
+        traceback.print_exc()
+
+        # Record failure
+        add_execution_record(
+            'etf_data_collection', regions, 'failed',
+            {'error': str(e)}
         )
 
     # Invalidate cache after update

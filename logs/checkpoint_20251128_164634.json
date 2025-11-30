@@ -1,0 +1,34 @@
+{
+  "timestamp": "2025-11-28T16:46:34.238524",
+  "step": "fx_tracking",
+  "result": {
+    "updated": 7,
+    "valuation_updated": 7,
+    "signals": 0,
+    "signals_inserted": 0,
+    "notifications": {},
+    "success": true,
+    "rates": {
+      "KRW": "1",
+      "CNY": "0.00482",
+      "EUR": "0.00059",
+      "GBP": "0.000516",
+      "HKD": "0.00532",
+      "JPY": "0.107",
+      "USD": "0.000684"
+    },
+    "fx_signals": []
+  },
+  "next_step": "ohlcv",
+  "metadata": {
+    "regions": [
+      "KR",
+      "US",
+      "HK",
+      "JP",
+      "CN",
+      "VN"
+    ],
+    "dry_run": false
+  }
+}

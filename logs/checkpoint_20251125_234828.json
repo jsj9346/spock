@@ -1,0 +1,21 @@
+{
+  "timestamp": "2025-11-25T23:48:28.417781",
+  "step": "ohlcv",
+  "result": {
+    "JP": {
+      "tickers_processed": 3594,
+      "tickers_collected": 3559,
+      "tickers_failed": 35,
+      "records_inserted": 17628,
+      "success": true,
+      "duration": 3621.6805651187897
+    }
+  },
+  "next_step": "fundamentals",
+  "metadata": {
+    "regions": [
+      "JP"
+    ],
+    "dry_run": false
+  }
+}

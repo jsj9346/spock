@@ -1287,8 +1287,23 @@ class DatabaseUpdateOrchestrator:
         This step performs:
         1. Dividend history collection (US, KR markets) - stores in dividend_history table
         2. Dividend yield calculation (KR market) - updates ticker_fundamentals
+
+        중복 방지:
+        - CollectionTracker를 사용하여 같은 날 수집된 ticker 자동 스킵
+        - force=True 옵션으로 강제 재수집 가능
+
+        Args:
+            regions: 처리할 지역 목록
+            **kwargs:
+                - force: True면 이미 수집된 데이터도 재수집 (기본: False)
+                - dry_run: True면 실제 저장 없이 미리보기
         """
+        force = kwargs.get('force', False)
+        skip_same_day = not force  # force=True면 스킵 비활성화
+
         logger.info("🔄 Processing dividends (history collection + yield calculation)...")
+        if force:
+            logger.info("  🔄 Force mode enabled - recollecting all data")
 
         results = {}
 
@@ -1296,6 +1311,7 @@ class DatabaseUpdateOrchestrator:
             region_result = {
                 'history_collected': 0,
                 'yield_calculated': 0,
+                'skipped': 0,
                 'success': True
             }
 
@@ -1304,7 +1320,8 @@ class DatabaseUpdateOrchestrator:
                 try:
                     from modules.collection.dividend_collector import DividendCollector
 
-                    collector = DividendCollector(self.db)
+                    # skip_same_day 옵션 전달
+                    collector = DividendCollector(self.db, skip_same_day=skip_same_day)
 
                     # Get tickers for this region
                     tickers_query = """
@@ -1322,13 +1339,15 @@ class DatabaseUpdateOrchestrator:
                     if tickers:
                         logger.info(f"  [{region}] Collecting dividend history for {len(tickers)} tickers...")
 
-                        # Batch collect dividends
-                        batch_results = collector.collect_batch(tickers, region, years=5)
+                        # Batch collect dividends (force 옵션 전달)
+                        batch_results = collector.collect_batch(tickers, region, years=5, force=force)
                         total_collected = sum(batch_results.values())
                         region_result['history_collected'] = total_collected
+                        region_result['skipped'] = collector.skipped_count
 
                         logger.info(
-                            f"  ✅ [{region}] Collected {total_collected} dividend records for {len(tickers)} tickers"
+                            f"  ✅ [{region}] Collected {total_collected} dividend records "
+                            f"(skipped: {collector.skipped_count})"
                         )
                     else:
                         logger.info(f"  [{region}] No active tickers found for dividend collection")
@@ -1367,7 +1386,8 @@ class DatabaseUpdateOrchestrator:
                 try:
                     from modules.collection.dividend_collector import DividendCollector
 
-                    collector = DividendCollector(self.db)
+                    # skip_same_day 옵션 전달
+                    collector = DividendCollector(self.db, skip_same_day=skip_same_day)
 
                     # Get tickers for this region
                     tickers_query = """
@@ -1384,12 +1404,15 @@ class DatabaseUpdateOrchestrator:
 
                     if tickers:
                         logger.info(f"  [{region}] Collecting dividend history for {len(tickers)} tickers (yfinance)...")
-                        batch_results = collector.collect_batch(tickers, region, years=5)
+                        # force 옵션 전달
+                        batch_results = collector.collect_batch(tickers, region, years=5, force=force)
                         total_collected = sum(batch_results.values())
                         region_result['history_collected'] = total_collected
+                        region_result['skipped'] = collector.skipped_count
 
                         logger.info(
-                            f"  ✅ [{region}] Collected {total_collected} dividend records"
+                            f"  ✅ [{region}] Collected {total_collected} dividend records "
+                            f"(skipped: {collector.skipped_count})"
                         )
                     else:
                         logger.info(f"  [{region}] No active tickers found")

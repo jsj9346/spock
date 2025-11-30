@@ -40,6 +40,7 @@ from mcp_server.utils.errors import (
 from modules.db_manager_postgres import PostgresDatabaseManager
 from modules.screening.technical_calculator import TechnicalCalculator
 from mcp_server.adapters.data_adapter import DataAdapter
+from mcp_server.adapters.tech_screening_adapter import TechScreeningAdapter
 
 
 class ETFScreeningAdapter:
@@ -102,11 +103,14 @@ class ETFScreeningAdapter:
             pool_max_conn=5,
         )
 
-        # Initialize technical calculator for indicators
+        # Initialize technical calculator for indicators (Legacy, kept for backward compatibility)
         self.technical_calculator = TechnicalCalculator()
 
         # Initialize data adapter for OHLCV fetching
         self.data_adapter = DataAdapter(config=self.config)
+
+        # Initialize TechScreeningAdapter for DB-level technical indicators (Optimized)
+        self.tech_screening_adapter = TechScreeningAdapter(config=self.config)
 
         # Cache for screening results (60 second TTL)
         self._cache: Dict[str, Any] = {}
@@ -268,88 +272,77 @@ class ETFScreeningAdapter:
             for etf in etfs:
                 etf["sector_theme"] = self._parse_sector_from_name(etf["name"])
 
-            # Fetch OHLCV data for technical analysis and performance metrics
+            # Fetch technical indicators using TechScreeningAdapter (DB-level, 5x faster)
             etf_tickers = [etf["ticker"] for etf in etfs]
 
-            # Use 400 days for MA200 calculation + 1-month price change
-            end_date = datetime.now().strftime("%Y-%m-%d")
-            start_date = (datetime.now() - timedelta(days=400)).strftime("%Y-%m-%d")
+            logger.info(f"fetching_tech_indicators_v2: {len(etf_tickers)} ETFs")
 
-            logger.info(f"fetching_ohlcv: {len(etf_tickers)} ETFs, {start_date} to {end_date}")
-
-            ohlcv_data = await self.data_adapter.get_ohlcv(
-                tickers=etf_tickers,
-                start_date=start_date,
-                end_date=end_date,
-                region=region,
-                timeframe="1d"
-            )
-
-            # Convert to DataFrame format for TechnicalCalculator
-            import pandas as pd
-            ticker_dfs = {}
-            for ticker, records in ohlcv_data.items():
-                if records:
-                    df = pd.DataFrame(records)
-                    if 'date' in df.columns:
-                        df['date'] = pd.to_datetime(df['date'])
-                    ticker_dfs[ticker] = df
-
-            logger.info(f"ohlcv_fetched: {len(ticker_dfs)} ETFs with price data")
-
-            # Calculate technical indicators
-            indicators = self.technical_calculator.batch_calculate(ticker_dfs)
-
-            # Calculate performance metrics (1-month price change, 20-day avg volume)
-            performance_metrics = self._calculate_performance_metrics(ticker_dfs)
-
-            # Filter by technical criteria if provided
-            passing_tickers = set(etf_tickers)
-
+            # Build technical filters for TechScreeningAdapter format
+            tech_adapter_filters = {}
             if technical_filters:
-                # RSI filter
-                if "rsi_min" in technical_filters or "rsi_max" in technical_filters:
-                    rsi_passing = set(self.technical_calculator.filter_by_rsi(
-                        indicators,
-                        rsi_min=technical_filters.get("rsi_min"),
-                        rsi_max=technical_filters.get("rsi_max")
-                    ))
-                    passing_tickers = passing_tickers.intersection(rsi_passing)
-                    logger.info(f"rsi_filter: {len(passing_tickers)} ETFs pass")
-
-                # MA trend filter
+                # Convert to TechScreeningAdapter format
+                if "rsi_min" in technical_filters:
+                    tech_adapter_filters["rsi_min"] = technical_filters["rsi_min"]
+                if "rsi_max" in technical_filters:
+                    tech_adapter_filters["rsi_max"] = technical_filters["rsi_max"]
                 if "ma_trend" in technical_filters:
-                    ma_passing = set(self.technical_calculator.filter_by_ma_trend(
-                        indicators,
-                        trend=technical_filters["ma_trend"]
-                    ))
-                    passing_tickers = passing_tickers.intersection(ma_passing)
-                    logger.info(f"ma_trend_filter: {len(passing_tickers)} ETFs pass")
+                    tech_adapter_filters["trend"] = technical_filters["ma_trend"]
 
-                # Price change filter (1-month)
+            try:
+                # DB 레벨에서 기술적 지표 조회
+                tech_result = await self.tech_screening_adapter.get_indicators_for_tickers(
+                    tickers=etf_tickers,
+                    region=region,
+                    filters=tech_adapter_filters if tech_adapter_filters else None
+                )
+
+                if tech_result.get("success"):
+                    indicators = tech_result.get("indicators", {})
+                    passing_tickers = set(indicators.keys())
+                    logger.info(
+                        f"tech_indicators_v2_fetched: {len(indicators)} ETFs with data",
+                        execution_time_ms=tech_result.get("execution_time_ms", 0)
+                    )
+                else:
+                    logger.warning("tech_indicators_v2_failed, falling back to legacy method")
+                    indicators, passing_tickers = await self._fetch_indicators_legacy(
+                        etf_tickers, region, technical_filters
+                    )
+
+            except Exception as e:
+                logger.error(f"tech_indicators_v2_error: {e}, falling back to legacy method")
+                indicators, passing_tickers = await self._fetch_indicators_legacy(
+                    etf_tickers, region, technical_filters
+                )
+
+            # Apply additional filters (price_change, volume) - these require indicators data
+            if technical_filters:
+                # Price change filter (1-month) - use price_change_1m from TechScreeningAdapter
                 if "price_change_1m_min" in technical_filters or "price_change_1m_max" in technical_filters:
                     price_passing = set()
-                    for ticker, metrics in performance_metrics.items():
-                        price_change = metrics.get("price_change_1m")
-                        if price_change is not None:
-                            passes = True
-                            if "price_change_1m_min" in technical_filters:
-                                passes = passes and price_change >= technical_filters["price_change_1m_min"]
-                            if "price_change_1m_max" in technical_filters:
-                                passes = passes and price_change <= technical_filters["price_change_1m_max"]
-                            if passes:
-                                price_passing.add(ticker)
+                    for ticker in passing_tickers:
+                        if ticker in indicators:
+                            price_change = indicators[ticker].get("price_change_1m")
+                            if price_change is not None:
+                                passes = True
+                                if "price_change_1m_min" in technical_filters:
+                                    passes = passes and price_change >= technical_filters["price_change_1m_min"]
+                                if "price_change_1m_max" in technical_filters:
+                                    passes = passes and price_change <= technical_filters["price_change_1m_max"]
+                                if passes:
+                                    price_passing.add(ticker)
 
                     passing_tickers = passing_tickers.intersection(price_passing)
                     logger.info(f"price_change_filter: {len(passing_tickers)} ETFs pass")
 
-                # Volume filter (20-day average)
+                # Volume filter (20-day average) - use avg_volume_20d from TechScreeningAdapter
                 if "volume_avg_20d_min" in technical_filters:
                     volume_passing = set()
-                    for ticker, metrics in performance_metrics.items():
-                        volume_avg = metrics.get("volume_avg_20d")
-                        if volume_avg is not None and volume_avg >= technical_filters["volume_avg_20d_min"]:
-                            volume_passing.add(ticker)
+                    for ticker in passing_tickers:
+                        if ticker in indicators:
+                            volume_avg = indicators[ticker].get("avg_volume_20d")
+                            if volume_avg is not None and volume_avg >= technical_filters["volume_avg_20d_min"]:
+                                volume_passing.add(ticker)
 
                     passing_tickers = passing_tickers.intersection(volume_passing)
                     logger.info(f"volume_filter: {len(passing_tickers)} ETFs pass")
@@ -370,26 +363,36 @@ class ETFScreeningAdapter:
                     "sector_theme": etf["sector_theme"],
                 }
 
-                # Add technical indicators
+                # Add technical indicators (TechScreeningAdapter flat format)
                 if ticker in indicators:
                     tech_data = indicators[ticker]
-                    if tech_data.get("rsi"):
-                        etf_data["rsi"] = tech_data["rsi"]["rsi"]
-                        etf_data["rsi_signal"] = tech_data["rsi"]["signal"]
-                    if tech_data.get("moving_averages"):
-                        ma_data = tech_data["moving_averages"]
-                        etf_data["ma_trend"] = ma_data.get("trend")
-                        etf_data["current_price"] = ma_data.get("price")
-                        etf_data["ma20"] = ma_data.get("ma20")
-                        etf_data["ma50"] = ma_data.get("ma50")
-                        etf_data["ma200"] = ma_data.get("ma200")
-                        etf_data["price_vs_ma20"] = ma_data.get("price_vs_ma20")
+                    # RSI data
+                    etf_data["rsi"] = tech_data.get("rsi")
+                    if tech_data.get("rsi") is not None:
+                        rsi_val = tech_data.get("rsi")
+                        if rsi_val < 30:
+                            etf_data["rsi_signal"] = "oversold"
+                        elif rsi_val > 70:
+                            etf_data["rsi_signal"] = "overbought"
+                        else:
+                            etf_data["rsi_signal"] = "neutral"
 
-                # Add performance metrics
-                if ticker in performance_metrics:
-                    perf_data = performance_metrics[ticker]
-                    etf_data["price_change_1m"] = perf_data.get("price_change_1m")
-                    etf_data["volume_avg_20d"] = perf_data.get("volume_avg_20d")
+                    # MA data
+                    etf_data["ma_trend"] = tech_data.get("trend")
+                    etf_data["current_price"] = tech_data.get("price")
+                    etf_data["ma20"] = tech_data.get("ma20")
+                    etf_data["ma50"] = tech_data.get("ma50")
+                    etf_data["ma200"] = tech_data.get("ma200")
+                    etf_data["price_vs_ma20"] = tech_data.get("price_vs_ma20")
+                    etf_data["price_vs_ma200"] = tech_data.get("price_vs_ma200")
+                    etf_data["ma_crossover"] = tech_data.get("ma_crossover")
+                    etf_data["ma20_distance"] = tech_data.get("ma20_distance")
+
+                    # Performance metrics (from TechScreeningAdapter)
+                    etf_data["price_change_1m"] = tech_data.get("price_change_1m")
+                    etf_data["volume_avg_20d"] = tech_data.get("avg_volume_20d")
+                    etf_data["volume_surge"] = tech_data.get("volume_surge")
+                    etf_data["volume_ratio"] = tech_data.get("volume_ratio")
 
                 etf_results.append(etf_data)
 
@@ -429,6 +432,94 @@ class ETFScreeningAdapter:
                 f"Failed to screen ETFs: {str(e)}",
                 {"filters": filters, "region": region}
             )
+
+    async def _fetch_indicators_legacy(
+        self,
+        etf_tickers: List[str],
+        region: str,
+        technical_filters: Optional[Dict[str, Any]]
+    ) -> tuple:
+        """
+        Legacy fallback: Python 기반 기술적 지표 계산.
+
+        TechScreeningAdapter 사용이 실패할 경우 폴백으로 사용.
+
+        Returns:
+            (indicators dict, passing_tickers set)
+        """
+        import pandas as pd
+
+        end_date = datetime.now().strftime("%Y-%m-%d")
+        start_date = (datetime.now() - timedelta(days=400)).strftime("%Y-%m-%d")
+
+        logger.info(f"fetching_ohlcv_legacy: {len(etf_tickers)} ETFs, {start_date} to {end_date}")
+
+        ohlcv_data = await self.data_adapter.get_ohlcv(
+            tickers=etf_tickers,
+            start_date=start_date,
+            end_date=end_date,
+            region=region,
+            timeframe="1d"
+        )
+
+        ticker_dfs = {}
+        for ticker, records in ohlcv_data.items():
+            if records:
+                df = pd.DataFrame(records)
+                if 'date' in df.columns:
+                    df['date'] = pd.to_datetime(df['date'])
+                ticker_dfs[ticker] = df
+
+        # Calculate technical indicators
+        raw_indicators = self.technical_calculator.batch_calculate(ticker_dfs)
+
+        # Calculate performance metrics
+        performance_metrics = self._calculate_performance_metrics(ticker_dfs)
+
+        # Convert to flat format and apply filters
+        indicators = {}
+        passing_tickers = set(etf_tickers)
+
+        for ticker, ind_data in raw_indicators.items():
+            passes_all = True
+
+            # Apply RSI filter
+            if technical_filters and ("rsi_min" in technical_filters or "rsi_max" in technical_filters):
+                rsi_val = ind_data.get("rsi", {}).get("rsi")
+                if rsi_val is None:
+                    passes_all = False
+                else:
+                    if "rsi_min" in technical_filters and rsi_val < technical_filters["rsi_min"]:
+                        passes_all = False
+                    if "rsi_max" in technical_filters and rsi_val > technical_filters["rsi_max"]:
+                        passes_all = False
+
+            # Apply MA trend filter
+            if passes_all and technical_filters and "ma_trend" in technical_filters:
+                trend = ind_data.get("moving_averages", {}).get("trend")
+                if trend != technical_filters["ma_trend"]:
+                    passes_all = False
+
+            if passes_all:
+                # Convert to flat structure
+                perf = performance_metrics.get(ticker, {})
+                indicators[ticker] = {
+                    "rsi": ind_data.get("rsi", {}).get("rsi"),
+                    "trend": ind_data.get("moving_averages", {}).get("trend"),
+                    "price": ind_data.get("moving_averages", {}).get("price"),
+                    "price_vs_ma20": ind_data.get("moving_averages", {}).get("price_vs_ma20"),
+                    "ma20": ind_data.get("moving_averages", {}).get("ma20"),
+                    "ma50": ind_data.get("moving_averages", {}).get("ma50"),
+                    "ma200": ind_data.get("moving_averages", {}).get("ma200"),
+                    "ma_crossover": ind_data.get("moving_averages", {}).get("ma_crossover"),
+                    "price_change_1m": perf.get("price_change_1m"),
+                    "avg_volume_20d": perf.get("volume_avg_20d"),
+                }
+
+        passing_tickers = set(indicators.keys())
+        logger.info(f"legacy_indicators_complete: {len(indicators)} ETFs pass")
+
+        return indicators, passing_tickers
 
     def _calculate_performance_metrics(self, ticker_dfs: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
         """

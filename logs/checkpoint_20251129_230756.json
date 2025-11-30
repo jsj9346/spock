@@ -1,0 +1,59 @@
+{
+  "timestamp": "2025-11-29T23:07:56.877690",
+  "step": "tickers",
+  "result": {
+    "KR": {
+      "total_current": 2886,
+      "total_existing": 3937,
+      "new_listings": 1,
+      "delistings": 1052,
+      "name_changes": 3,
+      "unchanged": 2882,
+      "errors": 0,
+      "success": true,
+      "duration": 5.320207
+    },
+    "US": {
+      "success": true,
+      "ticker_count": 6559,
+      "duration": 0.3960421085357666,
+      "error": null
+    },
+    "HK": {
+      "success": true,
+      "ticker_count": 2730,
+      "duration": 0.12266898155212402,
+      "error": null
+    },
+    "JP": {
+      "success": true,
+      "ticker_count": 4030,
+      "duration": 0.1719980239868164,
+      "error": null
+    },
+    "CN": {
+      "success": true,
+      "ticker_count": 5162,
+      "duration": 0.3191800117492676,
+      "error": null
+    },
+    "VN": {
+      "success": true,
+      "ticker_count": 699,
+      "duration": 0.12453079223632812,
+      "error": null
+    }
+  },
+  "next_step": "ticker_refresh",
+  "metadata": {
+    "regions": [
+      "KR",
+      "US",
+      "HK",
+      "JP",
+      "CN",
+      "VN"
+    ],
+    "dry_run": false
+  }
+}

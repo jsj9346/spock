@@ -13,8 +13,27 @@ import time
 import logging
 from typing import List, Dict
 from datetime import datetime
+from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def suppress_pykrx_logging():
+    """
+    pykrx 라이브러리의 로깅 버그를 우회하기 위한 컨텍스트 매니저.
+
+    pykrx의 util.py에서 `logging.info(args, kwargs)` 형태로 잘못된
+    로깅 호출을 하여 TypeError가 발생함. 이를 우회하기 위해
+    pykrx 호출 시 logging 레벨을 임시로 WARNING으로 올림.
+    """
+    root_logger = logging.getLogger()
+    original_level = root_logger.level
+    try:
+        root_logger.setLevel(logging.WARNING)
+        yield
+    finally:
+        root_logger.setLevel(original_level)
 
 
 class PyKRXAPI:
@@ -57,14 +76,16 @@ class PyKRXAPI:
 
         today = datetime.now().strftime("%Y%m%d")
 
-        # KOSPI 조회
+        # KOSPI 조회 (suppress pykrx logging bug)
         self._rate_limit()
-        kospi = stock.get_market_ticker_list(today, market="KOSPI")
+        with suppress_pykrx_logging():
+            kospi = stock.get_market_ticker_list(today, market="KOSPI")
         logger.info(f"📊 pykrx: {len(kospi)}개 KOSPI 종목")
 
-        # KOSDAQ 조회
+        # KOSDAQ 조회 (suppress pykrx logging bug)
         self._rate_limit()
-        kosdaq = stock.get_market_ticker_list(today, market="KOSDAQ")
+        with suppress_pykrx_logging():
+            kosdaq = stock.get_market_ticker_list(today, market="KOSDAQ")
         logger.info(f"📊 pykrx: {len(kosdaq)}개 KOSDAQ 종목")
 
         # 종목명 조회 (병목 구간 - 각 종목당 API 호출)
@@ -74,7 +95,8 @@ class PyKRXAPI:
         for idx, ticker in enumerate(kospi + kosdaq, 1):
             try:
                 self._rate_limit()
-                name = stock.get_market_ticker_name(ticker)
+                with suppress_pykrx_logging():
+                    name = stock.get_market_ticker_name(ticker)
                 market = "KOSPI" if ticker in kospi else "KOSDAQ"
 
                 tickers.append({
@@ -123,7 +145,8 @@ class PyKRXAPI:
 
         try:
             self._rate_limit()
-            df = stock.get_market_ohlcv(start_str, end_str, ticker)
+            with suppress_pykrx_logging():
+                df = stock.get_market_ohlcv(start_str, end_str, ticker)
 
             if df is None or df.empty:
                 logger.warning(f"⚠️ [{ticker}] No OHLCV data from pykrx")
@@ -157,7 +180,8 @@ class PyKRXAPI:
 
             # Quick test - fetch KOSPI ticker count only
             self._rate_limit()
-            kospi = stock.get_market_ticker_list(today, market="KOSPI")
+            with suppress_pykrx_logging():
+                kospi = stock.get_market_ticker_list(today, market="KOSPI")
 
             return len(kospi) > 0
 
@@ -208,7 +232,8 @@ class PyKRXAPI:
                 try_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y%m%d")
 
                 try:
-                    sector_info = stock.get_market_sector_classifications(ticker, try_date)
+                    with suppress_pykrx_logging():
+                        sector_info = stock.get_market_sector_classifications(ticker, try_date)
                     if sector_info and '섹터' in sector_info:
                         successful_date = try_date
                         break

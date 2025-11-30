@@ -10,12 +10,36 @@ Date: 2025-11-27
 
 import os
 import sys
+import logging
 from datetime import datetime, date, timedelta
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
+from contextlib import contextmanager
 
 from loguru import logger
+
+
+@contextmanager
+def suppress_pykrx_logging():
+    """
+    pykrx 라이브러리의 로깅 버그를 우회하기 위한 컨텍스트 매니저.
+
+    pykrx의 util.py에서 `logging.info(args, kwargs)` 형태로 잘못된
+    로깅 호출을 하여 TypeError가 발생함. 이를 우회하기 위해
+    pykrx 호출 시 logging 레벨을 임시로 WARNING으로 올림.
+    """
+    # Get the root logger and save current level
+    root_logger = logging.getLogger()
+    original_level = root_logger.level
+
+    try:
+        # Suppress INFO level logs during pykrx calls
+        root_logger.setLevel(logging.WARNING)
+        yield
+    finally:
+        # Restore original level
+        root_logger.setLevel(original_level)
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -70,18 +94,32 @@ class DividendCollector:
     - KR: pykrx library
     - US, JP, HK: yfinance library
     - CN, VN: yfinance (limited support)
+
+    중복 방지:
+    - CollectionTracker를 사용하여 같은 날 동일 ticker 재수집 방지
+    - force=True 옵션으로 강제 재수집 가능
     """
 
-    def __init__(self, db_manager: Optional[PostgresDatabaseManager] = None):
+    def __init__(
+        self,
+        db_manager: Optional[PostgresDatabaseManager] = None,
+        skip_same_day: bool = True
+    ):
         """
         Initialize DividendCollector.
 
         Args:
             db_manager: PostgresDatabaseManager instance. Creates new if not provided.
+            skip_same_day: True면 같은 날 수집된 ticker 스킵 (기본: True)
         """
         self.db = db_manager or PostgresDatabaseManager()
         self.collected_count = 0
         self.error_count = 0
+        self.skipped_count = 0  # 스킵된 ticker 수
+
+        # CollectionTracker 초기화
+        from modules.collection.collection_tracker import CollectionTracker
+        self.tracker = CollectionTracker(self.db, skip_same_day=skip_same_day)
 
     def collect_kr_dividends(self, ticker: str, years: int = 5) -> List[DividendRecord]:
         """
@@ -106,15 +144,17 @@ class DividendCollector:
             from pykrx import stock
 
             # Validate ticker exists in pykrx before proceeding
-            try:
-                from pykrx.website.krx.market.ticker import get_stock_ticker_isin
-                isin = get_stock_ticker_isin(ticker)
-                if isin is None:
-                    logger.debug(f"Ticker {ticker} not found in KRX registry, skipping")
-                    return records
-            except Exception:
-                # If validation fails, continue anyway (pykrx may still work)
-                pass
+            # Use suppress_pykrx_logging to avoid logging format bug in pykrx
+            with suppress_pykrx_logging():
+                try:
+                    from pykrx.website.krx.market.ticker import get_stock_ticker_isin
+                    isin = get_stock_ticker_isin(ticker)
+                    if isin is None:
+                        logger.debug(f"Ticker {ticker} not found in KRX registry, skipping")
+                        return records
+                except Exception:
+                    # If validation fails, continue anyway (pykrx may still work)
+                    pass
 
             for year in range(current_year - years + 1, current_year + 1):
                 try:
@@ -124,10 +164,12 @@ class DividendCollector:
                     end_date = f"{year}1231"
 
                     # Try to get dividend yield data
+                    # Use suppress_pykrx_logging to avoid logging format bug in pykrx
                     try:
-                        div_data = stock.get_market_cap_by_date(
-                            start_date, end_date, ticker
-                        )
+                        with suppress_pykrx_logging():
+                            div_data = stock.get_market_cap_by_date(
+                                start_date, end_date, ticker
+                            )
                         if div_data is not None and not div_data.empty:
                             # Get last record of the year
                             last_record = div_data.iloc[-1]
@@ -380,30 +422,88 @@ class DividendCollector:
         self,
         tickers: List[str],
         region: str,
-        years: int = 5
+        years: int = 5,
+        force: bool = False
     ) -> Dict[str, int]:
         """
         Collect dividend data for multiple tickers.
+
+        중복 방지:
+        - CollectionTracker를 사용하여 같은 날 수집된 ticker 자동 스킵
+        - force=True 옵션으로 강제 재수집 가능
 
         Args:
             tickers: List of ticker symbols
             region: Region code
             years: Number of years to collect
+            force: True면 이미 수집된 ticker도 재수집
 
         Returns:
             Dictionary with ticker -> records_saved count
         """
-        results = {}
-        total = len(tickers)
+        import time
+        from modules.collection.collection_tracker import DataType
 
-        for i, ticker in enumerate(tickers):
-            logger.info(f"Collecting dividends for {ticker} ({i+1}/{total})")
+        results = {}
+        self.skipped_count = 0
+
+        # 스킵할 ticker 확인 (force=False인 경우)
+        if not force:
+            to_process, to_skip = self.tracker.should_skip_batch(
+                tickers, region, DataType.DIVIDEND
+            )
+
+            if to_skip:
+                logger.info(
+                    f"  ⏭️  [{region}] {len(to_skip)} tickers skipped "
+                    f"(already collected today)"
+                )
+                self.skipped_count = len(to_skip)
+                for ticker in to_skip:
+                    results[ticker] = 0  # 스킵됨
+        else:
+            to_process = tickers
+            logger.info(f"  🔄 [{region}] Force mode - recollecting all {len(tickers)} tickers")
+
+        total = len(to_process)
+
+        if total == 0:
+            logger.info(f"  ✅ [{region}] All tickers already collected today")
+            return results
+
+        logger.info(f"  📊 [{region}] Collecting dividends for {total} tickers...")
+
+        for i, ticker in enumerate(to_process):
+            start_time = time.time()
             try:
                 count = self.collect_and_save(ticker, region, years)
+                duration_ms = int((time.time() - start_time) * 1000)
+
                 results[ticker] = count
+
+                # 추적 기록
+                self.tracker.mark_collected(
+                    ticker, region, DataType.DIVIDEND,
+                    status='success',
+                    records_count=count,
+                    duration_ms=duration_ms
+                )
+
+                if (i + 1) % 100 == 0 or (i + 1) == total:
+                    logger.info(f"  Progress: {i+1}/{total} ({(i+1)/total*100:.1f}%)")
+
             except Exception as e:
+                duration_ms = int((time.time() - start_time) * 1000)
                 logger.error(f"Failed to collect dividends for {ticker}: {e}")
                 results[ticker] = 0
+
+                # 실패 기록
+                self.tracker.mark_collected(
+                    ticker, region, DataType.DIVIDEND,
+                    status='failed',
+                    duration_ms=duration_ms,
+                    error_message=str(e)
+                )
 
         return results
 

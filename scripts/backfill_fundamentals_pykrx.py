@@ -49,6 +49,7 @@ from decimal import Decimal
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from modules.db_manager_postgres import PostgresDatabaseManager
+from modules.api_clients.pykrx_cache import PyKRXFundamentalCache, get_pykrx_cache
 from dotenv import load_dotenv
 
 # pykrx library
@@ -81,7 +82,7 @@ logger = logging.getLogger(__name__)
 class PyKRXFundamentalBackfiller:
     """pykrx fundamental data backfill orchestrator"""
 
-    def __init__(self, db: PostgresDatabaseManager, dry_run: bool = False, rate_limit_delay: float = 0.5):
+    def __init__(self, db: PostgresDatabaseManager, dry_run: bool = False, rate_limit_delay: float = 0.5, use_cache: bool = True):
         """
         Initialize backfiller
 
@@ -89,11 +90,16 @@ class PyKRXFundamentalBackfiller:
             db: PostgreSQL database manager
             dry_run: If True, preview operations without database writes
             rate_limit_delay: Delay between API calls in seconds (default: 0.5 = 2 req/sec)
+            use_cache: If True, use cache for fundamental data (default: True)
         """
         self.db = db
         self.dry_run = dry_run
         self.rate_limit_delay = rate_limit_delay
         self.last_request_time = 0
+        self.use_cache = use_cache
+
+        # Initialize cache
+        self.cache = get_pykrx_cache() if use_cache else None
 
         # Statistics
         self.stats = {
@@ -103,6 +109,8 @@ class PyKRXFundamentalBackfiller:
             'tickers_skipped': 0,
             'tickers_failed': 0,
             'api_calls': 0,
+            'cache_hits': 0,
+            'cache_misses': 0,
             'records_inserted': 0,
             'records_updated': 0
         }
@@ -186,7 +194,7 @@ class PyKRXFundamentalBackfiller:
 
     def fetch_pykrx_fundamental_data(self, target_date: date, market: str = "ALL") -> Optional[pd.DataFrame]:
         """
-        Fetch fundamental data from pykrx for a specific date
+        Fetch fundamental data from pykrx for a specific date (with caching)
 
         Args:
             target_date: Date to fetch data for
@@ -196,22 +204,49 @@ class PyKRXFundamentalBackfiller:
             DataFrame with columns: ticker (index), BPS, PER, PBR, EPS, DIV, DPS
             None if fetch fails
         """
+        date_str = target_date.strftime('%Y%m%d')
+
+        # Check cache first
+        if self.cache:
+            cached_data = self.cache.get(target_date)
+            if cached_data is not None:
+                self.stats['cache_hits'] += 1
+                logger.debug(f"🎯 [{date_str}] Cache HIT ({len(cached_data)} tickers)")
+
+                # Convert cached list of dicts back to DataFrame
+                if cached_data:
+                    df = pd.DataFrame(cached_data)
+                    return df
+                else:
+                    return None
+
+            self.stats['cache_misses'] += 1
+
+        # Cache miss - fetch from API
         try:
             self._wait_for_rate_limit()
             self.stats['api_calls'] += 1
-
-            date_str = target_date.strftime('%Y%m%d')
 
             # Fetch fundamental data from pykrx
             df = stock.get_market_fundamental(date_str, market=market)
 
             if df is None or df.empty:
                 logger.debug(f"⚠️ [{date_str}] No fundamental data available")
+                # Cache empty result to avoid repeated API calls
+                if self.cache:
+                    self.cache.set(target_date, [])
                 return None
 
             # Rename index to ticker for consistency
             df.index.name = 'ticker'
             df = df.reset_index()
+
+            # Cache the result
+            if self.cache:
+                # Convert DataFrame to list of dicts for caching
+                cache_data = df.to_dict('records')
+                self.cache.set(target_date, cache_data)
+                logger.debug(f"💾 [{date_str}] Cached {len(cache_data)} tickers")
 
             logger.debug(f"✅ [{date_str}] Fetched {len(df)} tickers from pykrx")
             return df
@@ -470,11 +505,24 @@ class PyKRXFundamentalBackfiller:
         logger.info(f"  Dates Processed: {self.stats['dates_processed']}")
         logger.info(f"  Tickers Processed: {self.stats['tickers_processed']}")
         logger.info(f"  API Calls: {self.stats['api_calls']}")
+        logger.info(f"  Cache Hits: {self.stats['cache_hits']}")
+        logger.info(f"  Cache Misses: {self.stats['cache_misses']}")
+        cache_total = self.stats['cache_hits'] + self.stats['cache_misses']
+        if cache_total > 0:
+            logger.info(f"  Cache Hit Rate: {self.stats['cache_hits']/cache_total*100:.1f}%")
         logger.info(f"  Success: {self.stats['tickers_success']}")
         logger.info(f"  Failed: {self.stats['tickers_failed']}")
         logger.info(f"  Records Inserted: {self.stats['records_inserted']}")
         logger.info(f"  Records Updated: {self.stats['records_updated']}")
         logger.info(f"  Success Rate: {self.stats['tickers_success']/self.stats['tickers_processed']*100:.1f}%")
+
+        # Cache statistics
+        if self.cache:
+            cache_stats = self.cache.get_stats()
+            logger.info(f"\nCache Statistics:")
+            logger.info(f"  Disk Usage: {cache_stats['disk_usage_mb']:.2f} MB")
+            logger.info(f"  Cached Files: {cache_stats['file_count']}")
+            logger.info(f"  Cache Directory: {cache_stats['cache_dir']}")
 
         if self.stats['tickers_success'] / self.stats['tickers_processed'] < 0.8:
             logger.warning("⚠️ Backfill completed with low success rate: {:.1f}%".format(
@@ -517,6 +565,8 @@ Examples:
                         help='Limit number of tickers (for testing)')
     parser.add_argument('--rate-limit', type=float, default=0.5,
                         help='Delay between API calls in seconds (default: 0.5)')
+    parser.add_argument('--no-cache', action='store_true',
+                        help='Disable caching (fetch fresh data for all dates)')
     parser.add_argument('--start', type=str, required=True,
                         help='Start date (YYYY-MM-DD)')
     parser.add_argument('--end', type=str, default=None,
@@ -541,7 +591,8 @@ Examples:
         backfiller = PyKRXFundamentalBackfiller(
             db=db,
             dry_run=args.dry_run,
-            rate_limit_delay=args.rate_limit
+            rate_limit_delay=args.rate_limit,
+            use_cache=not args.no_cache
         )
 
         # Run backfill

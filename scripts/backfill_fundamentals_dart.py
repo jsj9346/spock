@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Phase 2: DART Annual Fundamental Data Backfill for KR Market
+Phase 2: DART Fundamental Data Backfill for KR Market (ANNUAL + QUARTERLY)
 
-Backfills ticker_fundamentals table with ANNUAL financial statement data from DART API.
+Backfills ticker_fundamentals table with financial statement data from DART API.
 Collects multi-year historical data (2022-2024) for accurate ROE and YOY growth calculations.
 Extracts: ROE, ROA, Debt Ratio, Revenue, Operating Profit, Net Income, Total Assets/Liabilities/Equity
 
 Target Coverage: >80% of KR market (1,091+ stocks out of 1,364)
 Data Source: DART (Korea Financial Supervisory Service)
-Period Type: ANNUAL (11011) - consolidated financial statements only
+Report Types: ANNUAL (11011), SEMI-ANNUAL (11012), QUARTERLY (11013, 11014)
 
 Usage:
     # Gap-Aware Backfill (Recommended for Incremental Updates - Phase 3)
@@ -23,14 +23,23 @@ Usage:
 
     # ====== Legacy Mode (Backward Compatibility) ======
 
-    # Full backfill (2022-2024 annual data)
+    # Full backfill (2022-2024 annual data) - DEFAULT
     python3 scripts/backfill_fundamentals_dart.py
+
+    # Quarterly reports only (Q1 + Q3)
+    python3 scripts/backfill_fundamentals_dart.py --report-type quarterly
+
+    # Semi-annual reports only
+    python3 scripts/backfill_fundamentals_dart.py --report-type semi-annual
+
+    # All report types (annual + semi-annual + quarterly)
+    python3 scripts/backfill_fundamentals_dart.py --report-type all
 
     # Dry run (preview only)
     python3 scripts/backfill_fundamentals_dart.py --dry-run --limit 5
 
-    # Custom year range
-    python3 scripts/backfill_fundamentals_dart.py --start-year 2020 --end-year 2024
+    # Custom year range with quarterly reports
+    python3 scripts/backfill_fundamentals_dart.py --start-year 2020 --end-year 2024 --report-type quarterly
 
     # Incremental update (only missing data)
     python3 scripts/backfill_fundamentals_dart.py --incremental
@@ -88,13 +97,32 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# ============================================================================
+# Report Type Mapping (Phase 2: Quarterly Support)
+# ============================================================================
+REPORT_TYPE_MAP = {
+    'annual': ['11011'],              # 사업보고서 (Annual Report)
+    'semi-annual': ['11012'],         # 반기보고서 (Semi-Annual Report)
+    'quarterly': ['11013', '11014'],  # 1분기보고서 (Q1), 3분기보고서 (Q3)
+    'all': ['11011', '11012', '11013', '11014']  # All report types
+}
+
+# Period Type Mapping (from DART API report codes)
+PERIOD_TYPE_MAP = {
+    '11011': 'ANNUAL',
+    '11012': 'SEMI-ANNUAL',
+    '11013': 'QUARTERLY',  # Q1
+    '11014': 'QUARTERLY'   # Q3
+}
+
 
 class DARTFundamentalBackfiller:
     """DART fundamental data backfill orchestrator"""
 
     def __init__(self, db: PostgresDatabaseManager, dart: DARTApiClient,
                  dry_run: bool = False, rate_limit_delay: float = 1.0,
-                 start_year: int = 2022, end_year: int = 2024):
+                 start_year: int = 2022, end_year: int = 2024,
+                 report_codes: List[str] = None):
         """
         Initialize backfiller
 
@@ -105,6 +133,7 @@ class DARTFundamentalBackfiller:
             rate_limit_delay: Delay between API calls in seconds (default: 1.0 = 1 req/sec)
             start_year: Start year for historical data collection (default: 2022)
             end_year: End year for historical data collection (default: 2024)
+            report_codes: List of DART report codes to collect (default: ['11011'] for annual only)
         """
         self.db = db
         self.dart = dart
@@ -112,6 +141,7 @@ class DARTFundamentalBackfiller:
         self.rate_limit_delay = rate_limit_delay
         self.start_year = start_year
         self.end_year = end_year
+        self.report_codes = report_codes or ['11011']  # Default: annual reports only
 
         # Statistics
         self.stats = {
@@ -324,7 +354,7 @@ class DARTFundamentalBackfiller:
     def fetch_dart_historical_fundamentals(self, ticker: str, corp_code: str,
                                            start_year: int, end_year: int) -> List[Dict]:
         """
-        Fetch historical ANNUAL fundamental data for multiple years
+        Fetch historical fundamental data for multiple years and report types
 
         Args:
             ticker: Stock ticker (e.g., '005930')
@@ -333,44 +363,78 @@ class DARTFundamentalBackfiller:
             end_year: End year for data collection (e.g., 2024)
 
         Returns:
-            List of dicts with annual fundamental metrics (one per year)
+            List of dicts with fundamental metrics (one per year per report type)
+
+        Note:
+            Uses self.report_codes to determine which report types to collect:
+            - ['11011']: Annual reports only (default)
+            - ['11013', '11014']: Quarterly reports only (Q1 + Q3)
+            - ['11011', '11012', '11013', '11014']: All report types
         """
-        try:
-            # Rate limiting
-            time.sleep(self.rate_limit_delay)
-            self.stats['api_calls'] += 1
+        all_metrics = []
 
-            # Call DART API for historical data (ANNUAL reports only)
-            metrics_list = self.dart.get_historical_fundamentals(
-                ticker=ticker,
-                corp_code=corp_code,
-                start_year=start_year,
-                end_year=end_year
-            )
+        for report_code in self.report_codes:
+            report_type = PERIOD_TYPE_MAP.get(report_code, 'UNKNOWN')
+            logger.info(f"📊 [{ticker}] Collecting {report_type} data (code: {report_code})...")
 
-            if not metrics_list:
-                logger.warning(f"⚠️ [{ticker}] No historical data available ({start_year}-{end_year})")
-                return []
+            try:
+                for year in range(start_year, end_year + 1):
+                    # Rate limiting
+                    time.sleep(self.rate_limit_delay)
+                    self.stats['api_calls'] += 1
 
-            # Validate each year's data
-            validated_metrics = []
-            for metrics in metrics_list:
-                if 'ticker' in metrics and 'date' in metrics and 'fiscal_year' in metrics:
-                    validated_metrics.append(metrics)
-                else:
-                    year = metrics.get('fiscal_year', 'Unknown')
-                    logger.warning(f"⚠️ [{ticker}] Invalid metrics structure for year {year}")
+                    # Call DART API for specific year and report type
+                    params = {
+                        'corp_code': corp_code,
+                        'bsns_year': year,
+                        'reprt_code': report_code,
+                        'fs_div': 'CFS'  # Consolidated Financial Statements
+                    }
 
-            if validated_metrics:
-                logger.info(f"✅ [{ticker}] DART historical data: {len(validated_metrics)} years ({start_year}-{end_year})")
-            else:
-                logger.warning(f"⚠️ [{ticker}] No valid annual reports found")
+                    response = self.dart._make_request('fnlttSinglAcntAll.json', params)
+                    data = response.json()
 
-            return validated_metrics
+                    if data['status'] == '000' and data.get('list'):
+                        items = data.get('list', [])
 
-        except Exception as e:
-            logger.error(f"❌ [{ticker}] DART API call failed: {e}")
+                        # Parse financial metrics
+                        metrics = self.dart._parse_financial_statements(
+                            ticker=ticker,
+                            items=items,
+                            year=year,
+                            reprt_code=report_code
+                        )
+
+                        all_metrics.append(metrics)
+                        logger.info(f"✅ [{ticker}] {year} {report_type} data collected")
+
+                    else:
+                        logger.debug(f"⚠️ [{ticker}] {year} {report_type} data not available")
+
+            except Exception as e:
+                logger.error(f"❌ [{ticker}] Failed to collect {report_type} data: {e}")
+                continue
+
+        if not all_metrics:
+            logger.warning(f"⚠️ [{ticker}] No historical data available ({start_year}-{end_year})")
             return []
+
+        # Validate collected data
+        validated_metrics = []
+        for metrics in all_metrics:
+            if 'ticker' in metrics and 'date' in metrics and 'fiscal_year' in metrics:
+                validated_metrics.append(metrics)
+            else:
+                year = metrics.get('fiscal_year', 'Unknown')
+                period = metrics.get('period_type', 'Unknown')
+                logger.warning(f"⚠️ [{ticker}] Invalid metrics structure for {year} {period}")
+
+        if validated_metrics:
+            logger.info(f"✅ [{ticker}] DART historical data: {len(validated_metrics)} records ({start_year}-{end_year})")
+        else:
+            logger.warning(f"⚠️ [{ticker}] No valid reports found")
+
+        return validated_metrics
 
     def get_latest_price(self, ticker: str, as_of_date: Optional[date] = None) -> Optional[Decimal]:
         """
@@ -512,7 +576,7 @@ class DARTFundamentalBackfiller:
                 'region': 'KR',
                 'date': metrics.get('date'),
                 'period_type': metrics.get('period_type', 'ANNUAL'),
-                'close_price': float(price),
+                'close_price': float(price) if price is not None else None,
                 'data_source': metrics.get('data_source'),
 
                 # From DART
@@ -791,14 +855,19 @@ class DARTFundamentalBackfiller:
             if target_date and self.check_duplicate_exists(ticker, target_date, period_type):
                 logger.info(f"🔄 [KR:{ticker}] Data exists for {target_date} ({period_type}), will update")
 
-            # Step 2: Get historical price (as of report date)
+            # Step 2: Get historical price (as of report date) - optional for quarterly
             price = self.get_latest_price(ticker, as_of_date=target_date)
             if not price:
-                logger.warning(f"⚠️ [{ticker}] No price data for {target_date} - skipping year {fiscal_year}")
-                continue
+                # For QUARTERLY/SEMI-ANNUAL, proceed without price data (focus on financial statements)
+                if period_type in ('QUARTERLY', 'SEMI-ANNUAL'):
+                    logger.info(f"📝 [{ticker}] No price data for {target_date} - proceeding with financial data only")
+                    price = None
+                else:
+                    logger.warning(f"⚠️ [{ticker}] No price data for {target_date} - skipping year {fiscal_year}")
+                    continue
 
-            # Step 3: Calculate valuation ratios
-            ratios = self.calculate_valuation_ratios(ticker, metrics, price)
+            # Step 3: Calculate valuation ratios (skip if no price)
+            ratios = self.calculate_valuation_ratios(ticker, metrics, price) if price else {}
 
             # Step 4: Insert/update database
             success = self.insert_or_update_fundamental_data(ticker, metrics, ratios, price)
@@ -835,10 +904,12 @@ class DARTFundamentalBackfiller:
         """
         start_time = datetime.now()
         logger.info("="*80)
-        logger.info("PHASE 1: DART FUNDAMENTAL DATA BACKFILL - TOP 100 LIQUID TICKERS")
+        logger.info("DART FUNDAMENTAL DATA BACKFILL (ANNUAL + QUARTERLY)")
         logger.info("="*80)
         logger.info(f"Start Time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
         logger.info(f"Mode: {'TICKER FILE' if ticker_file else ('INCREMENTAL' if incremental else 'FULL BACKFILL')}")
+        logger.info(f"Report Types: {', '.join([PERIOD_TYPE_MAP.get(code, code) for code in self.report_codes])}")
+        logger.info(f"Report Codes: {', '.join(self.report_codes)}")
         logger.info(f"Dry Run: {self.dry_run}")
         logger.info(f"Rate Limit: {self.rate_limit_delay} sec/request")
         if ticker_file:
@@ -968,7 +1039,7 @@ class DARTFundamentalBackfiller:
 
 def main():
     """Main entry point"""
-    parser = argparse.ArgumentParser(description='DART Fundamental Data Backfill (Phase 2 - Annual Data)')
+    parser = argparse.ArgumentParser(description='DART Fundamental Data Backfill (Phase 2 - Annual + Quarterly)')
     parser.add_argument('--dry-run', action='store_true', help='Preview operations without database writes')
     parser.add_argument('--incremental', action='store_true', help='Only fetch missing data (last 90 days)')
     parser.add_argument('--limit', type=int, help='Limit number of tickers (for testing)')
@@ -976,6 +1047,13 @@ def main():
     parser.add_argument('--rate-limit', type=float, default=1.0, help='Delay between API calls in seconds (default: 1.0)')
     parser.add_argument('--start-year', type=int, default=2022, help='Start year for historical data (default: 2022)')
     parser.add_argument('--end-year', type=int, default=2024, help='End year for historical data (default: 2024)')
+    parser.add_argument(
+        '--report-type',
+        type=str,
+        default='annual',
+        choices=['annual', 'semi-annual', 'quarterly', 'all'],
+        help='Report type to collect (default: annual). Options: annual (11011), semi-annual (11012), quarterly (11013+11014), all (all types)'
+    )
 
     # Gap Analysis Options (Phase 3)
     parser.add_argument(
@@ -1045,6 +1123,10 @@ def main():
             # ✅ LEGACY: Original DARTFundamentalBackfiller (Backward Compatibility)
             logger.info("📦 Legacy 모드: DARTFundamentalBackfiller 사용")
 
+            # Map report type to DART report codes
+            report_codes = REPORT_TYPE_MAP.get(args.report_type, ['11011'])
+            logger.info(f"📊 Report Type: {args.report_type} → Codes: {report_codes}")
+
             # Initialize DART API client
             dart = DARTApiClient(rate_limit_delay=args.rate_limit * 36.0)  # Convert to 36-sec delay
             logger.info("✅ DART API client initialized")
@@ -1056,7 +1138,8 @@ def main():
                 dry_run=args.dry_run,
                 rate_limit_delay=args.rate_limit,
                 start_year=args.start_year,
-                end_year=args.end_year
+                end_year=args.end_year,
+                report_codes=report_codes
             )
 
             stats = backfiller.run_backfill(

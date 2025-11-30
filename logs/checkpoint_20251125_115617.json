@@ -1,0 +1,59 @@
+{
+  "timestamp": "2025-11-25T11:56:17.050274",
+  "step": "fx_tracking",
+  "result": {
+    "updated": 7,
+    "valuation_updated": 7,
+    "signals": 4,
+    "signals_inserted": 4,
+    "notifications": {},
+    "success": true,
+    "rates": {
+      "KRW": "1",
+      "CNY": "0.00483",
+      "EUR": "0.000588",
+      "GBP": "0.000517",
+      "HKD": "0.00527",
+      "JPY": "0.106",
+      "USD": "0.000678"
+    },
+    "fx_signals": [
+      {
+        "currency": "CNY",
+        "signal_type": "high_volatility",
+        "magnitude": 0.28852556344164654,
+        "date": "2025-11-25"
+      },
+      {
+        "currency": "EUR",
+        "signal_type": "high_volatility",
+        "magnitude": 0.30151956841013383,
+        "date": "2025-11-25"
+      },
+      {
+        "currency": "JPY",
+        "signal_type": "high_volatility",
+        "magnitude": 0.2860113323299286,
+        "date": "2025-11-25"
+      },
+      {
+        "currency": "USD",
+        "signal_type": "high_volatility",
+        "magnitude": 0.2885369575068742,
+        "date": "2025-11-25"
+      }
+    ]
+  },
+  "next_step": "ohlcv",
+  "metadata": {
+    "regions": [
+      "KR",
+      "US",
+      "HK",
+      "JP",
+      "CN",
+      "VN"
+    ],
+    "dry_run": false
+  }
+}

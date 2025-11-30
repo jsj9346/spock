@@ -40,6 +40,7 @@ from modules.backfill.data_structures import (
     GapPriority
 )
 from modules.api_clients.edinet_api import EDINETApiClient, EDINETFundamentalData
+from modules.backfill.jp_ticker_filter import JPTickerFilter, JPTickerFilterResult
 
 logger = logging.getLogger(__name__)
 
@@ -86,16 +87,27 @@ class EDINETBackfillExecutor(BackfillExecutor):
         # EDINET API 클라이언트 (지연 초기화)
         self._edinet_api: Optional[EDINETApiClient] = None
 
+        # 스마트 필터링 (신규 IPO, ETF, REIT 등 사전 필터링)
+        self._jp_filter: Optional[JPTickerFilter] = None
+        self.enable_smart_filter = True  # 스마트 필터링 활성화 여부
+
         # 백필 설정
         self.start_year = 2020
         self.end_year = 2024
         self.period_type = "ANNUAL"
 
-        logger.info(f"🇯🇵 EDINETBackfillExecutor 초기화 완료 (dry_run={dry_run})")
+        # 필터링 통계
+        self.filter_stats = {
+            'pre_filtered': 0,
+            'api_queried': 0,
+            'api_unavailable': 0
+        }
+
+        logger.info(f"🇯🇵 EDINETBackfillExecutor 초기화 완료 (dry_run={dry_run}, smart_filter={self.enable_smart_filter})")
 
     @property
     def edinet_api(self) -> EDINETApiClient:
-        """EDINET API 클라이언트 (지연 초기화)"""
+        """EDINET API 클라이언트 (지연 초기화, 캐싱 및 최적화 활성화)"""
         if self._edinet_api is None:
             if not self.api_key:
                 raise ValueError(
@@ -106,9 +118,17 @@ class EDINETBackfillExecutor(BackfillExecutor):
             self._edinet_api = EDINETApiClient(
                 api_key=self.api_key,
                 rate_limit_delay=self.rate_limit_delay,
-                max_retries=self.max_retries
+                max_retries=self.max_retries,
+                use_cache=True  # 문서 목록 캐싱 활성화 (재조회 시 0 API 호출)
             )
         return self._edinet_api
+
+    @property
+    def jp_filter(self) -> JPTickerFilter:
+        """JP Ticker 스마트 필터 (지연 초기화)"""
+        if self._jp_filter is None:
+            self._jp_filter = JPTickerFilter(db=self.db)
+        return self._jp_filter
 
     def validate_prerequisites(self) -> Tuple[bool, List[str]]:
         """
@@ -161,6 +181,9 @@ class EDINETBackfillExecutor(BackfillExecutor):
         """
         단일 ticker에 대한 EDINET 데이터 백필
 
+        스마트 필터링이 활성화된 경우, API 호출 전
+        신규 IPO, ETF, REIT 등 미지원 종목을 사전 필터링합니다.
+
         Args:
             ticker_info: 백필할 ticker 정보
 
@@ -170,6 +193,24 @@ class EDINETBackfillExecutor(BackfillExecutor):
         ticker = ticker_info.ticker
 
         try:
+            # 스마트 필터링 적용 (API 호출 전 사전 검사)
+            if self.enable_smart_filter:
+                filter_result = self.jp_filter.check_ticker(ticker)
+
+                if filter_result.should_skip:
+                    logger.info(f"[{ticker}] 🔍 사전 필터링: {filter_result.description}")
+                    self.filter_stats['pre_filtered'] += 1
+
+                    # dry_run이 아니면 DB에 마킹
+                    if not self.dry_run:
+                        reason = f"[PRE-FILTER] {filter_result.description}"
+                        self._mark_ticker_unavailable(ticker, reason[:200])
+
+                    return False  # 필터링된 종목은 False 반환 (실패 아님, 스킵)
+
+            # API 조회 통계 업데이트
+            self.filter_stats['api_queried'] += 1
+
             # EDINET에서 재무 데이터 조회
             fundamentals = self.edinet_api.get_historical_fundamentals(
                 ticker=ticker,
@@ -181,6 +222,7 @@ class EDINETBackfillExecutor(BackfillExecutor):
             if not fundamentals:
                 logger.warning(f"[{ticker}] EDINET 데이터 없음 - unavailable로 마킹")
                 self._mark_ticker_unavailable(ticker, "EDINET 데이터 없음 (EDINET 코드 미존재 또는 XBRL 데이터 없음)")
+                self.filter_stats['api_unavailable'] += 1
                 return False
 
             # 각 연도 데이터 저장
@@ -198,6 +240,7 @@ class EDINETBackfillExecutor(BackfillExecutor):
             else:
                 logger.warning(f"[{ticker}] 저장된 데이터 없음")
                 self._mark_ticker_unavailable(ticker, "데이터 파싱 결과 없음")
+                self.filter_stats['api_unavailable'] += 1
                 return False
 
         except Exception as e:
@@ -432,7 +475,8 @@ class EDINETBackfillExecutor(BackfillExecutor):
         end_year: int = 2024,
         limit: Optional[int] = None,
         checkpoint_interval: int = 50,
-        resume: bool = False
+        resume: bool = False,
+        enable_smart_filter: bool = True
     ) -> BackfillStats:
         """
         EDINET 재무 데이터 백필 실행
@@ -443,6 +487,7 @@ class EDINETBackfillExecutor(BackfillExecutor):
             limit: 최대 ticker 수 (테스트용)
             checkpoint_interval: 체크포인트 저장 간격
             resume: 체크포인트에서 재개 여부
+            enable_smart_filter: 스마트 필터링 활성화 여부
 
         Returns:
             실행 통계
@@ -450,11 +495,20 @@ class EDINETBackfillExecutor(BackfillExecutor):
         # 백필 설정 저장
         self.start_year = start_year
         self.end_year = end_year
+        self.enable_smart_filter = enable_smart_filter
+
+        # 필터링 통계 초기화
+        self.filter_stats = {
+            'pre_filtered': 0,
+            'api_queried': 0,
+            'api_unavailable': 0
+        }
 
         logger.info("=" * 80)
         logger.info("🇯🇵 EDINET 재무 데이터 백필 시작")
         logger.info(f"   기간: {start_year} ~ {end_year}")
         logger.info(f"   모드: {'DRY RUN' if self.dry_run else 'PRODUCTION'}")
+        logger.info(f"   스마트 필터링: {'활성화' if enable_smart_filter else '비활성화'}")
         logger.info("=" * 80)
 
         # 백필 대상 ticker 조회
@@ -464,12 +518,42 @@ class EDINETBackfillExecutor(BackfillExecutor):
             logger.warning("백필 대상 ticker가 없습니다")
             return self.stats
 
+        # 스마트 필터링 미리보기 (활성화된 경우)
+        if enable_smart_filter:
+            ticker_codes = [t.ticker for t in tickers]
+            filter_preview = self.jp_filter.get_filter_statistics(ticker_codes)
+            logger.info(f"🔍 스마트 필터링 미리보기:")
+            logger.info(f"   - 총 ticker: {filter_preview['total']:,}개")
+            logger.info(f"   - API 조회 예정: {filter_preview['passed']:,}개")
+            logger.info(f"   - 사전 필터링: {filter_preview['total'] - filter_preview['passed']:,}개")
+            if filter_preview['alpha_suffix_ipo'] > 0:
+                logger.info(f"     • 신규 IPO: {filter_preview['alpha_suffix_ipo']}개")
+            if filter_preview['etf_or_fund'] > 0:
+                logger.info(f"     • ETF/펀드: {filter_preview['etf_or_fund']}개")
+            if filter_preview['reit'] > 0:
+                logger.info(f"     • J-REIT: {filter_preview['reit']}개")
+            if filter_preview['already_unavailable'] > 0:
+                logger.info(f"     • 이미 unavailable: {filter_preview['already_unavailable']}개")
+
         # 배치 실행
-        return self.execute_batch(
+        result = self.execute_batch(
             tickers=tickers,
             checkpoint_interval=checkpoint_interval,
             resume=resume
         )
+
+        # 필터링 통계 출력
+        logger.info("=" * 80)
+        logger.info("📊 필터링 통계:")
+        logger.info(f"   사전 필터링: {self.filter_stats['pre_filtered']:,}개 (API 호출 절감)")
+        logger.info(f"   API 조회: {self.filter_stats['api_queried']:,}개")
+        logger.info(f"   API 미제공: {self.filter_stats['api_unavailable']:,}개")
+        if self.filter_stats['api_queried'] > 0:
+            success_rate = (self.filter_stats['api_queried'] - self.filter_stats['api_unavailable']) / self.filter_stats['api_queried'] * 100
+            logger.info(f"   API 성공률: {success_rate:.1f}%")
+        logger.info("=" * 80)
+
+        return result
 
     def close(self):
         """리소스 정리"""

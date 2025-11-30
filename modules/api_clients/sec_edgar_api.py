@@ -538,6 +538,188 @@ class SECEdgarApiClient:
         logger.info(f"[{ticker}] {len(results)}년치 SEC 데이터 추출 완료 ({start_year}-{end_year})")
         return results
 
+    def _extract_quarterly_metric_value(
+        self,
+        us_gaap: Dict,
+        metric_name: str,
+        target_year: int,
+        target_quarter: int
+    ) -> Optional[float]:
+        """
+        US-GAAP 데이터에서 특정 분기의 메트릭 값 추출
+
+        Args:
+            us_gaap: US-GAAP XBRL 데이터
+            metric_name: 추출할 메트릭 이름
+            target_year: 대상 회계연도
+            target_quarter: 대상 분기 (1, 2, 3, 4)
+
+        Returns:
+            메트릭 값 또는 None
+        """
+        xbrl_tags = self.XBRL_TAGS.get(metric_name, [])
+
+        # 분기별 종료월 매핑 (대부분 기업이 12월 결산 가정)
+        quarter_end_months = {1: 3, 2: 6, 3: 9, 4: 12}
+        target_month = quarter_end_months.get(target_quarter)
+        if not target_month:
+            return None
+
+        for tag in xbrl_tags:
+            if tag not in us_gaap:
+                continue
+
+            units = us_gaap[tag].get('units', {})
+            values = units.get('USD', units.get('USD/shares', units.get('shares', [])))
+
+            if not values:
+                continue
+
+            best_match = None
+            best_filed_date = ""
+
+            for entry in values:
+                form = entry.get('form', '')
+
+                # 10-Q 또는 6-K(외국기업) 필터링
+                if form not in ("10-Q", "6-K"):
+                    continue
+
+                end_date = entry.get('end', '')
+                start_date = entry.get('start', '')
+                if not end_date:
+                    continue
+
+                try:
+                    end_year = int(end_date[:4])
+                    end_month = int(end_date[5:7])
+
+                    # 기간 확인 (분기 데이터는 약 3개월)
+                    if start_date:
+                        start_parts = start_date.split('-')
+                        if len(start_parts) >= 2:
+                            period_months = (end_year * 12 + end_month) - \
+                                          (int(start_parts[0]) * 12 + int(start_parts[1]))
+                            # 3~4개월 기간의 데이터만 (분기 데이터)
+                            if period_months > 4:
+                                continue
+                except (ValueError, IndexError):
+                    continue
+
+                # 연도 및 분기 매칭
+                if end_year != target_year:
+                    continue
+
+                # 분기 추정 (월 기준)
+                if end_month <= 3:
+                    estimated_quarter = 1
+                elif end_month <= 6:
+                    estimated_quarter = 2
+                elif end_month <= 9:
+                    estimated_quarter = 3
+                else:
+                    estimated_quarter = 4
+
+                if estimated_quarter != target_quarter:
+                    continue
+
+                # 가장 최근 제출된 값 사용
+                filed_date = entry.get('filed', '')
+                if filed_date > best_filed_date:
+                    best_match = entry.get('val')
+                    best_filed_date = filed_date
+
+            if best_match is not None:
+                return float(best_match)
+
+        return None
+
+    def get_quarterly_fundamentals(
+        self,
+        ticker: str,
+        start_year: int = 2023,
+        end_year: int = 2024
+    ) -> List[SECFundamentalData]:
+        """
+        기업의 분기별 재무 데이터 추출
+
+        SEC 10-Q 보고서에서 분기별 데이터를 추출합니다.
+        TTM 계산을 위해 최근 4분기 데이터가 필요합니다.
+
+        Args:
+            ticker: US 주식 티커 (예: 'AAPL')
+            start_year: 시작 연도
+            end_year: 종료 연도
+
+        Returns:
+            분기별 재무 데이터 리스트
+        """
+        cik = self.get_cik(ticker)
+        if not cik:
+            logger.warning(f"[{ticker}] CIK를 찾을 수 없음")
+            return []
+
+        facts = self.get_company_facts(cik)
+        if not facts:
+            logger.warning(f"[{ticker}] Company Facts 데이터 없음")
+            return []
+
+        us_gaap = facts.get('facts', {}).get('us-gaap', {})
+        if not us_gaap:
+            logger.warning(f"[{ticker}] US-GAAP 데이터 없음")
+            return []
+
+        results = []
+
+        # 분기별 종료일 매핑
+        quarter_end_dates = {
+            1: (3, 31),   # Q1: 3월 31일
+            2: (6, 30),   # Q2: 6월 30일
+            3: (9, 30),   # Q3: 9월 30일
+            4: (12, 31),  # Q4: 12월 31일
+        }
+
+        for year in range(start_year, end_year + 1):
+            for quarter in range(1, 5):
+                month, day = quarter_end_dates[quarter]
+
+                data = SECFundamentalData(
+                    ticker=ticker,
+                    cik=cik,
+                    region="US",
+                    fiscal_year=year,
+                    fiscal_period=f"Q{quarter}",
+                    period_type="QUARTERLY",
+                    report_date=date(year, month, day),
+                    data_source="SEC_EDGAR"
+                )
+
+                # 각 메트릭 추출
+                metrics_found = 0
+                for metric_name in self.XBRL_TAGS.keys():
+                    value = self._extract_quarterly_metric_value(
+                        us_gaap, metric_name, year, quarter
+                    )
+                    if value is not None:
+                        setattr(data, metric_name, value)
+                        metrics_found += 1
+
+                # FCF 계산
+                if data.operating_cash_flow and data.capex:
+                    data.fcf = data.operating_cash_flow - abs(data.capex)
+
+                # Treasury Stock 부호 변환
+                if data.treasury_stock is not None and data.treasury_stock > 0:
+                    data.treasury_stock = -abs(data.treasury_stock)
+
+                # 데이터가 있는 경우에만 추가
+                if metrics_found > 0:
+                    results.append(data)
+                    logger.debug(f"[{ticker}] {year}Q{quarter} 데이터 추출: {metrics_found}개 메트릭")
+
+        logger.info(f"[{ticker}] {len(results)}개 분기 SEC 데이터 추출 완료 ({start_year}-{end_year})")
+        return results
+
     def validate_connection(self) -> bool:
         """
         SEC API 연결 검증

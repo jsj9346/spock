@@ -79,6 +79,7 @@ class SpockMCPServer:
         from .adapters.optimization_adapter import OptimizationAdapter
         from .adapters.screening_adapter import ScreeningAdapter
         from .adapters.macro_adapter import MacroAdapter
+        from .adapters.tech_screening_adapter import TechScreeningAdapter
         from modules.screening.etf_screening_adapter import ETFScreeningAdapter
 
         self.data_adapter = DataAdapter()
@@ -87,6 +88,7 @@ class SpockMCPServer:
         self.optimization_adapter = OptimizationAdapter()
         self.screening_adapter = ScreeningAdapter()
         self.macro_adapter = MacroAdapter()
+        self.tech_screening_adapter = TechScreeningAdapter()
         self.etf_screening_adapter = ETFScreeningAdapter()
 
         # Register unified list_tools handler
@@ -101,12 +103,14 @@ class SpockMCPServer:
             )
             from .tools.screening_tool import get_screening_tool_def
             from .tools.technical_tool import get_technical_tool_def
+            from .tools.tech_screening_tool import get_tech_screening_tool_def
             from .tools.etf_tool import get_etf_screening_tool_def
             from .tools.macro_tool import get_macro_tool_def
             from .tools.cagr_tool import get_cagr_tool_def
             from .tools.fundamentals_tool import get_fundamentals_tool_def
             from .tools.ratios_tool import get_ratios_tool_def
             from .tools.dividend_tool import get_dividend_tool_def
+            from .tools.ttm_tool import get_ttm_tool_def
 
             tools = []
             tools.append(get_data_query_tool_def())
@@ -115,12 +119,14 @@ class SpockMCPServer:
             tools.append(get_optimization_tool_def())
             tools.append(get_screening_tool_def())
             tools.append(get_technical_tool_def())
+            tools.append(get_tech_screening_tool_def())
             tools.append(get_etf_screening_tool_def())
             tools.append(get_macro_tool_def())
             tools.append(get_cagr_tool_def())
             tools.append(get_fundamentals_tool_def())
             tools.append(get_ratios_tool_def())
             tools.append(get_dividend_tool_def())
+            tools.append(get_ttm_tool_def())
 
             logger.info("tools_listed", tool_count=len(tools))
             return tools
@@ -152,6 +158,9 @@ class SpockMCPServer:
             elif name == "get_technical_indicators":
                 from .tools.technical_tool import handle_get_technical_indicators
                 return await handle_get_technical_indicators(self.data_adapter, arguments)
+            elif name == "screen_by_technical_indicators":
+                from .tools.tech_screening_tool import handle_screen_by_technical_indicators
+                return await handle_screen_by_technical_indicators(self.tech_screening_adapter, arguments)
             elif name == "screen_etfs":
                 from .tools.etf_tool import handle_screen_etfs
                 return await handle_screen_etfs(self.etf_screening_adapter, arguments)
@@ -170,10 +179,13 @@ class SpockMCPServer:
             elif name == "query_dividend_history":
                 from .tools.dividend_tool import handle_query_dividend_history
                 return await handle_query_dividend_history(self.data_adapter, arguments)
+            elif name == "query_ttm":
+                from .tools.ttm_tool import handle_query_ttm
+                return await handle_query_ttm(self.data_adapter, arguments)
             else:
                 raise ValueError(f"Unknown tool: {name}")
 
-        logger.debug("mcp_unified_handlers_registered", tool_count=13)
+        logger.debug("mcp_unified_handlers_registered", tool_count=15)
 
     async def run(self) -> None:
         """Run MCP server (async main loop)"""
