@@ -129,7 +129,9 @@ def main():
             print(f"📊 [{i}/{len(MAJOR_TICKERS)}] {ticker}...", end=' ')
 
             # Fetch from yfinance
-            stock = yf.Ticker(ticker)
+            # Convert '/' to '.' for US preferred stocks/classes
+            yf_ticker = ticker.replace('/', '-') if '/' in ticker else ticker
+            stock = yf.Ticker(yf_ticker)
             info = stock.info
 
             if not info or not info.get('symbol'):

@@ -132,9 +132,10 @@ class YFinanceFundamentalBackfiller:
         if region in ['CN', 'HK']:
             return ticker
 
-        # US has no suffix
+        # US: convert '/' to '.' for preferred stocks/classes
+        # e.g., BRK/B → BRK.B, MS/A → MS.A
         if region == 'US':
-            return ticker
+            return ticker.replace('/', '-') if '/' in ticker else ticker
 
         # JP and VN need suffix appended
         return f"{ticker}{suffix}"

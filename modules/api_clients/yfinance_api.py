@@ -32,6 +32,10 @@ class YFinanceAPI:
         api = YFinanceAPI(rate_limit_per_second=1)
         tickers = api.get_tickers_batch(['0700.HK', '0941.HK'])
         ohlcv = api.get_ohlcv('0700.HK', period='1y')
+
+    Ticker Format Conversion:
+        - US preferred stocks/classes: DB uses '/' but yfinance uses '.'
+        - Example: BRK/B (DB) → BRK.B (yfinance)
     """
 
     def __init__(self, rate_limit_per_second: float = 1.0):
@@ -59,6 +63,29 @@ class YFinanceAPI:
             time.sleep(sleep_time)
 
         self.last_request_time = time.time()
+
+    def _to_yf_ticker(self, ticker: str) -> str:
+        """
+        Convert database ticker format to yfinance format
+
+        US market uses '/' for preferred stocks and share classes in database,
+        but yfinance requires '-' format (not '.').
+
+        Args:
+            ticker: Ticker symbol from database (e.g., 'BRK/B', 'MS/A')
+
+        Returns:
+            yfinance-compatible ticker (e.g., 'BRK-B', 'MS-A')
+
+        Examples:
+            - 'BRK/B' → 'BRK-B' (Berkshire Hathaway Class B)
+            - 'MS/A' → 'MS-A' (Morgan Stanley Preferred A)
+            - 'AAPL' → 'AAPL' (no change)
+            - '0700.HK' → '0700.HK' (no change, already has .)
+        """
+        if '/' in ticker:
+            return ticker.replace('/', '-')
+        return ticker
 
     def _retry_on_failure(self, func, max_retries: int = 3, *args, **kwargs):
         """
@@ -114,7 +141,7 @@ class YFinanceAPI:
         Get company information for a ticker (raw yfinance.Ticker().info)
 
         Args:
-            ticker: Ticker symbol (e.g., '0700.HK', 'AAPL', '7203.T')
+            ticker: Ticker symbol (e.g., '0700.HK', 'AAPL', '7203.T', 'BRK/B')
 
         Returns:
             Raw yfinance info dictionary or None on failure
@@ -123,9 +150,12 @@ class YFinanceAPI:
         Note:
             This returns the complete raw info dict for maximum compatibility
             with parsers. Use get_ticker_summary() for simplified output.
+            US tickers with '/' are auto-converted to '.' for yfinance.
         """
+        yf_ticker = self._to_yf_ticker(ticker)
+
         def _fetch():
-            stock = yf.Ticker(ticker, session=self.session)
+            stock = yf.Ticker(yf_ticker, session=self.session)
             info = stock.info
 
             if not info or 'symbol' not in info:
@@ -136,7 +166,7 @@ class YFinanceAPI:
         result = self._retry_on_failure(_fetch)
 
         if result:
-            logger.debug(f"✅ Fetched info for {ticker}")
+            logger.debug(f"✅ Fetched info for {ticker} (yf: {yf_ticker})")
 
         return result
 
@@ -189,7 +219,7 @@ class YFinanceAPI:
         Get OHLCV data for a ticker
 
         Args:
-            ticker: Ticker symbol
+            ticker: Ticker symbol (e.g., 'AAPL', 'BRK/B')
             period: Data period ('1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', 'max')
             start_date: Start date 'YYYY-MM-DD' (overrides period)
             end_date: End date 'YYYY-MM-DD'
@@ -197,9 +227,14 @@ class YFinanceAPI:
         Returns:
             DataFrame with columns [date, open, high, low, close, volume]
             or None on failure
+
+        Note:
+            US tickers with '/' are auto-converted to '.' for yfinance.
         """
+        yf_ticker = self._to_yf_ticker(ticker)
+
         def _fetch():
-            stock = yf.Ticker(ticker, session=self.session)
+            stock = yf.Ticker(yf_ticker, session=self.session)
 
             if start_date and end_date:
                 df = stock.history(start=start_date, end=end_date)
@@ -230,7 +265,7 @@ class YFinanceAPI:
         result = self._retry_on_failure(_fetch)
 
         if result is not None:
-            logger.debug(f"✅ Fetched {len(result)} days of OHLCV for {ticker}")
+            logger.debug(f"✅ Fetched {len(result)} days of OHLCV for {ticker} (yf: {yf_ticker})")
 
         return result
 

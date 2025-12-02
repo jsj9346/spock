@@ -274,7 +274,9 @@ class DividendCollector:
     def _format_yfinance_ticker(self, ticker: str, region: str) -> str:
         """Format ticker for yfinance API based on region."""
         if region == "US":
-            return ticker
+            # US preferred stocks/classes: DB uses '/' but yfinance uses '.'
+            # e.g., BRK/B → BRK.B, MS/A → MS.A
+            return ticker.replace('/', '-') if '/' in ticker else ticker
         elif region == "JP":
             return f"{ticker}.T"
         elif region == "HK":

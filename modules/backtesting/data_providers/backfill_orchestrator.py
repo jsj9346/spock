@@ -535,6 +535,12 @@ class BackfillOrchestrator:
 
         suffix = suffix_map.get(region, '')
 
+        # Special handling for US tickers with '/'
+        if region == 'US':
+            # US preferred stocks/classes: DB uses '/' but yfinance uses '.'
+            # e.g., BRK/B → BRK.B, MS/A → MS.A
+            return ticker.replace('/', '-') if '/' in ticker else ticker
+
         # Special handling for Korean tickers
         if region == 'KR':
             # KOSDAQ tickers need .KQ suffix

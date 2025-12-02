@@ -137,7 +137,9 @@ def add_major_stocks():
             logger.info(f"📊 [{i}/{len(all_tickers)}] Processing {ticker}...")
 
             # Fetch info from yfinance
-            stock = yf.Ticker(ticker)
+            # Convert '/' to '.' for US preferred stocks/classes
+            yf_ticker = ticker.replace('/', '-') if '/' in ticker else ticker
+            stock = yf.Ticker(yf_ticker)
             info = stock.info
 
             if not info or not info.get('symbol'):

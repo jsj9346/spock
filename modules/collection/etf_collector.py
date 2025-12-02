@@ -248,7 +248,9 @@ class ETFCollector:
     def _format_yfinance_ticker(self, ticker: str, region: str) -> str:
         """yfinance용 ticker 포맷팅"""
         if region == "US":
-            return ticker
+            # US preferred stocks/classes: DB uses '/' but yfinance uses '.'
+            # e.g., BRK/B → BRK.B, MS/A → MS.A
+            return ticker.replace('/', '-') if '/' in ticker else ticker
         elif region == "JP":
             return f"{ticker}.T"
         elif region == "HK":

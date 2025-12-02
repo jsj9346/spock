@@ -75,7 +75,9 @@ class CashFlowCollector:
             # Try KOSPI first
             return f"{ticker}.KS"
         elif region == 'US':
-            return ticker
+            # US preferred stocks/classes: DB uses '/' but yfinance uses '.'
+            # e.g., BRK/B → BRK.B, MS/A → MS.A
+            return ticker.replace('/', '-') if '/' in ticker else ticker
         else:
             return ticker
 

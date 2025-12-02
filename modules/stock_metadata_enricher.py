@@ -489,7 +489,8 @@ class StockMetadataEnricher:
             Normalized ticker for yfinance
 
         Normalization Rules:
-            - US: No change (e.g., 'AAPL' → 'AAPL')
+            - US: Convert '/' to '.' for preferred stocks/classes
+              (e.g., 'AAPL' → 'AAPL', 'BRK/B' → 'BRK.B')
             - HK: Add '.HK' suffix (e.g., '0700' → '0700.HK')
             - CN: Add exchange suffix
               * Shanghai: '.SS' (e.g., '600000' → '600000.SS')
@@ -498,7 +499,9 @@ class StockMetadataEnricher:
             - VN: No change (e.g., 'VCB' → 'VCB')
         """
         if region == 'US':
-            return ticker
+            # Convert '/' to '.' for US preferred stocks and share classes
+            # DB format: BRK/B, MS/A → yfinance format: BRK.B, MS.A
+            return ticker.replace('/', '-') if '/' in ticker else ticker
         elif region == 'HK':
             return f"{ticker}.HK" if not ticker.endswith('.HK') else ticker
         elif region == 'CN':

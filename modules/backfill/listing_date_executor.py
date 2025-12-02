@@ -226,6 +226,12 @@ class ListingDateBackfillExecutor(BackfillExecutor):
             ticker_clean = ticker.zfill(4)
             return f"{ticker_clean}{suffix}"
 
+        # Special handling for US market
+        elif region == 'US':
+            # US preferred stocks/classes: DB uses '/' but yfinance uses '.'
+            # e.g., BRK/B → BRK.B, MS/A → MS.A
+            return ticker.replace('/', '-') if '/' in ticker else ticker
+
         # Other markets
         else:
             return f"{ticker}{suffix}"
