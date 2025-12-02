@@ -3,9 +3,72 @@
 Error handling for MCP server
 
 Defines error hierarchy and JSON-serializable error responses.
+Includes user-friendly message mapping for common error scenarios.
 """
 
 from typing import Dict, Optional
+
+
+# =============================================================================
+# User-Friendly Error Message Mapping
+# =============================================================================
+
+FRIENDLY_ERROR_MESSAGES = {
+    # TTM related errors
+    "No TTM data available": {
+        "message": "TTM 데이터가 아직 준비되지 않았습니다.",
+        "hint": "ANNUAL 또는 QUARTERLY period_type을 사용해주세요.",
+        "reason": "TTM(Trailing Twelve Months) 계산 배치가 아직 완전히 구현되지 않았습니다."
+    },
+    # Fundamentals related errors
+    "No fundamental data available": {
+        "message": "해당 종목의 재무 데이터를 찾을 수 없습니다.",
+        "hint": "종목 코드를 확인하거나, 다른 기간(ANNUAL/QUARTERLY)을 시도해보세요.",
+        "reason": "데이터베이스에 해당 종목의 재무 데이터가 존재하지 않습니다."
+    },
+    # OHLCV related errors
+    "No OHLCV data available for requested tickers/dates": {
+        "message": "요청한 기간의 주가 데이터를 찾을 수 없습니다.",
+        "hint": "날짜 범위를 확인하거나, 휴장일이 포함되어 있는지 확인하세요.",
+        "reason": "지정된 기간에 거래 데이터가 없거나, 종목 코드가 잘못되었을 수 있습니다."
+    },
+    # Cash flow related errors
+    "Cash flow data not available": {
+        "message": "현금흐름 데이터가 아직 수집되지 않았습니다.",
+        "hint": "손익계산서 또는 재무상태표 데이터를 사용해주세요.",
+        "reason": "DART 현금흐름표 파싱이 아직 구현되지 않았습니다."
+    },
+    # Screening related errors
+    "No stocks match the screening criteria": {
+        "message": "조건을 만족하는 종목이 없습니다.",
+        "hint": "필터 조건을 완화해보세요 (예: PER < 20, PBR < 2).",
+        "reason": "지정한 조건이 너무 엄격하거나, 해당 시장에 조건을 만족하는 종목이 없습니다."
+    },
+}
+
+
+def get_friendly_error(original_message: str) -> Dict:
+    """
+    Get user-friendly error message for common error scenarios.
+
+    Args:
+        original_message: Original error message
+
+    Returns:
+        Dict with friendly message, hint, and reason if found,
+        or original message wrapped in dict if not found.
+    """
+    # Check for exact match
+    if original_message in FRIENDLY_ERROR_MESSAGES:
+        return FRIENDLY_ERROR_MESSAGES[original_message]
+
+    # Check for partial match
+    for key, value in FRIENDLY_ERROR_MESSAGES.items():
+        if key.lower() in original_message.lower():
+            return value
+
+    # Return original if no match found
+    return {"message": original_message, "hint": None, "reason": None}
 
 
 class SpockMCPError(Exception):
@@ -85,22 +148,33 @@ class ValidationError(SpockMCPError):
 
 
 class DataNotFoundError(SpockMCPError):
-    """Requested data not available"""
+    """Requested data not available - with user-friendly messages"""
 
     def __init__(self, message: str, details: Optional[Dict] = None):
         """
-        Initialize data not found error.
+        Initialize data not found error with user-friendly messaging.
+
+        Automatically converts technical error messages to user-friendly
+        versions with hints and reasons for common scenarios.
 
         Args:
             message: Human-readable error message
             details: Optional dict with query context
 
         Example:
-            >>> error = DataNotFoundError("No OHLCV data", {"ticker": "005930", "date_range": "2024-01-01 to 2024-12-31"})
-            >>> error.code
-            'DATA_NOT_FOUND'
+            >>> error = DataNotFoundError("No TTM data available", {"ticker": "005930"})
+            >>> error.friendly["hint"]
+            'ANNUAL 또는 QUARTERLY period_type을 사용해주세요.'
         """
-        super().__init__("DATA_NOT_FOUND", message, details)
+        self.friendly = get_friendly_error(message)
+        enhanced_details = details or {}
+        enhanced_details["friendly_message"] = self.friendly["message"]
+        if self.friendly["hint"]:
+            enhanced_details["hint"] = self.friendly["hint"]
+        if self.friendly["reason"]:
+            enhanced_details["reason"] = self.friendly["reason"]
+
+        super().__init__("DATA_NOT_FOUND", message, enhanced_details)
 
 
 class BacktestError(SpockMCPError):

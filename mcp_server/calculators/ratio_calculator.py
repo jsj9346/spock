@@ -303,17 +303,57 @@ class FinancialRatioCalculator:
 
     Calculates financial ratios from fundamental data and provides
     interpretation and health assessment.
+
+    Supports sector-aware calculations to skip irrelevant ratios for
+    certain industries (e.g., financial, service companies).
     """
 
-    def __init__(self, fundamentals: Dict[str, Any]):
+    # Sectors that don't have typical manufacturing metrics
+    FINANCIAL_SECTORS = ['금융', '은행', '보험', '증권', '카드', '캐피탈', 'Finance', 'Banking', 'Insurance']
+    SERVICE_SECTORS = ['서비스', '소프트웨어', 'IT', '인터넷', '플랫폼', 'Software', 'Internet', 'Services']
+
+    # Ratios to skip for financial companies
+    SKIP_FOR_FINANCIAL = ['inventory_turnover', 'inventory_days', 'gross_margin']
+
+    # Ratios to skip for service companies
+    SKIP_FOR_SERVICE = ['inventory_turnover', 'inventory_days']
+
+    def __init__(self, fundamentals: Dict[str, Any], sector: str = None):
         """
         Initialize calculator with fundamental data.
 
         Args:
             fundamentals: Dict containing fundamental data fields
                 e.g., {"current_assets": 100, "current_liabilities": 50, ...}
+            sector: Optional sector/industry classification for context-aware calculations
         """
         self.data = fundamentals
+        self.sector = sector or fundamentals.get('sector', '')
+        self._skip_ratios = self._get_skip_ratios()
+
+    def _get_skip_ratios(self) -> set:
+        """Determine which ratios to skip based on sector."""
+        skip = set()
+
+        sector_upper = self.sector.upper() if self.sector else ''
+
+        # Check if financial sector
+        for fin_sector in self.FINANCIAL_SECTORS:
+            if fin_sector.upper() in sector_upper:
+                skip.update(self.SKIP_FOR_FINANCIAL)
+                break
+
+        # Check if service sector
+        for svc_sector in self.SERVICE_SECTORS:
+            if svc_sector.upper() in sector_upper:
+                skip.update(self.SKIP_FOR_SERVICE)
+                break
+
+        return skip
+
+    def should_skip_ratio(self, ratio_name: str) -> bool:
+        """Check if a ratio should be skipped for this sector."""
+        return ratio_name in self._skip_ratios
 
     def _safe_divide(self, numerator: Any, denominator: Any, multiplier: float = 1.0) -> Optional[float]:
         """Safe division with None and zero handling"""
@@ -595,6 +635,21 @@ class FinancialRatioCalculator:
 
         results = {}
         for ratio_name, ratio_def in RATIO_DEFINITIONS[category].items():
+            # Skip ratios not applicable to this sector
+            if self.should_skip_ratio(ratio_name):
+                results[ratio_name] = {
+                    "value": None,
+                    "name": ratio_def["name"],
+                    "korean": ratio_def["korean"],
+                    "unit": ratio_def["unit"],
+                    "formula": ratio_def["formula"],
+                    "interpretation": f"업종 특성상 해당 없음 ({self.sector})",
+                    "health_status": None,
+                    "skipped": True,
+                    "skip_reason": "sector_not_applicable"
+                }
+                continue
+
             calc_method = calculation_methods.get(ratio_name)
 
             # Handle dividend_yield separately (direct from DB)

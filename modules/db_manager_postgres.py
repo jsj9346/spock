@@ -1640,7 +1640,10 @@ class PostgresDatabaseManager:
 
     def get_latest_fundamentals(self, ticker: str, region: str, period_type: str = 'DAILY') -> Optional[Dict]:
         """
-        Get latest fundamentals data
+        Get latest fundamentals data with valid values.
+
+        For DAILY period_type, filters out records where all valuation metrics are 0
+        (which indicates data collection errors).
 
         Args:
             ticker: Ticker symbol
@@ -1650,16 +1653,30 @@ class PostgresDatabaseManager:
         Returns:
             Latest fundamentals dictionary or None
         """
-        return self._execute_query("""
-            SELECT * FROM ticker_fundamentals
-            WHERE ticker = %s AND region = %s AND period_type = %s
-            ORDER BY date DESC
-            LIMIT 1
-        """, (ticker, region, period_type), fetch_one=True)
+        if period_type == 'DAILY':
+            # For DAILY data, filter out invalid records (all zeros)
+            return self._execute_query("""
+                SELECT * FROM ticker_fundamentals
+                WHERE ticker = %s AND region = %s AND period_type = %s
+                  AND (per > 0 OR pbr > 0 OR dividend_yield > 0)
+                ORDER BY date DESC
+                LIMIT 1
+            """, (ticker, region, period_type), fetch_one=True)
+        else:
+            # For ANNUAL/QUARTERLY, return as-is
+            return self._execute_query("""
+                SELECT * FROM ticker_fundamentals
+                WHERE ticker = %s AND region = %s AND period_type = %s
+                ORDER BY date DESC
+                LIMIT 1
+            """, (ticker, region, period_type), fetch_one=True)
 
     def get_stocks_by_per(self, max_per: float, region: str = None, min_market_cap: int = None) -> List[Dict]:
         """
-        Get stocks with P/E ratio below threshold
+        Get stocks with P/E ratio below threshold.
+
+        Filters out invalid data (per=0) in the subquery to ensure
+        the latest valid date is used for comparison.
 
         Args:
             max_per: Maximum P/E ratio
@@ -1677,7 +1694,9 @@ class PostgresDatabaseManager:
               AND tf.period_type = 'DAILY'
               AND tf.date = (
                   SELECT MAX(date) FROM ticker_fundamentals
-                  WHERE ticker = t.ticker AND region = t.region AND period_type = 'DAILY'
+                  WHERE ticker = t.ticker AND region = t.region
+                    AND period_type = 'DAILY'
+                    AND per > 0
               )
         """
         params = [max_per]
@@ -1696,7 +1715,10 @@ class PostgresDatabaseManager:
 
     def get_stocks_by_pbr(self, max_pbr: float, region: str = None) -> List[Dict]:
         """
-        Get stocks with P/B ratio below threshold
+        Get stocks with P/B ratio below threshold.
+
+        Filters out invalid data (pbr=0) in the subquery to ensure
+        the latest valid date is used for comparison.
 
         Args:
             max_pbr: Maximum P/B ratio
@@ -1713,7 +1735,9 @@ class PostgresDatabaseManager:
               AND tf.period_type = 'DAILY'
               AND tf.date = (
                   SELECT MAX(date) FROM ticker_fundamentals
-                  WHERE ticker = t.ticker AND region = t.region AND period_type = 'DAILY'
+                  WHERE ticker = t.ticker AND region = t.region
+                    AND period_type = 'DAILY'
+                    AND pbr > 0
               )
         """
         params = [max_pbr]
@@ -1728,7 +1752,10 @@ class PostgresDatabaseManager:
 
     def get_dividend_stocks(self, min_yield: float, region: str = None) -> List[Dict]:
         """
-        Get dividend stocks with yield above threshold
+        Get dividend stocks with yield above threshold.
+
+        Filters out invalid data in the subquery to ensure
+        the latest valid date is used for comparison.
 
         Args:
             min_yield: Minimum dividend yield (%)
@@ -1745,7 +1772,9 @@ class PostgresDatabaseManager:
               AND tf.period_type = 'DAILY'
               AND tf.date = (
                   SELECT MAX(date) FROM ticker_fundamentals
-                  WHERE ticker = t.ticker AND region = t.region AND period_type = 'DAILY'
+                  WHERE ticker = t.ticker AND region = t.region
+                    AND period_type = 'DAILY'
+                    AND (per > 0 OR pbr > 0 OR dividend_yield > 0)
               )
         """
         params = [min_yield]
@@ -1755,6 +1784,63 @@ class PostgresDatabaseManager:
             params.append(region)
 
         query += " ORDER BY tf.dividend_yield DESC"
+
+        return self._execute_query(query, tuple(params), fetch_all=True)
+
+    def screen_stocks_combined(
+        self,
+        per_max: float = None,
+        pbr_max: float = None,
+        dividend_yield_min: float = None,
+        region: str = "KR",
+        limit: int = 100
+    ) -> List[Dict]:
+        """
+        Efficient combined stock screening using v_latest_valid_fundamentals view.
+
+        This method applies all filters in a single query for better performance
+        compared to multiple individual queries with set intersection.
+
+        Args:
+            per_max: Maximum P/E ratio (optional)
+            pbr_max: Maximum P/B ratio (optional)
+            dividend_yield_min: Minimum dividend yield % (optional)
+            region: Market region code
+            limit: Maximum results to return
+
+        Returns:
+            List of stocks matching all criteria, sorted by composite score
+        """
+        conditions = ["v.region = %s"]
+        params = [region]
+
+        if per_max is not None:
+            conditions.append("v.per > 0 AND v.per <= %s")
+            params.append(per_max)
+
+        if pbr_max is not None:
+            conditions.append("v.pbr > 0 AND v.pbr <= %s")
+            params.append(pbr_max)
+
+        if dividend_yield_min is not None:
+            conditions.append("v.dividend_yield >= %s")
+            params.append(dividend_yield_min)
+
+        where_clause = " AND ".join(conditions)
+        params.append(limit)
+
+        query = f"""
+            SELECT t.ticker, t.name, t.exchange, t.asset_type,
+                   v.per, v.pbr, v.dividend_yield, v.market_cap, v.date,
+                   v.revenue, v.net_income, v.operating_profit
+            FROM v_latest_valid_fundamentals v
+            JOIN tickers t ON v.ticker = t.ticker AND v.region = t.region
+            WHERE {where_clause}
+            ORDER BY
+                CASE WHEN v.per > 0 THEN v.per ELSE 9999 END ASC,
+                CASE WHEN v.pbr > 0 THEN v.pbr ELSE 9999 END ASC
+            LIMIT %s
+        """
 
         return self._execute_query(query, tuple(params), fetch_all=True)
 

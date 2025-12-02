@@ -1057,17 +1057,20 @@ class DatabaseUpdateOrchestrator:
 
     def _backfill_cash_data(self, regions: List[str], **kwargs) -> Dict:
         """
-        Backfill cash and cash equivalents data for US market.
+        Backfill cash and cash equivalents data.
 
         This step updates ticker_fundamentals with:
         - cash_and_equivalents
         - short_term_investments
         - marketable_securities
+        - operating_cash_flow (KR only)
+        - fcf (KR only)
 
         Required for cash ratio calculation.
 
         Currently supports:
         - US: yfinance (balance sheet data)
+        - KR: yfinance with .KS/.KQ suffix (cash flow + balance sheet)
         """
         logger.info("🔄 Backfilling cash data...")
 
@@ -1104,12 +1107,44 @@ class DatabaseUpdateOrchestrator:
                     logger.error(f"  ❌ [{region}] Cash data backfill failed: {e}")
                     results[region] = {'success': False, 'error': str(e)}
 
+            elif region == 'KR':
+                # KR: Use yfinance with Korean stock suffix (.KS/.KQ)
+                try:
+                    from scripts.collect_cashflow_yfinance import CashFlowCollector
+
+                    collector = CashFlowCollector(self.db)
+
+                    # Run cash flow collection
+                    limit = self.config.get('limit', 100)
+                    success_count, total_count = collector.process_all_tickers(
+                        region=region,
+                        limit=limit
+                    )
+
+                    results[region] = {
+                        'success': True,
+                        'updated': success_count,
+                        'total': total_count,
+                        'skipped': total_count - success_count
+                    }
+
+                    logger.info(
+                        f"  ✅ [{region}] {success_count}/{total_count} cash flow updated"
+                    )
+
+                except ImportError as e:
+                    logger.warning(f"  ⚠️ [{region}] Cash flow collector not available: {e}")
+                    results[region] = {'success': False, 'error': str(e)}
+                except Exception as e:
+                    logger.error(f"  ❌ [{region}] Cash flow collection failed: {e}")
+                    results[region] = {'success': False, 'error': str(e)}
+
             else:
                 # Cash data backfill not yet implemented for other regions
-                logger.info(f"  [{region}] Cash data backfill not implemented (US only)")
+                logger.info(f"  [{region}] Cash data backfill not implemented (US/KR only)")
                 results[region] = {
                     'success': False,
-                    'message': 'Cash data backfill only supports US market currently'
+                    'message': 'Cash data backfill only supports US/KR markets currently'
                 }
 
         return results
