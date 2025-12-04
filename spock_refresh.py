@@ -73,6 +73,7 @@ from modules.fundamentals.ttm_service import TTMService
 
 # ETF Data Collection (ETF Details & Holdings)
 from modules.collection.etf_collector import ETFCollector
+from modules.collection.kr_etf_details_backfiller import KRETFDetailsBackfiller
 
 # Infrastructure Components (Phase 1 - Configuration Management)
 try:
@@ -6605,6 +6606,10 @@ def _run_etf_details_update(
 
     Returns:
         dict: Results with keys per region
+
+    Data Sources:
+        - KR: Naver Finance (KRETFDetailsBackfiller)
+        - US/JP/HK/CN/VN: yfinance (ETFCollector)
     """
     db = PostgresDatabaseManager()
     collector = ETFCollector(db_manager=db, skip_same_day=not force)
@@ -6614,22 +6619,61 @@ def _run_etf_details_update(
         try:
             print(f"  {colored(f'[{region}]', Fore.CYAN)} Collecting ETF details...")
 
-            # Get ETF tickers from database
-            tickers = collector.get_etf_tickers_from_db(region)
-            if not tickers:
-                print(f"    {colored(f'No ETF tickers found for {region}', Fore.YELLOW)}")
-                results[region] = {'total': 0, 'collected': 0, 'skipped': 0, 'failed': 0}
-                continue
+            # KR 리전: KRETFDetailsBackfiller 사용 (네이버 금융)
+            if region == 'KR':
+                backfiller = KRETFDetailsBackfiller(db_manager=db, rate_limit=0.3)
 
-            if limit:
-                tickers = tickers[:limit]
+                # 현재 상태 출력
+                stats = backfiller.get_coverage_stats()
+                if stats:
+                    total = stats.get('issuer', (0, 0))[1]
+                    null_count = len(backfiller.get_null_field_etfs())
+                    print(f"    {colored(f'Total KR ETFs: {total}, NULL fields: {null_count}', Fore.YELLOW)}")
 
-            # Collect batch details
-            result = collector.collect_batch_details(tickers, region, force=force)
-            results[region] = result
+                # 백필 실행
+                backfill_result = backfiller.run(
+                    dry_run=False,
+                    limit=limit,
+                    force=force
+                )
 
-            print(f"    {colored(f'Collected: {result['collected']}/{result['total']}', Fore.GREEN)}"
-                  f" (skipped: {result['skipped']}, failed: {result['failed']})")
+                results[region] = {
+                    'total': backfill_result.total_etfs,
+                    'collected': backfill_result.updated,
+                    'skipped': backfill_result.skipped,
+                    'failed': backfill_result.failed
+                }
+
+                print(f"    {colored(f'Updated: {backfill_result.updated}/{backfill_result.total_etfs}', Fore.GREEN)}"
+                      f" (skipped: {backfill_result.skipped}, failed: {backfill_result.failed})")
+
+                # 완료 후 커버리지 출력
+                after_stats = backfiller.get_coverage_stats()
+                if after_stats and backfill_result.updated > 0:
+                    print(f"    {colored('Coverage after update:', Fore.CYAN)}")
+                    for field, (count, total) in after_stats.items():
+                        pct = count / total * 100 if total > 0 else 0
+                        status = "✅" if pct >= 95 else "⚠️" if pct >= 50 else "❌"
+                        print(f"      {field:18s}: {count:5d}/{total:5d} ({pct:5.1f}%) {status}")
+
+            # 다른 리전: ETFCollector 사용 (yfinance)
+            else:
+                # Get ETF tickers from database
+                tickers = collector.get_etf_tickers_from_db(region)
+                if not tickers:
+                    print(f"    {colored(f'No ETF tickers found for {region}', Fore.YELLOW)}")
+                    results[region] = {'total': 0, 'collected': 0, 'skipped': 0, 'failed': 0}
+                    continue
+
+                if limit:
+                    tickers = tickers[:limit]
+
+                # Collect batch details
+                result = collector.collect_batch_details(tickers, region, force=force)
+                results[region] = result
+
+                print(f"    {colored(f'Collected: {result['collected']}/{result['total']}', Fore.GREEN)}"
+                      f" (skipped: {result['skipped']}, failed: {result['failed']})")
 
         except Exception as e:
             print(f"    {colored(f'Error: {e}', Fore.RED)}")
