@@ -59,7 +59,8 @@ class SECBackfillExecutor(BackfillExecutor):
         rate_limit_delay: float = 0.1,
         max_retries: int = 3,
         retry_delay: float = 5.0,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
+        period_type: str = "ANNUAL"
     ):
         """
         SEC Backfill Executor 초기화
@@ -71,6 +72,7 @@ class SECBackfillExecutor(BackfillExecutor):
             max_retries: 실패 시 최대 재시도 횟수
             retry_delay: 재시도 간 지연 시간 (초)
             user_agent: SEC API User-Agent (None이면 환경변수 사용)
+            period_type: 'ANNUAL' (10-K) 또는 'QUARTERLY' (10-Q)
         """
         super().__init__(
             db=db,
@@ -92,9 +94,13 @@ class SECBackfillExecutor(BackfillExecutor):
         # 백필 설정
         self.start_year = 2020
         self.end_year = 2024
-        self.period_type = "ANNUAL"
+        self.period_type = period_type.upper()
 
-        logger.info(f"🇺🇸 SECBackfillExecutor 초기화 완료 (dry_run={dry_run})")
+        # period_type 검증
+        if self.period_type not in ("ANNUAL", "QUARTERLY"):
+            raise ValueError(f"Invalid period_type: {period_type}. Must be 'ANNUAL' or 'QUARTERLY'")
+
+        logger.info(f"🇺🇸 SECBackfillExecutor 초기화 완료 (dry_run={dry_run}, period_type={self.period_type})")
 
     @property
     def sec_api(self) -> SECEdgarApiClient:
@@ -361,7 +367,8 @@ class SECBackfillExecutor(BackfillExecutor):
         self,
         limit: Optional[int] = None,
         include_unavailable: bool = False,
-        retry_errors: bool = True
+        retry_errors: bool = True,
+        force_refresh: bool = False
     ) -> List[TickerGapInfo]:
         """
         백필 대상 US ticker 목록 조회
@@ -370,31 +377,51 @@ class SECBackfillExecutor(BackfillExecutor):
             limit: 최대 조회 개수 (None이면 전체)
             include_unavailable: True면 unavailable ticker도 포함 (재시도용)
             retry_errors: True면 error 상태 ticker도 포함
+            force_refresh: True면 available 상태 ticker도 포함 (QUARTERLY 백필용)
 
         Returns:
             TickerGapInfo 목록
         """
-        # 상태 필터 조건 생성
-        status_conditions = ["fund_status IS NULL", "fund_status = 'unknown'"]
+        if force_refresh:
+            # QUARTERLY 백필: 이미 ANNUAL 데이터가 있는 available 티커도 대상으로 함
+            # 단, 해당 period_type의 데이터가 없는 티커만 선택
+            query = f"""
+            SELECT DISTINCT t.ticker, t.name, t.fund_status, t.fund_fail_count
+            FROM tickers t
+            WHERE t.region = 'US'
+              AND t.asset_type = 'STOCK'
+              AND t.is_active = TRUE
+              AND t.fund_status = 'available'
+              AND NOT EXISTS (
+                  SELECT 1 FROM ticker_fundamentals tf
+                  WHERE tf.ticker = t.ticker
+                    AND tf.region = 'US'
+                    AND tf.period_type = '{self.period_type}'
+              )
+            ORDER BY t.ticker
+            """
+        else:
+            # 일반 백필: 아직 처리되지 않은 티커만
+            status_conditions = ["fund_status IS NULL", "fund_status = 'unknown'"]
 
-        if include_unavailable:
-            status_conditions.append("fund_status = 'unavailable'")
+            if include_unavailable:
+                status_conditions.append("fund_status = 'unavailable'")
 
-        if retry_errors:
-            # 에러 발생 후 재시도 (fail_count < 3인 경우만)
-            status_conditions.append("(fund_status = 'error' AND COALESCE(fund_fail_count, 0) < 3)")
+            if retry_errors:
+                # 에러 발생 후 재시도 (fail_count < 3인 경우만)
+                status_conditions.append("(fund_status = 'error' AND COALESCE(fund_fail_count, 0) < 3)")
 
-        status_filter = " OR ".join(status_conditions)
+            status_filter = " OR ".join(status_conditions)
 
-        query = f"""
-        SELECT DISTINCT t.ticker, t.name, t.fund_status, t.fund_fail_count
-        FROM tickers t
-        WHERE t.region = 'US'
-          AND t.asset_type = 'STOCK'
-          AND t.is_active = TRUE
-          AND ({status_filter})
-        ORDER BY t.ticker
-        """
+            query = f"""
+            SELECT DISTINCT t.ticker, t.name, t.fund_status, t.fund_fail_count
+            FROM tickers t
+            WHERE t.region = 'US'
+              AND t.asset_type = 'STOCK'
+              AND t.is_active = TRUE
+              AND ({status_filter})
+            ORDER BY t.ticker
+            """
 
         if limit:
             query += f" LIMIT {limit}"
@@ -414,7 +441,7 @@ class SECBackfillExecutor(BackfillExecutor):
                 )
                 tickers.append(ticker_info)
 
-            logger.info(f"📋 US 백필 대상: {len(tickers)}개 ticker")
+            logger.info(f"📋 US 백필 대상 ({self.period_type}): {len(tickers)}개 ticker")
             return tickers
 
         except Exception as e:
@@ -427,7 +454,9 @@ class SECBackfillExecutor(BackfillExecutor):
         end_year: int = 2024,
         limit: Optional[int] = None,
         checkpoint_interval: int = 50,
-        resume: bool = False
+        resume: bool = False,
+        period_type: Optional[str] = None,
+        force_refresh: bool = False
     ) -> BackfillStats:
         """
         SEC 재무 데이터 백필 실행
@@ -438,6 +467,8 @@ class SECBackfillExecutor(BackfillExecutor):
             limit: 최대 ticker 수 (테스트용)
             checkpoint_interval: 체크포인트 저장 간격
             resume: 체크포인트에서 재개 여부
+            period_type: 'ANNUAL' (10-K) 또는 'QUARTERLY' (10-Q), None이면 초기화 시 설정값 사용
+            force_refresh: True면 이미 available 상태인 티커도 처리 (QUARTERLY 백필용)
 
         Returns:
             실행 통계
@@ -446,17 +477,26 @@ class SECBackfillExecutor(BackfillExecutor):
         self.start_year = start_year
         self.end_year = end_year
 
+        # period_type이 지정되면 업데이트
+        if period_type:
+            self.period_type = period_type.upper()
+
+        form_type = "10-K" if self.period_type == "ANNUAL" else "10-Q"
+
         logger.info("=" * 80)
         logger.info("🇺🇸 SEC EDGAR 재무 데이터 백필 시작")
         logger.info(f"   기간: {start_year} ~ {end_year}")
+        logger.info(f"   유형: {self.period_type} ({form_type})")
         logger.info(f"   모드: {'DRY RUN' if self.dry_run else 'PRODUCTION'}")
+        if force_refresh:
+            logger.info("   옵션: force_refresh=True (available 티커 포함)")
         logger.info("=" * 80)
 
         # 백필 대상 ticker 조회
-        tickers = self.get_us_tickers_for_backfill(limit=limit)
+        tickers = self.get_us_tickers_for_backfill(limit=limit, force_refresh=force_refresh)
 
         if not tickers:
-            logger.warning("백필 대상 ticker가 없습니다")
+            logger.warning(f"백필 대상 ticker가 없습니다 (period_type={self.period_type})")
             return self.stats
 
         # 배치 실행
