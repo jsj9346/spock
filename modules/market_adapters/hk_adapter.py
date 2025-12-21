@@ -3,7 +3,10 @@ Hong Kong Market Adapter - HKEX Stock Market Integration
 
 Handles ticker discovery, OHLCV collection, and fundamentals for HK stocks.
 
-Data Source: yfinance (Yahoo Finance)
+Hybrid Data Strategy:
+- Primary: AkShare (open-source, ~4,600 stocks, 36 financial indicators)
+- Fallback: yfinance (Yahoo Finance)
+
 Market: Hong Kong Exchange (HKEX)
 Trading Hours: 09:30-12:00, 13:00-16:00 HKT
 Currency: HKD
@@ -16,6 +19,7 @@ from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 
 from .base_adapter import BaseMarketAdapter
+from ..api_clients.akshare_api import AkShareAPI
 from ..api_clients.yfinance_api import YFinanceAPI
 from ..parsers.hk_stock_parser import HKStockParser
 
@@ -24,128 +28,205 @@ logger = logging.getLogger(__name__)
 
 class HKAdapter(BaseMarketAdapter):
     """
-    Hong Kong market adapter using yfinance
+    Hong Kong market adapter with hybrid data strategy (AkShare + yfinance)
 
     Features:
-    - Hang Seng Index constituents + major H-shares
+    - Dynamic ticker discovery via AkShare (~4,600 stocks)
+    - 36 financial indicators via AkShare
     - OHLCV data collection (250-day history)
-    - Company fundamentals
+    - yfinance fallback for reliability
     - HKEX holiday calendar support
 
     Usage:
         db = SQLiteDatabaseManager()
         adapter = HKAdapter(db)
-        stocks = adapter.scan_stocks(force_refresh=True)
+        stocks = adapter.scan_stocks(force_refresh=True)  # ~4,600 stocks from AkShare
+        adapter.collect_fundamentals()  # 36 financial indicators
         adapter.collect_stock_ohlcv(days=250)
     """
 
-    # Hang Seng Index constituents + major H-shares (sample list)
-    # In production, fetch from external source or update manually
-    DEFAULT_HK_TICKERS = [
+    # Fallback ticker list when AkShare fails
+    # Hang Seng Index constituents + major H-shares
+    FALLBACK_HK_TICKERS = [
         # Hang Seng Index Top 10
-        '0700',  # Tencent Holdings
-        '9988',  # Alibaba Group
-        '0941',  # China Mobile
-        '1299',  # AIA Group
-        '0388',  # Hong Kong Exchanges
-        '0005',  # HSBC Holdings
-        '3690',  # Meituan
-        '2318',  # Ping An Insurance
-        '1398',  # ICBC
-        '0011',  # Hang Seng Bank
+        '00700',  # Tencent Holdings
+        '09988',  # Alibaba Group
+        '00941',  # China Mobile
+        '01299',  # AIA Group
+        '00388',  # Hong Kong Exchanges
+        '00005',  # HSBC Holdings
+        '03690',  # Meituan
+        '02318',  # Ping An Insurance
+        '01398',  # ICBC
+        '00011',  # Hang Seng Bank
 
         # Major H-Shares
-        '0939',  # China Construction Bank
-        '2628',  # China Life Insurance
-        '0883',  # CNOOC
-        '0386',  # China Petroleum & Chemical
-        '1288',  # Agricultural Bank of China
-        '0857',  # PetroChina
-        '3988',  # Bank of China
-        '2382',  # Sunny Optical Technology
-        '1109',  # China Resources Land
-        '0175',  # Geely Automobile
+        '00939',  # China Construction Bank
+        '02628',  # China Life Insurance
+        '00883',  # CNOOC
+        '00386',  # China Petroleum & Chemical
+        '01288',  # Agricultural Bank of China
+        '00857',  # PetroChina
+        '03988',  # Bank of China
+        '02382',  # Sunny Optical Technology
+        '01109',  # China Resources Land
+        '00175',  # Geely Automobile
 
         # Technology
-        '0772',  # China Literature
-        '1810',  # Xiaomi Corporation
-        '9961',  # Trip.com Group
-        '9618',  # JD.com
-        '9999',  # NetEase
+        '00772',  # China Literature
+        '01810',  # Xiaomi Corporation
+        '09961',  # Trip.com Group
+        '09618',  # JD.com
+        '09999',  # NetEase
 
         # Consumer
-        '1211',  # BYD Company
-        '2269',  # Wuxi Biologics
-        '6618',  # JD Health International
-        '0968',  # Xinyi Solar Holdings
-        '2688',  # ENN Energy Holdings
+        '01211',  # BYD Company
+        '02269',  # Wuxi Biologics
+        '06618',  # JD Health International
+        '00968',  # Xinyi Solar Holdings
+        '02688',  # ENN Energy Holdings
     ]
 
-    def __init__(self, db_manager):
+    def __init__(self, db_manager, enable_fallback: bool = True):
         """
         Initialize Hong Kong adapter
 
         Args:
             db_manager: SQLiteDatabaseManager instance
+            enable_fallback: Enable yfinance fallback (default: True)
         """
         super().__init__(db_manager, region_code='HK')
 
-        self.yfinance_api = YFinanceAPI(rate_limit_per_second=1.0)
+        self.akshare_api = AkShareAPI(rate_limit_per_second=1.5)
+        self.yfinance_api = YFinanceAPI(rate_limit_per_second=1.0) if enable_fallback else None
         self.stock_parser = HKStockParser()
+        self.enable_fallback = enable_fallback
 
-        logger.info("🇭🇰 HKAdapter initialized (yfinance data source)")
+        logger.info("🇭🇰 HKAdapter initialized (AkShare primary + yfinance fallback)")
 
     def scan_stocks(self,
                     force_refresh: bool = False,
-                    ticker_list: Optional[List[str]] = None) -> List[Dict]:
+                    ticker_list: Optional[List[str]] = None,
+                    max_count: Optional[int] = None,
+                    use_akshare: bool = True) -> List[Dict]:
         """
         Scan Hong Kong stocks and populate database
 
         Workflow:
         1. Check cache (24-hour TTL)
-        2. Fetch ticker list (Hang Seng + H-shares)
-        3. Get company info for each ticker via yfinance
-        4. Parse and normalize data
-        5. Filter common stocks (exclude ETFs)
+        2. Fetch ticker list from AkShare (~4,600 stocks) or use fallback
+        3. Parse and normalize data
+        4. Filter common stocks (exclude warrants, CBBCs)
+        5. Apply max_count limit if specified
         6. Save to database
 
         Args:
             force_refresh: Ignore cache and force refresh
-            ticker_list: Custom ticker list (default: DEFAULT_HK_TICKERS)
+            ticker_list: Custom ticker list (overrides AkShare fetch)
+            max_count: Max number of stocks to return (default: None = all)
+            use_akshare: Use AkShare for dynamic ticker list (default: True)
 
         Returns:
             List of stock ticker dictionaries
         """
-        logger.info(f"🔍 [HK] Starting stock scan (force_refresh={force_refresh})")
+        logger.info(f"🔍 [HK] Starting stock scan (force_refresh={force_refresh}, use_akshare={use_akshare})")
 
         # Step 1: Check cache
         if not force_refresh:
             cached_tickers = self._load_tickers_from_cache(asset_type='STOCK')
             if cached_tickers:
+                if max_count:
+                    return cached_tickers[:max_count]
                 return cached_tickers
 
-        # Step 2: Use provided ticker list or default
-        if ticker_list is None:
-            ticker_list = self.DEFAULT_HK_TICKERS.copy()
-
-        logger.info(f"📊 [HK] Fetching {len(ticker_list)} tickers...")
-
-        # Step 3: Fetch company info for each ticker
+        # Step 2: Get ticker list
         all_stocks = []
-        success_count = 0
+
+        if ticker_list:
+            # Use provided custom ticker list with yfinance
+            logger.info(f"📊 [HK] Using custom ticker list ({len(ticker_list)} tickers)")
+            all_stocks = self._scan_stocks_yfinance(ticker_list)
+
+        elif use_akshare:
+            # Try AkShare first for dynamic expansion (~4,600 stocks)
+            logger.info("📊 [HK] Fetching stock list from AkShare...")
+
+            akshare_df = self.akshare_api.get_hk_stock_list()
+
+            if akshare_df is not None and not akshare_df.empty:
+                logger.info(f"✅ [HK] Fetched {len(akshare_df)} stocks from AkShare")
+
+                # Parse to standardized format
+                all_stocks = self.stock_parser.parse_hk_stock_list(akshare_df)
+                logger.info(f"✅ [HK] Parsed {len(all_stocks)} stocks")
+            else:
+                logger.warning("⚠️ [HK] AkShare failed, falling back to default tickers")
+                all_stocks = self._scan_stocks_yfinance(self.FALLBACK_HK_TICKERS)
+
+        else:
+            # Use fallback ticker list with yfinance
+            logger.info(f"📊 [HK] Using fallback ticker list ({len(self.FALLBACK_HK_TICKERS)} tickers)")
+            all_stocks = self._scan_stocks_yfinance(self.FALLBACK_HK_TICKERS)
+
+        # Step 3: Filter common stocks (exclude warrants, CBBCs, etc.)
+        common_stocks = self.stock_parser.filter_common_stocks(all_stocks)
+        logger.info(f"📊 [HK] Filtered to {len(common_stocks)} common stocks")
+
+        # Step 4: Apply max_count limit
+        if max_count and len(common_stocks) > max_count:
+            logger.info(f"📊 [HK] Limiting to {max_count}/{len(common_stocks)} stocks")
+            common_stocks = common_stocks[:max_count]
+
+        # Step 5: Classify asset types and save to database
+        if common_stocks:
+            # Classify each ticker and group by asset_type
+            asset_type_counts = {}
+            classified_stocks = []
+
+            for stock in common_stocks:
+                asset_type = self.stock_parser.classify_asset_type(stock)
+                stock['asset_type'] = asset_type
+                classified_stocks.append(stock)
+
+                # Track counts for logging
+                asset_type_counts[asset_type] = asset_type_counts.get(asset_type, 0) + 1
+
+            # Log classification summary
+            logger.info(f"📊 [HK] Classification summary: {asset_type_counts}")
+
+            # Save all tickers (will be saved with their classified asset_type)
+            self._save_tickers_to_db(classified_stocks, asset_type=None)
+            logger.info(f"💾 [HK] Saved {len(classified_stocks)} tickers to database")
+        else:
+            logger.warning("⚠️ [HK] No stocks to save")
+
+        return common_stocks
+
+    def _scan_stocks_yfinance(self, ticker_list: List[str]) -> List[Dict]:
+        """
+        Scan stocks using yfinance (fallback method)
+
+        Args:
+            ticker_list: List of HK ticker codes
+
+        Returns:
+            List of stock ticker dictionaries
+        """
+        all_stocks = []
 
         for i, ticker in enumerate(ticker_list, 1):
             try:
-                # Denormalize ticker for yfinance: "0700" → "0700.HK"
+                # Denormalize ticker for yfinance: "00700" → "0700.HK"
                 yfinance_ticker = self.stock_parser.denormalize_ticker(ticker)
 
-                logger.info(f"📈 ({i}/{len(ticker_list)}) Fetching {yfinance_ticker}...")
+                if i % 10 == 0:
+                    logger.info(f"📈 [HK] yfinance progress: {i}/{len(ticker_list)}")
 
                 # Fetch company info
                 info = self.yfinance_api.get_ticker_info(yfinance_ticker)
 
                 if not info:
-                    logger.warning(f"⚠️ No data for {yfinance_ticker}")
+                    logger.debug(f"⚠️ No data for {yfinance_ticker}")
                     continue
 
                 # Parse to standardized format
@@ -153,27 +234,13 @@ class HKAdapter(BaseMarketAdapter):
 
                 if stock_data:
                     all_stocks.append(stock_data)
-                    success_count += 1
-                else:
-                    logger.warning(f"⚠️ Failed to parse {yfinance_ticker}")
 
             except Exception as e:
-                logger.error(f"❌ Error fetching {ticker}: {e}")
+                logger.debug(f"⚠️ Error fetching {ticker}: {e}")
                 continue
 
-        logger.info(f"✅ [HK] Fetched {success_count}/{len(ticker_list)} stocks")
-
-        # Step 4: Filter common stocks (exclude ETFs)
-        common_stocks = self.stock_parser.filter_common_stocks(all_stocks)
-
-        # Step 5: Save to database
-        if common_stocks:
-            self._save_tickers_to_db(common_stocks, asset_type='STOCK')
-            logger.info(f"💾 [HK] Saved {len(common_stocks)} stocks to database")
-        else:
-            logger.warning("⚠️ [HK] No stocks to save")
-
-        return common_stocks
+        logger.info(f"✅ [HK] yfinance fetched {len(all_stocks)}/{len(ticker_list)} stocks")
+        return all_stocks
 
     def scan_etfs(self, force_refresh: bool = False) -> List[Dict]:
         """
@@ -284,11 +351,113 @@ class HKAdapter(BaseMarketAdapter):
         logger.info("⚠️ [HK] ETF OHLCV collection not implemented")
         return 0
 
-    def collect_fundamentals(self, tickers: Optional[List[str]] = None) -> int:
+    def collect_fundamentals(self,
+                            tickers: Optional[List[str]] = None,
+                            use_fallback: bool = True,
+                            report_date: Optional[str] = None) -> int:
         """
-        Collect fundamental data for HK stocks
+        Collect fundamental data for HK stocks with hybrid strategy
 
-        Fetches market cap, sector, industry from yfinance info.
+        Primary: AkShare (36 financial indicators)
+        Fallback: yfinance (market cap only)
+
+        Args:
+            tickers: List of ticker codes (None = all HK stocks)
+            use_fallback: Use yfinance fallback if AkShare fails
+            report_date: Target report date (YYYY-MM-DD format, default: today)
+
+        Returns:
+            Number of tickers updated
+        """
+        logger.info("📊 [HK] Starting fundamentals collection (AkShare primary)")
+
+        # Get ticker list
+        if tickers is None:
+            db_tickers = self.db.get_tickers(region='HK', asset_type='STOCK', is_active=True)
+            tickers = [t['ticker'] for t in db_tickers]
+
+        if not tickers:
+            logger.warning("⚠️ [HK] No tickers for fundamentals")
+            return 0
+
+        logger.info(f"📈 [HK] Collecting fundamentals for {len(tickers)} stocks...")
+
+        success_count = 0
+        fallback_count = 0
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        for i, ticker in enumerate(tickers, 1):
+            try:
+                if i % 100 == 0:
+                    logger.info(f"📊 [HK] Progress: {i}/{len(tickers)} ({i/len(tickers)*100:.1f}%)")
+
+                # Normalize ticker for AkShare API: "0001.HK" → "00001" (5 digits)
+                akshare_ticker = self.stock_parser.normalize_ticker_akshare(ticker)
+                if not akshare_ticker:
+                    logger.debug(f"⚠️ Invalid ticker format for AkShare: {ticker}")
+                    # Fall through to yfinance fallback
+                else:
+                    # Try AkShare first (36 financial indicators)
+                    indicators_df = self.akshare_api.get_hk_financial_indicators(akshare_ticker)
+
+                    if indicators_df is not None and not indicators_df.empty:
+                        # Parse to database format
+                        record = self.stock_parser.parse_hk_financial_indicators(
+                            indicators_df,
+                            ticker,  # Use original ticker for DB storage
+                            report_date=report_date
+                        )
+
+                        if record:
+                            # Check insertion result
+                            if self.db.insert_ticker_fundamentals(record):
+                                success_count += 1
+                                continue
+                            else:
+                                logger.debug(f"⚠️ [HK] Failed to insert {ticker}")
+
+                # Fallback to yfinance if AkShare fails
+                if use_fallback and self.yfinance_api:
+                    logger.debug(f"⚠️ AkShare failed for {ticker}, trying yfinance...")
+
+                    yfinance_ticker = self.stock_parser.denormalize_ticker(ticker)
+                    info = self.yfinance_api.get_ticker_info(yfinance_ticker)
+
+                    if info:
+                        market_cap = info.get('market_cap')
+
+                        if market_cap:
+                            # Check insertion result
+                            if self.db.insert_ticker_fundamentals({
+                                'ticker': ticker,
+                                'region': 'HK',
+                                'date': today,
+                                'period_type': 'QUARTERLY',
+                                'market_cap': market_cap,
+                                'data_source': 'yfinance'
+                            }):
+                                fallback_count += 1
+                                success_count += 1
+                            else:
+                                logger.debug(f"⚠️ [HK] Failed to insert {ticker} (yfinance fallback)")
+
+            except Exception as e:
+                logger.debug(f"⚠️ Fundamentals collection failed for {ticker}: {e}")
+                continue
+
+        logger.info(f"✅ [HK] Fundamentals complete: {success_count}/{len(tickers)}")
+
+        if fallback_count > 0:
+            logger.info(f"📊 [HK] yfinance fallback used for {fallback_count} stocks")
+
+        return success_count
+
+    def collect_fundamentals_legacy(self, tickers: Optional[List[str]] = None) -> int:
+        """
+        Legacy fundamentals collection using yfinance only (market cap)
+
+        Kept for backward compatibility. Use collect_fundamentals() for
+        comprehensive fundamental data collection with AkShare.
 
         Args:
             tickers: List of ticker codes (None = all HK stocks)
@@ -296,7 +465,7 @@ class HKAdapter(BaseMarketAdapter):
         Returns:
             Number of tickers updated
         """
-        logger.info("📊 [HK] Starting fundamentals collection")
+        logger.info("📊 [HK] Starting legacy fundamentals collection (yfinance only)")
 
         # Get ticker list
         if tickers is None:
@@ -331,6 +500,7 @@ class HKAdapter(BaseMarketAdapter):
                 if market_cap:
                     self.db.insert_ticker_fundamentals({
                         'ticker': ticker,
+                        'region': 'HK',
                         'date': today,
                         'period_type': 'DAILY',
                         'market_cap': market_cap,
@@ -344,7 +514,7 @@ class HKAdapter(BaseMarketAdapter):
                 logger.error(f"❌ Fundamentals collection failed for {ticker}: {e}")
                 continue
 
-        logger.info(f"✅ [HK] Fundamentals complete: {success_count}/{len(tickers)}")
+        logger.info(f"✅ [HK] Legacy fundamentals complete: {success_count}/{len(tickers)}")
         return success_count
 
     def add_custom_tickers(self, tickers: List[str]) -> int:

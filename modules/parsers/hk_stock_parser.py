@@ -265,6 +265,39 @@ class HKStockParser:
 
         return ticker
 
+    def normalize_ticker_akshare(self, raw_ticker: str) -> Optional[str]:
+        """
+        Normalize HK ticker for AkShare API: "0001.HK" → "00001" (5 digits)
+
+        AkShare HK API requires 5-digit format with leading zeros.
+
+        Args:
+            raw_ticker: Raw ticker from DB (e.g., "0001.HK", "0700.HK")
+
+        Returns:
+            5-digit ticker for AkShare (e.g., "00001", "00700") or None if invalid
+        """
+        if not raw_ticker:
+            return None
+
+        # Remove ".HK" suffix if present
+        if raw_ticker.endswith('.HK'):
+            ticker = raw_ticker[:-3]
+        else:
+            ticker = raw_ticker
+
+        # Remove any non-digit characters
+        ticker = ''.join(c for c in ticker if c.isdigit())
+
+        if not ticker:
+            logger.warning(f"⚠️ Invalid HK ticker format for AkShare: {raw_ticker}")
+            return None
+
+        # Pad to 5 digits with leading zeros (AkShare HK requirement)
+        akshare_ticker = ticker.zfill(5)
+
+        return akshare_ticker
+
     def denormalize_ticker(self, ticker: str) -> str:
         """
         Convert normalized ticker to yfinance format: "0700" → "0700.HK"
@@ -372,3 +405,278 @@ class HKStockParser:
 
         logger.info(f"✅ Filtered to {len(common_stocks)}/{len(tickers)} common stocks")
         return common_stocks
+
+    # =========================================================================
+    # Asset Type Classification (Added for CN/HK Fundamental Improvement)
+    # =========================================================================
+
+    def classify_asset_type(self, ticker_info: Dict) -> str:
+        """
+        Classify HK security as STOCK, ETF, MUTUALFUND, or INDEX
+
+        Args:
+            ticker_info: Dictionary with ticker metadata
+                        Must contain 'ticker' and optionally 'name', 'quoteType'
+
+        Returns:
+            Asset type: 'STOCK', 'ETF', 'MUTUALFUND', or 'INDEX'
+
+        Classification Logic:
+            1. Check yfinance quoteType (most reliable)
+            2. Check name for ETF/Fund keywords (English + Chinese)
+            3. Default to 'STOCK' (conservative fallback)
+
+        Examples:
+            >>> parser.classify_asset_type({'ticker': '02800', 'name': 'Tracker Fund', 'quoteType': 'ETF'})
+            'ETF'
+            >>> parser.classify_asset_type({'ticker': '00700', 'name': 'Tencent Holdings'})
+            'STOCK'
+            >>> parser.classify_asset_type({'ticker': '00091', 'name': 'HK Equity Fund', 'quoteType': 'MUTUALFUND'})
+            'MUTUALFUND'
+        """
+        # Step 1: Check yfinance quoteType (if available)
+        quote_type = ticker_info.get('quoteType', '').upper()
+
+        # quoteType takes absolute precedence over all other classification methods
+        if quote_type in ['ETF', 'MUTUALFUND', 'INDEX', 'EQUITY']:
+            # EQUITY -> STOCK
+            result = 'STOCK' if quote_type == 'EQUITY' else quote_type
+            logger.debug(f"Classified {ticker_info.get('ticker')} as {result} (via quoteType={quote_type})")
+            return result
+
+        # Step 2: Name-based classification (English and Chinese keywords)
+        name = ticker_info.get('name', '').upper()
+
+        # HK ETF keywords (both English and Chinese)
+        # Common patterns: "Tracker Fund", "iShares", "SPDR", "Vanguard", "XXX ETF"
+        etf_keywords = [
+            'ETF', 'TRACKER', 'ISHARES', 'SPDR', 'VANGUARD',
+            '指数', '交易型开放式', 'INDEX FUND'
+        ]
+        if any(keyword in name for keyword in etf_keywords):
+            logger.debug(f"Classified {ticker_info.get('ticker')} as ETF (via name: {name})")
+            return 'ETF'
+
+        # HK Mutual fund keywords
+        # Common patterns: "XXX Fund", "Investment Fund", "基金"
+        fund_keywords = [
+            'FUND', 'INVESTMENT FUND', 'UNIT TRUST',
+            '基金', 'MUTUAL FUND'
+        ]
+        # Exclude "TRACKER FUND" (already caught as ETF)
+        if any(keyword in name for keyword in fund_keywords) and 'TRACKER' not in name:
+            logger.debug(f"Classified {ticker_info.get('ticker')} as MUTUALFUND (via name: {name})")
+            return 'MUTUALFUND'
+
+        # Step 3: Default to STOCK (conservative fallback)
+        logger.debug(f"Classified {ticker_info.get('ticker')} as STOCK (default)")
+        return 'STOCK'
+
+    # =========================================================================
+    # HK Fundamental Data Parsing Methods (Added for Phase 6 - AkShare)
+    # =========================================================================
+
+    # Field mapping: AkShare HK indicators → DB column
+    HK_FINANCIAL_INDICATOR_MAPPING = {
+        'BASIC_EPS': 'eps',
+        'BPS': 'bps',
+        'ROE_AVG': 'roe',
+        'ROA': 'roa',
+        'DEBT_ASSET_RATIO': 'debt_ratio',
+        'CURRENT_RATIO': 'current_ratio',
+        'GROSS_PROFIT_RATIO': 'gross_margin',
+        'NET_PROFIT_RATIO': 'net_margin',
+        'OPERATE_INCOME': 'revenue',
+        'HOLDER_PROFIT': 'net_income',
+        'OPERATE_INCOME_YOY': 'revenue_yoy',
+        'HOLDER_PROFIT_YOY': 'net_income_yoy',
+        'EPS_TTM': 'eps_ttm',
+        'ROE_YEARLY': 'roe_yearly',
+        'ROIC_YEARLY': 'roic',
+    }
+
+    def _safe_float(self, value, default=None) -> Optional[float]:
+        """Safely convert value to float"""
+        if value is None or pd.isna(value):
+            return default
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return default
+
+    def parse_hk_stock_list(self, akshare_df: pd.DataFrame) -> List[Dict]:
+        """
+        Parse AkShare HK stock list to standardized format
+
+        Args:
+            akshare_df: DataFrame from ak.stock_hk_spot_em()
+
+        Returns:
+            List of standardized ticker dictionaries
+
+        Example output:
+            [
+                {
+                    'ticker': '00700',
+                    'name': '腾讯控股',
+                    'exchange': 'HKEX',
+                    'region': 'HK',
+                    'currency': 'HKD',
+                    'close_price': 350.0,
+                    'data_source': 'akshare'
+                },
+                ...
+            ]
+        """
+        if akshare_df is None or akshare_df.empty:
+            logger.warning("⚠️ Empty AkShare HK stock list")
+            return []
+
+        stocks = []
+
+        for _, row in akshare_df.iterrows():
+            try:
+                # Extract code (already English from akshare_api.py)
+                ticker = str(row.get('code', row.get('代码', ''))).zfill(5)
+                name = row.get('name', row.get('名称', ''))
+
+                if not ticker or not name:
+                    continue
+
+                # Extract price
+                price = row.get('price', row.get('最新价'))
+                if pd.notna(price):
+                    try:
+                        price = float(price)
+                    except (ValueError, TypeError):
+                        price = None
+                else:
+                    price = None
+
+                stock_data = {
+                    'ticker': ticker,
+                    'name': name,
+                    'name_eng': None,  # Will be enriched via yfinance if needed
+                    'exchange': 'HKEX',
+                    'region': 'HK',
+                    'currency': 'HKD',
+                    'close_price': price,
+                    'data_source': 'akshare'
+                }
+
+                stocks.append(stock_data)
+
+            except Exception as e:
+                logger.debug(f"⚠️ Parse error for HK row: {e}")
+                continue
+
+        logger.info(f"✅ Parsed {len(stocks)} HK stocks from AkShare")
+        return stocks
+
+    def parse_hk_financial_indicators(self,
+                                      df: pd.DataFrame,
+                                      ticker: str,
+                                      report_date: Optional[str] = None) -> Optional[Dict]:
+        """
+        Parse HK financial indicator DataFrame to database format
+
+        Args:
+            df: DataFrame from ak.stock_financial_hk_analysis_indicator_em()
+            ticker: HK stock ticker code (e.g., '00700')
+            report_date: Specific report date to extract (e.g., '2024-12-31')
+                        If None, uses the most recent date
+
+        Returns:
+            Dictionary ready for DB insertion or None if invalid
+
+        Example output:
+            {
+                'ticker': '00700',
+                'region': 'HK',
+                'date': '2024-12-31',
+                'period_type': 'QUARTERLY',
+                'eps': 20.938,
+                'bps': 106.62,
+                'roe': 21.78,
+                'roa': 11.56,
+                'debt_ratio': 40.83,
+                'current_ratio': 1.25,
+                'gross_margin': 52.90,
+                'net_margin': 21.78,
+                'revenue': 660257000000,
+                'net_income': 194073000000,
+                'data_source': 'akshare'
+            }
+        """
+        if df is None or df.empty:
+            logger.warning(f"⚠️ Empty financial indicators for HK:{ticker}")
+            return None
+
+        try:
+            # Select row based on report_date or use most recent
+            if report_date:
+                # Find row matching the report date
+                if 'REPORT_DATE' in df.columns:
+                    df['_parsed_date'] = pd.to_datetime(df['REPORT_DATE']).dt.strftime('%Y-%m-%d')
+                    row = df[df['_parsed_date'] == report_date]
+                    if row.empty:
+                        logger.warning(f"⚠️ No data for date {report_date} for HK:{ticker}")
+                        row = df.iloc[[0]]  # Fallback to most recent
+                    else:
+                        row = row.iloc[[0]]
+                else:
+                    row = df.iloc[[0]]
+            else:
+                # Use most recent (first row)
+                row = df.iloc[[0]]
+
+            # Safety check before accessing iloc
+            if row is None or (hasattr(row, 'empty') and row.empty):
+                logger.warning(f"⚠️ No valid row found for HK:{ticker}")
+                return None
+
+            row = row.iloc[0]  # Convert to Series
+
+            # Extract report date
+            raw_date = row.get('REPORT_DATE', '')
+            if raw_date:
+                parsed_date = pd.to_datetime(raw_date)
+                formatted_date = parsed_date.strftime('%Y-%m-%d')
+            else:
+                formatted_date = datetime.now().strftime('%Y-%m-%d')
+
+            # Build fundamentals dict
+            fundamentals = {
+                'ticker': ticker,
+                'region': 'HK',
+                'date': formatted_date,
+                'period_type': 'QUARTERLY',
+                'data_source': 'akshare',
+                # Core valuation metrics
+                'eps': self._safe_float(row.get('BASIC_EPS')),
+                'bps': self._safe_float(row.get('BPS')),
+                'roe': self._safe_float(row.get('ROE_AVG')),
+                'roa': self._safe_float(row.get('ROA')),
+                # Debt and liquidity
+                'debt_ratio': self._safe_float(row.get('DEBT_ASSET_RATIO')),
+                'current_ratio': self._safe_float(row.get('CURRENT_RATIO')),
+                # Margins
+                'gross_margin': self._safe_float(row.get('GROSS_PROFIT_RATIO')),
+                'net_margin': self._safe_float(row.get('NET_PROFIT_RATIO')),
+                # Income data
+                'revenue': self._safe_float(row.get('OPERATE_INCOME')),
+                'revenue_yoy': self._safe_float(row.get('OPERATE_INCOME_YOY')),
+                'net_income': self._safe_float(row.get('HOLDER_PROFIT')),
+                'net_income_yoy': self._safe_float(row.get('HOLDER_PROFIT_YOY')),
+                # TTM and additional metrics
+                'eps_ttm': self._safe_float(row.get('EPS_TTM')),
+                'roe_yearly': self._safe_float(row.get('ROE_YEARLY')),
+                'roic': self._safe_float(row.get('ROIC_YEARLY')),
+            }
+
+            logger.debug(f"✅ Parsed financial indicators for HK:{ticker} ({formatted_date})")
+            return fundamentals
+
+        except Exception as e:
+            logger.error(f"❌ Parse error for HK:{ticker} financial indicators: {e}")
+            return None

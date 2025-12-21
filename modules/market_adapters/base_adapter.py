@@ -220,7 +220,8 @@ class BaseMarketAdapter(ABC):
 
         Args:
             tickers: List of ticker dictionaries
-            asset_type: 'STOCK' or 'ETF'
+            asset_type: Default asset type if not specified in ticker_data
+                       If None, uses asset_type from each ticker_data dict
         """
         from datetime import datetime
 
@@ -228,10 +229,17 @@ class BaseMarketAdapter(ABC):
         today = datetime.now().strftime("%Y-%m-%d")
 
         # Delete existing tickers for this region + asset_type
-        self.db.delete_tickers(region=self.region_code, asset_type=asset_type)
+        # If asset_type is None, delete all tickers for region (will be reclassified)
+        if asset_type is None:
+            self.db.delete_tickers(region=self.region_code, asset_type=None)
+        else:
+            self.db.delete_tickers(region=self.region_code, asset_type=asset_type)
 
         for ticker_data in tickers:
             try:
+                # Determine asset_type for this ticker
+                ticker_asset_type = ticker_data.get('asset_type', asset_type or 'STOCK')
+
                 # Validate lot_size before insertion
                 lot_size = ticker_data.get('lot_size', 1)
                 if not self._validate_lot_size(lot_size, self.region_code):
@@ -248,7 +256,7 @@ class BaseMarketAdapter(ABC):
                     'exchange': ticker_data['exchange'],
                     'region': self.region_code,
                     'currency': ticker_data['currency'],
-                    'asset_type': asset_type,
+                    'asset_type': ticker_asset_type,
                     'listing_date': ticker_data.get('listing_date'),
                     'lot_size': lot_size,
                     'is_active': True,
@@ -258,7 +266,7 @@ class BaseMarketAdapter(ABC):
                 })
 
                 # 2. Insert into asset-specific table
-                if asset_type == 'STOCK':
+                if ticker_asset_type == 'STOCK':
                     self.db.insert_stock_details({
                         'ticker': ticker_data['ticker'],
                         'region': self.region_code,  # ✅ Auto-inject region from adapter
@@ -272,7 +280,7 @@ class BaseMarketAdapter(ABC):
                         'created_at': now,
                         'last_updated': now,
                     })
-                elif asset_type == 'ETF':
+                elif ticker_asset_type == 'ETF':
                     self.db.insert_etf_details({
                         'ticker': ticker_data['ticker'],
                         'issuer': ticker_data.get('issuer'),
@@ -286,6 +294,7 @@ class BaseMarketAdapter(ABC):
                 if ticker_data.get('market_cap') or ticker_data.get('close_price'):
                     self.db.insert_ticker_fundamentals({
                         'ticker': ticker_data['ticker'],
+                        'region': self.region_code,
                         'date': today,
                         'period_type': 'DAILY',
                         'market_cap': ticker_data.get('market_cap'),
@@ -414,7 +423,7 @@ class BaseMarketAdapter(ABC):
             'CN': (100, 100),       # Only 100
             'JP': (1, 10000),       # Variable (1, 100, 1000, 10000) - Post-2018 TSE reform
             'VN': (100, 100),       # Only 100
-            'HK': (100, 2000),      # Variable (100-2000)
+            'HK': (1, 10000),       # Variable (1-10000) - Some stocks trade in odd lots
         }
 
         min_lot, max_lot = valid_ranges.get(region, (1, 999999))

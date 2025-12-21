@@ -483,3 +483,330 @@ class CNStockParser:
 
         logger.info(f"✅ Filtered to {len(common_stocks)}/{len(tickers)} common stocks")
         return common_stocks
+
+    def classify_asset_type(self, ticker_info: Dict) -> str:
+        """
+        Classify CN security as STOCK, ETF, MUTUALFUND, or INDEX
+
+        Args:
+            ticker_info: Dictionary with ticker metadata
+                        Must contain 'ticker' and optionally 'name', 'quoteType'
+
+        Returns:
+            Asset type: 'STOCK', 'ETF', 'MUTUALFUND', or 'INDEX'
+
+        Classification Logic:
+            1. Check yfinance quoteType (most reliable)
+            2. Check name for ETF/Fund keywords (ETF, 指数, 基金, LOF, 交易型开放式)
+            3. Check ticker pattern (51xxxx, 52xxxx for CN ETFs)
+            4. Default to 'STOCK' (conservative fallback)
+
+        Examples:
+            >>> parser.classify_asset_type({'ticker': '510050', 'name': 'China 50 ETF'})
+            'ETF'
+            >>> parser.classify_asset_type({'ticker': '600519', 'name': '贵州茅台'})
+            'STOCK'
+        """
+        # Step 1: Check yfinance quoteType (if available)
+        quote_type = ticker_info.get('quoteType', '').upper()
+
+        # quoteType takes absolute precedence over all other classification methods
+        if quote_type in ['ETF', 'MUTUALFUND', 'INDEX', 'EQUITY']:
+            # EQUITY -> STOCK
+            result = 'STOCK' if quote_type == 'EQUITY' else quote_type
+            logger.debug(f"Classified {ticker_info.get('ticker')} as {result} (via quoteType={quote_type})")
+            return result
+
+        # Step 2: Name-based classification (Chinese keywords)
+        name = ticker_info.get('name', '').upper()
+
+        # ETF keywords (Chinese and English)
+        etf_keywords = ['ETF', '指数', '交易型开放式指数', 'LOF', '联接']
+        if any(keyword in name for keyword in etf_keywords):
+            logger.debug(f"Classified {ticker_info.get('ticker')} as ETF (via name: {name})")
+            return 'ETF'
+
+        # Mutual fund keywords
+        fund_keywords = ['基金', 'FUND']
+        if any(keyword in name for keyword in fund_keywords):
+            logger.debug(f"Classified {ticker_info.get('ticker')} as MUTUALFUND (via name: {name})")
+            return 'MUTUALFUND'
+
+        # Step 3: CN ticker code patterns
+        ticker = ticker_info.get('ticker', '')
+
+        # CN ETF patterns:
+        # - 51xxxx: Shanghai ETFs (510050, 510300, etc.)
+        # - 52xxxx: Shanghai innovation ETFs
+        # - 15xxxx: Shenzhen ETFs (159901, 159915, etc.)
+        if ticker and len(ticker) == 6:
+            if ticker.startswith(('51', '52', '15')):
+                logger.debug(f"Classified {ticker} as ETF (via ticker pattern)")
+                return 'ETF'
+
+        # Step 4: Default to STOCK (conservative fallback)
+        logger.debug(f"Classified {ticker_info.get('ticker')} as STOCK (default)")
+        return 'STOCK'
+
+    # =========================================================================
+    # CN Fundamental Data Parsing Methods (Added for Phase 6)
+    # =========================================================================
+
+    # Field mapping: AkShare Chinese → DB column
+    CN_FINANCIAL_INDICATOR_MAPPING = {
+        # Core valuation metrics
+        '摊薄每股收益(元)': 'eps',
+        '每股净资产_调整前(元)': 'bps',
+        '净资产收益率(%)': 'roe',
+        '总资产利润率(%)': 'roa',
+        # Debt and liquidity
+        '资产负债率(%)': 'debt_ratio',
+        '流动比率': 'current_ratio',
+        '速动比率': 'quick_ratio',
+        # Margins
+        '销售毛利率(%)': 'gross_margin',
+        '销售净利率(%)': 'net_margin',
+        '营业利润率(%)': 'operating_margin',
+        # Growth
+        '主营业务收入增长率(%)': 'revenue_growth',
+        '净利润增长率(%)': 'net_income_growth',
+        # Per-share metrics
+        '每股经营性现金流(元)': 'operating_cash_flow_per_share',
+        '每股资本公积金(元)': 'capital_reserve_per_share',
+        '每股未分配利润(元)': 'retained_earnings_per_share',
+        # Turnover ratios
+        '存货周转率(次)': 'inventory_turnover',
+        '应收账款周转率(次)': 'receivables_turnover',
+        '总资产周转率(次)': 'asset_turnover',
+    }
+
+    # Batch earnings report mapping
+    CN_EARNINGS_BATCH_MAPPING = {
+        '股票代码': 'ticker',
+        '股票简称': 'name',
+        '每股收益': 'eps',
+        '营业总收入-营业总收入': 'revenue',
+        '营业总收入-同比增长': 'revenue_yoy',
+        '净利润-净利润': 'net_income',
+        '净利润-同比增长': 'net_income_yoy',
+        '每股净资产': 'bps',
+        '净资产收益率': 'roe',
+        '销售毛利率': 'gross_margin',
+    }
+
+    def _safe_float(self, value, default=None) -> Optional[float]:
+        """Safely convert value to float"""
+        if value is None or pd.isna(value):
+            return default
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return default
+
+    def parse_cn_financial_indicators(self,
+                                      df: pd.DataFrame,
+                                      ticker: str,
+                                      report_date: Optional[str] = None) -> Optional[Dict]:
+        """
+        Parse CN financial indicator DataFrame to database format
+
+        Args:
+            df: DataFrame from ak.stock_financial_analysis_indicator()
+            ticker: Stock ticker code
+            report_date: Specific report date to extract (e.g., '2024-09-30')
+                        If None, uses the most recent date
+
+        Returns:
+            Dictionary ready for DB insertion or None if invalid
+
+        Example output:
+            {
+                'ticker': '600519',
+                'region': 'CN',
+                'date': '2024-09-30',
+                'period_type': 'QUARTERLY',
+                'eps': 43.6453,
+                'roe': 24.28,
+                'roa': 20.92,
+                'debt_ratio': 14.14,
+                'current_ratio': 5.96,
+                'gross_margin': None,  # Not in this dataset
+                'net_margin': 53.09,
+                'data_source': 'akshare'
+            }
+        """
+        if df is None or df.empty:
+            logger.warning(f"⚠️ Empty financial indicators for CN:{ticker}")
+            return None
+
+        try:
+            # Select row based on report_date or use most recent
+            if report_date:
+                # Find row matching the report date
+                date_col = '日期' if '日期' in df.columns else df.columns[0]
+                df[date_col] = pd.to_datetime(df[date_col]).dt.strftime('%Y-%m-%d')
+                row = df[df[date_col] == report_date]
+                if row.empty:
+                    logger.warning(f"⚠️ No data for date {report_date} for CN:{ticker}")
+                    row = df.iloc[[0]]  # Fallback to most recent
+                else:
+                    row = row.iloc[[0]]
+            else:
+                # Use most recent (first row)
+                row = df.iloc[[0]]
+
+            row = row.iloc[0]  # Convert to Series
+
+            # Extract report date
+            date_col = '日期' if '日期' in df.columns else df.columns[0]
+            raw_date = str(row.get(date_col, ''))
+            # Convert to YYYY-MM-DD format
+            if raw_date:
+                parsed_date = pd.to_datetime(raw_date)
+                formatted_date = parsed_date.strftime('%Y-%m-%d')
+            else:
+                formatted_date = datetime.now().strftime('%Y-%m-%d')
+
+            # Build fundamentals dict
+            fundamentals = {
+                'ticker': ticker,
+                'region': 'CN',
+                'date': formatted_date,
+                'period_type': 'QUARTERLY',
+                'data_source': 'akshare',
+                # Core metrics
+                'eps': self._safe_float(row.get('摊薄每股收益(元)')),
+                'bps': self._safe_float(row.get('每股净资产_调整前(元)')),
+                'roe': self._safe_float(row.get('净资产收益率(%)')),
+                'roa': self._safe_float(row.get('总资产利润率(%)')),
+                # Debt and liquidity
+                'debt_ratio': self._safe_float(row.get('资产负债率(%)')),
+                'current_ratio': self._safe_float(row.get('流动比率')),
+                'quick_ratio': self._safe_float(row.get('速动比率')),
+                # Margins
+                'gross_margin': self._safe_float(row.get('销售毛利率(%)')),
+                'net_margin': self._safe_float(row.get('销售净利率(%)')),
+                'operating_margin': self._safe_float(row.get('营业利润率(%)')),
+                # Growth
+                'revenue_growth': self._safe_float(row.get('主营业务收入增长率(%)')),
+                'net_income_growth': self._safe_float(row.get('净利润增长率(%)')),
+                # Turnover
+                'asset_turnover': self._safe_float(row.get('总资产周转率(次)')),
+                'inventory_turnover': self._safe_float(row.get('存货周转率(次)')),
+                'receivables_turnover': self._safe_float(row.get('应收账款周转率(次)')),
+            }
+
+            # Calculate PBR from BPS and close price if available
+            # PBR = Price / BPS (will be calculated at adapter level with current price)
+
+            logger.debug(f"✅ Parsed financial indicators for CN:{ticker} ({formatted_date})")
+            return fundamentals
+
+        except Exception as e:
+            logger.error(f"❌ Parse error for CN:{ticker} financial indicators: {e}")
+            return None
+
+    def parse_cn_earnings_batch(self, df: pd.DataFrame) -> List[Dict]:
+        """
+        Parse batch earnings DataFrame to list of database records
+
+        Args:
+            df: DataFrame from ak.stock_yjbb_em()
+
+        Returns:
+            List of dictionaries ready for DB insertion
+
+        Example output:
+            [
+                {
+                    'ticker': '600519',
+                    'region': 'CN',
+                    'date': '2024-09-30',
+                    'period_type': 'QUARTERLY',
+                    'eps': 51.53,
+                    'revenue': 130903900000,
+                    'net_income': 67688000000,
+                    'roe': 25.14,
+                    'gross_margin': 75.22,
+                    'data_source': 'akshare_batch'
+                },
+                ...
+            ]
+        """
+        if df is None or df.empty:
+            logger.warning("⚠️ Empty batch earnings data")
+            return []
+
+        results = []
+
+        # Determine report date from column or use current quarter end
+        # The date parameter is passed when calling stock_yjbb_em
+        # We'll infer it from the data or use the most recent quarter end
+
+        for _, row in df.iterrows():
+            try:
+                # Extract ticker (6-digit format)
+                ticker_raw = str(row.get('股票代码', '')).zfill(6)
+
+                if not self.validate_ticker_format(ticker_raw):
+                    continue
+
+                # Normalize to database format (with .SS or .SZ suffix)
+                ticker = self.denormalize_ticker_yfinance(ticker_raw)
+
+                # Extract report date from '最新公告日期' if available
+                announce_date = row.get('最新公告日期')
+                if announce_date and pd.notna(announce_date):
+                    # Infer quarter end from announcement date
+                    parsed_date = pd.to_datetime(announce_date)
+                    # Map to quarter end
+                    quarter_month = ((parsed_date.month - 1) // 3) * 3 + 3
+                    if quarter_month == 3:
+                        quarter_end = f"{parsed_date.year}-03-31"
+                    elif quarter_month == 6:
+                        quarter_end = f"{parsed_date.year}-06-30"
+                    elif quarter_month == 9:
+                        quarter_end = f"{parsed_date.year}-09-30"
+                    else:
+                        quarter_end = f"{parsed_date.year}-12-31"
+                else:
+                    # Use current quarter end
+                    now = datetime.now()
+                    quarter_month = ((now.month - 1) // 3) * 3 + 3
+                    if quarter_month == 3:
+                        quarter_end = f"{now.year}-03-31"
+                    elif quarter_month == 6:
+                        quarter_end = f"{now.year}-06-30"
+                    elif quarter_month == 9:
+                        quarter_end = f"{now.year}-09-30"
+                    else:
+                        quarter_end = f"{now.year}-12-31"
+
+                fundamentals = {
+                    'ticker': ticker,  # Now includes .SS or .SZ suffix
+                    'region': 'CN',
+                    'date': quarter_end,
+                    'period_type': 'QUARTERLY',
+                    'data_source': 'akshare_batch',
+                    # Core metrics
+                    'eps': self._safe_float(row.get('每股收益')),
+                    'bps': self._safe_float(row.get('每股净资产')),
+                    'roe': self._safe_float(row.get('净资产收益率')),
+                    'gross_margin': self._safe_float(row.get('销售毛利率')),
+                    # Income data
+                    'revenue': self._safe_float(row.get('营业总收入-营业总收入')),
+                    'revenue_yoy': self._safe_float(row.get('营业总收入-同比增长')),
+                    'net_income': self._safe_float(row.get('净利润-净利润')),
+                    'net_income_yoy': self._safe_float(row.get('净利润-同比增长')),
+                    # Cash flow
+                    'operating_cash_flow_per_share': self._safe_float(row.get('每股经营现金流量')),
+                }
+
+                results.append(fundamentals)
+
+            except Exception as e:
+                logger.debug(f"⚠️ Skipped row in batch parsing: {e}")
+                continue
+
+        logger.info(f"✅ Parsed {len(results)} stocks from batch earnings")
+        return results

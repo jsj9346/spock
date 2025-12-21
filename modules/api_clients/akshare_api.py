@@ -358,3 +358,173 @@ class AkShareAPI:
             return 'SZSE'  # Shenzhen Stock Exchange
         else:
             return 'UNKNOWN'
+
+    # =========================================================================
+    # CN/HK Fundamental Data Methods (Added for Phase 6)
+    # =========================================================================
+
+    def get_cn_financial_indicators(self,
+                                    ticker: str,
+                                    start_year: Optional[str] = None) -> Optional[pd.DataFrame]:
+        """
+        Get financial analysis indicators for CN A-share stock (86 indicators)
+
+        Uses: ak.stock_financial_analysis_indicator()
+
+        Args:
+            ticker: Stock code (e.g., '600519' for Moutai)
+            start_year: Starting year for data (e.g., '2020'). Default: current year - 2
+
+        Returns:
+            DataFrame with 86 financial indicators including:
+            - 摊薄每股收益(元): Diluted EPS
+            - 每股净资产_调整前(元): BPS (before adjustment)
+            - 净资产收益率(%): ROE
+            - 总资产利润率(%): ROA
+            - 资产负债率(%): Debt ratio
+            - 流动比率: Current ratio
+            - 销售毛利率(%): Gross margin
+            - 销售净利率(%): Net margin
+            Or None on failure
+        """
+        def _fetch():
+            # Default to 2 years of data if not specified
+            if not start_year:
+                year = str(datetime.now().year - 2)
+            else:
+                year = start_year
+
+            df = ak.stock_financial_analysis_indicator(symbol=ticker, start_year=year)
+
+            if df is None or df.empty:
+                raise ValueError(f"No financial indicators for CN:{ticker}")
+
+            return df
+
+        result = self._retry_on_failure(_fetch)
+
+        if result is not None:
+            logger.debug(f"✅ Fetched {len(result)} periods of financial indicators for CN:{ticker}")
+
+        return result
+
+    def get_cn_earnings_batch(self, report_date: str) -> Optional[pd.DataFrame]:
+        """
+        Get earnings report for all CN A-shares (batch collection)
+
+        Uses: ak.stock_yjbb_em()
+
+        Args:
+            report_date: Report date in YYYYMMDD format (e.g., '20240930' for Q3 2024)
+                        Common dates: 03-31 (Q1), 06-30 (Q2), 09-30 (Q3), 12-31 (Q4)
+
+        Returns:
+            DataFrame with earnings data for ~5,900 stocks including:
+            - 股票代码: Stock code
+            - 股票简称: Stock name
+            - 每股收益: EPS
+            - 营业总收入-营业总收入: Total revenue
+            - 营业总收入-同比增长: Revenue YoY growth
+            - 净利润-净利润: Net income
+            - 净利润-同比增长: Net income YoY growth
+            - 净资产收益率: ROE
+            - 销售毛利率: Gross margin
+            Or None on failure
+        """
+        def _fetch():
+            df = ak.stock_yjbb_em(date=report_date)
+
+            if df is None or df.empty:
+                raise ValueError(f"No earnings data for date {report_date}")
+
+            return df
+
+        result = self._retry_on_failure(_fetch)
+
+        if result is not None:
+            logger.info(f"✅ Fetched earnings batch: {len(result)} CN stocks for {report_date}")
+
+        return result
+
+    def get_hk_stock_list(self) -> Optional[pd.DataFrame]:
+        """
+        Get real-time stock list for Hong Kong Exchange (dynamic ticker expansion)
+
+        Uses: ak.stock_hk_spot_em()
+
+        Returns:
+            DataFrame with ~4,600 HK stocks including:
+            - 代码: Stock code (e.g., '00700')
+            - 名称: Stock name
+            - 最新价: Current price
+            - 涨跌幅: Change percent
+            - 成交量: Volume
+            - 成交额: Amount
+            Or None on failure
+        """
+        def _fetch():
+            df = ak.stock_hk_spot_em()
+
+            if df is None or df.empty:
+                raise ValueError("No HK stock list data")
+
+            # Rename columns to English
+            df = df.rename(columns={
+                '代码': 'code',
+                '名称': 'name',
+                '最新价': 'price',
+                '涨跌幅': 'change_percent',
+                '成交量': 'volume',
+                '成交额': 'amount'
+            })
+
+            return df
+
+        result = self._retry_on_failure(_fetch)
+
+        if result is not None:
+            logger.info(f"✅ Fetched {len(result)} HK stocks from real-time list")
+
+        return result
+
+    def get_hk_financial_indicators(self, ticker: str) -> Optional[pd.DataFrame]:
+        """
+        Get financial analysis indicators for HK stock (36 indicators)
+
+        Uses: ak.stock_financial_hk_analysis_indicator_em()
+
+        Args:
+            ticker: HK stock code (e.g., '00700' for Tencent, '09988' for Alibaba)
+
+        Returns:
+            DataFrame with 36 financial indicators including:
+            - BASIC_EPS: Earnings per share
+            - BPS: Book value per share
+            - ROE_AVG: Return on equity (average)
+            - ROA: Return on assets
+            - DEBT_ASSET_RATIO: Debt to asset ratio
+            - CURRENT_RATIO: Current ratio
+            - GROSS_PROFIT_RATIO: Gross profit margin
+            - NET_PROFIT_RATIO: Net profit margin
+            - OPERATE_INCOME: Operating income
+            - HOLDER_PROFIT: Net profit attributable to shareholders
+            Or None on failure
+        """
+        def _fetch():
+            try:
+                df = ak.stock_financial_hk_analysis_indicator_em(symbol=ticker)
+
+                if df is None or df.empty:
+                    raise ValueError(f"No financial indicators for HK:{ticker}")
+
+                return df
+            except (TypeError, AttributeError, KeyError) as e:
+                # Handle cases where akshare returns invalid data structure
+                raise ValueError(f"Invalid data structure for HK:{ticker}: {e}")
+
+        result = self._retry_on_failure(_fetch)
+
+        if result is not None:
+            logger.debug(f"✅ Fetched {len(result)} periods of financial indicators for HK:{ticker}")
+
+        return result

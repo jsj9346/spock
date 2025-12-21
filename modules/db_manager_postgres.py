@@ -548,6 +548,33 @@ class PostgresDatabaseManager:
             logger.error(f"❌ Failed to delete ticker {ticker}: {e}")
             return False
 
+    def delete_tickers(self, region: str, asset_type: str = None) -> int:
+        """
+        Delete multiple tickers by region and optionally asset_type (CASCADE to related tables)
+
+        Args:
+            region: Region code
+            asset_type: Asset type filter (optional, e.g., 'STOCK', 'ETF')
+
+        Returns:
+            Number of tickers deleted
+        """
+        try:
+            query = "DELETE FROM tickers WHERE region = %s"
+            params = [region]
+
+            if asset_type:
+                query += " AND asset_type = %s"
+                params.append(asset_type)
+
+            result = self._execute_query(query, tuple(params), commit=True)
+            deleted_count = result if isinstance(result, int) else 0
+            logger.info(f"✅ Deleted {deleted_count} tickers (region={region}, asset_type={asset_type})")
+            return deleted_count
+        except Exception as e:
+            logger.error(f"❌ Failed to delete tickers (region={region}, asset_type={asset_type}): {e}")
+            return 0
+
     def count_tickers(self, region: str = None, asset_type: str = None) -> int:
         """
         Count tickers with optional filters
@@ -1547,10 +1574,12 @@ class PostgresDatabaseManager:
         """
         Insert or update fundamentals data
 
+        Enhanced to support AkShare pre-calculated ratios (HK, CN, VN)
+
         Args:
             fund_data: Dictionary with fundamentals information
                 Required: ticker, region, date, period_type
-                Optional: market_cap, per, pbr, etc.
+                Optional: market_cap, per, pbr, eps, roe, roa, etc.
 
         Returns:
             True if successful, False otherwise
@@ -1565,8 +1594,15 @@ class PostgresDatabaseManager:
                     capital_stock, capital_surplus, retained_earnings, treasury_stock,
                     other_comprehensive_income, non_controlling_interest,
                     unappropriated_retained_earnings, legal_reserve,
+                    revenue, net_income, operating_profit, total_assets, total_equity,
+                    gross_profit, ebitda,
+                    eps, bps, roe, roa, roic,
+                    debt_ratio, current_ratio,
+                    gross_margin, net_margin,
+                    revenue_yoy, net_income_yoy,
+                    trailing_eps,
                     created_at, data_source
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (ticker, region, date, period_type) DO UPDATE SET
                     shares_outstanding = EXCLUDED.shares_outstanding,
                     market_cap = EXCLUDED.market_cap,
@@ -1587,6 +1623,25 @@ class PostgresDatabaseManager:
                     non_controlling_interest = EXCLUDED.non_controlling_interest,
                     unappropriated_retained_earnings = EXCLUDED.unappropriated_retained_earnings,
                     legal_reserve = EXCLUDED.legal_reserve,
+                    revenue = EXCLUDED.revenue,
+                    net_income = EXCLUDED.net_income,
+                    operating_profit = EXCLUDED.operating_profit,
+                    total_assets = EXCLUDED.total_assets,
+                    total_equity = EXCLUDED.total_equity,
+                    gross_profit = EXCLUDED.gross_profit,
+                    ebitda = EXCLUDED.ebitda,
+                    eps = EXCLUDED.eps,
+                    bps = EXCLUDED.bps,
+                    roe = EXCLUDED.roe,
+                    roa = EXCLUDED.roa,
+                    roic = EXCLUDED.roic,
+                    debt_ratio = EXCLUDED.debt_ratio,
+                    current_ratio = EXCLUDED.current_ratio,
+                    gross_margin = EXCLUDED.gross_margin,
+                    net_margin = EXCLUDED.net_margin,
+                    revenue_yoy = EXCLUDED.revenue_yoy,
+                    net_income_yoy = EXCLUDED.net_income_yoy,
+                    trailing_eps = EXCLUDED.trailing_eps,
                     data_source = EXCLUDED.data_source
             """, (
                 fund_data['ticker'],
@@ -1612,6 +1667,25 @@ class PostgresDatabaseManager:
                 fund_data.get('non_controlling_interest'),
                 fund_data.get('unappropriated_retained_earnings'),
                 fund_data.get('legal_reserve'),
+                fund_data.get('revenue'),
+                fund_data.get('net_income'),
+                fund_data.get('operating_profit'),
+                fund_data.get('total_assets'),
+                fund_data.get('total_equity'),
+                fund_data.get('gross_profit'),
+                fund_data.get('ebitda'),
+                fund_data.get('eps'),
+                fund_data.get('bps'),
+                fund_data.get('roe'),
+                fund_data.get('roa'),
+                fund_data.get('roic'),
+                fund_data.get('debt_ratio'),
+                fund_data.get('current_ratio'),
+                fund_data.get('gross_margin'),
+                fund_data.get('net_margin'),
+                fund_data.get('revenue_yoy'),
+                fund_data.get('net_income_yoy'),
+                fund_data.get('eps_ttm'),  # Map to trailing_eps
                 datetime.now(),
                 fund_data.get('data_source')
             ), commit=True)
@@ -1619,6 +1693,23 @@ class PostgresDatabaseManager:
         except Exception as e:
             logger.error(f"❌ Failed to insert fundamentals for {fund_data.get('ticker')}: {e}")
             return False
+
+    def insert_ticker_fundamentals(self, fund_data: Dict) -> bool:
+        """
+        Backward compatibility wrapper for insert_fundamentals()
+
+        Legacy method name used by market adapters (CN, HK, etc.)
+        Forwards to insert_fundamentals() for actual database operation.
+
+        Args:
+            fund_data: Dictionary with fundamentals information
+                Required: ticker, region, date, period_type
+                Optional: market_cap, per, pbr, etc.
+
+        Returns:
+            True if successful, False otherwise
+        """
+        return self.insert_fundamentals(fund_data)
 
     def get_fundamentals(self, ticker: str, region: str, period_type: str = 'DAILY') -> List[Dict]:
         """

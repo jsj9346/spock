@@ -118,10 +118,26 @@ class CNAdapter(BaseMarketAdapter):
             logger.info(f"📊 [CN] Limiting to {max_count}/{len(common_stocks)} stocks")
             common_stocks = common_stocks[:max_count]
 
-        # Step 6: Save to database
+        # Step 6: Classify asset types and save to database
         if common_stocks:
-            self._save_tickers_to_db(common_stocks, asset_type='STOCK')
-            logger.info(f"💾 [CN] Saved {len(common_stocks)} stocks to database")
+            # Classify each ticker and group by asset_type
+            asset_type_counts = {}
+            classified_stocks = []
+
+            for stock in common_stocks:
+                asset_type = self.stock_parser.classify_asset_type(stock)
+                stock['asset_type'] = asset_type
+                classified_stocks.append(stock)
+
+                # Track counts for logging
+                asset_type_counts[asset_type] = asset_type_counts.get(asset_type, 0) + 1
+
+            # Log classification summary
+            logger.info(f"📊 [CN] Classification summary: {asset_type_counts}")
+
+            # Save all tickers (will be saved with their classified asset_type)
+            self._save_tickers_to_db(classified_stocks, asset_type=None)
+            logger.info(f"💾 [CN] Saved {len(classified_stocks)} tickers to database")
         else:
             logger.warning("⚠️ [CN] No stocks to save")
 
@@ -267,12 +283,288 @@ class CNAdapter(BaseMarketAdapter):
 
     def collect_fundamentals(self,
                             tickers: Optional[List[str]] = None,
-                            use_fallback: bool = True) -> int:
+                            use_fallback: bool = True,
+                            mode: str = 'hybrid',
+                            report_date: Optional[str] = None) -> int:
         """
-        Collect fundamental data for CN stocks
+        Collect fundamental data for CN stocks with hybrid strategy
 
-        Fetches industry classification and market cap from AkShare.
-        Falls back to yfinance if AkShare fails.
+        Modes:
+        - 'batch': Fast batch collection (~5,900 stocks, basic indicators)
+        - 'individual': Detailed per-ticker collection (86 indicators)
+        - 'hybrid': Batch first, then individual for missing data (recommended)
+
+        Args:
+            tickers: List of ticker codes (None = all CN stocks)
+            use_fallback: Use yfinance fallback if AkShare fails
+            mode: Collection mode ('batch', 'individual', 'hybrid')
+            report_date: Report date for batch mode (YYYYMMDD, e.g., '20240930')
+                        Default: most recent quarter end
+
+        Returns:
+            Number of tickers updated
+        """
+        logger.info(f"📊 [CN] Starting fundamentals collection (mode={mode})")
+
+        # Determine report date if not provided
+        if not report_date:
+            report_date = self._get_latest_report_date()
+
+        success_count = 0
+        batch_tickers = set()
+
+        # =====================================================================
+        # Phase 1: Batch Collection (fast, basic indicators)
+        # =====================================================================
+        if mode in ('batch', 'hybrid'):
+            batch_count = self._collect_fundamentals_batch(report_date)
+            success_count += batch_count
+
+            # Track which tickers were collected in batch
+            if batch_count > 0:
+                batch_tickers = self._get_batch_collected_tickers(report_date)
+                logger.info(f"✅ [CN] Batch phase complete: {batch_count} stocks")
+
+        # =====================================================================
+        # Phase 2: Individual Collection (detailed, 86 indicators)
+        # =====================================================================
+        if mode in ('individual', 'hybrid'):
+            # Get ticker list
+            if tickers is None:
+                db_tickers = self.db.get_tickers(region='CN', asset_type='STOCK', is_active=True)
+                tickers = [t['ticker'] for t in db_tickers]
+
+            if not tickers:
+                logger.warning("⚠️ [CN] No tickers for individual collection")
+                return success_count
+
+            # In hybrid mode, only process tickers not covered by batch
+            if mode == 'hybrid' and batch_tickers:
+                tickers_to_process = [t for t in tickers if t not in batch_tickers]
+                logger.info(f"📊 [CN] Individual phase: {len(tickers_to_process)} remaining (skipping {len(batch_tickers)} batch-covered)")
+            else:
+                tickers_to_process = tickers
+
+            individual_count = self._collect_fundamentals_individual(
+                tickers_to_process,
+                use_fallback=use_fallback,
+                report_date=report_date
+            )
+            success_count += individual_count
+
+        logger.info(f"✅ [CN] Fundamentals collection complete: {success_count} total")
+        return success_count
+
+    def _get_latest_report_date(self) -> str:
+        """
+        Get the most recent quarterly report date
+
+        Returns:
+            Report date in YYYYMMDD format (e.g., '20240930')
+        """
+        now = datetime.now()
+        year = now.year
+        month = now.month
+
+        # Determine most recent quarter end
+        # Q1: 03-31, Q2: 06-30, Q3: 09-30, Q4: 12-31
+        # Reports are typically available 1-2 months after quarter end
+        if month >= 11:  # Nov-Dec: Q3 report available (from current year)
+            return f"{year}0930"
+        elif month >= 8:  # Aug-Oct: Q2 report available
+            return f"{year}0630"
+        elif month >= 5:  # May-Jul: Q1 report available
+            return f"{year}0331"
+        else:  # Jan-Apr: Previous year Q4 report available
+            return f"{year-1}1231"
+
+    def _collect_fundamentals_batch(self, report_date: str) -> int:
+        """
+        Collect fundamentals in batch mode using stock_yjbb_em
+
+        Args:
+            report_date: Report date in YYYYMMDD format
+
+        Returns:
+            Number of stocks updated
+        """
+        logger.info(f"📊 [CN] Batch collection for report date: {report_date}")
+
+        # Fetch batch earnings data (~5,900 stocks)
+        batch_df = self.akshare_api.get_cn_earnings_batch(report_date)
+
+        if batch_df is None or batch_df.empty:
+            logger.error("❌ [CN] Failed to fetch batch earnings data")
+            return 0
+
+        logger.info(f"✅ [CN] Fetched batch data for {len(batch_df)} stocks")
+
+        # Parse batch data to list of records
+        records = self.stock_parser.parse_cn_earnings_batch(batch_df)
+
+        if not records:
+            logger.warning("⚠️ [CN] No valid records from batch parsing")
+            return 0
+
+        # Get registered tickers to validate before insertion
+        registered_tickers = {
+            t['ticker'] for t in self.db.get_tickers(region='CN', asset_type='STOCK')
+        }
+        logger.info(f"📊 [CN] Registered tickers: {len(registered_tickers)}, Batch records: {len(records)}")
+
+        # Insert records into database (only for registered tickers)
+        success_count = 0
+        skipped_count = 0
+        failed_count = 0
+
+        for record in records:
+            ticker = record.get('ticker')
+
+            # Skip if ticker not registered in tickers table
+            if ticker not in registered_tickers:
+                skipped_count += 1
+                logger.debug(f"⚠️ [CN] Skipping unregistered ticker: {ticker}")
+                continue
+
+            try:
+                # insert_ticker_fundamentals returns True/False
+                if self.db.insert_ticker_fundamentals(record):
+                    success_count += 1
+                else:
+                    failed_count += 1
+                    logger.debug(f"⚠️ [CN] Failed to insert {ticker}")
+            except Exception as e:
+                failed_count += 1
+                logger.debug(f"⚠️ [CN] Exception inserting {ticker}: {e}")
+                continue
+
+        logger.info(f"✅ [CN] Batch insert complete: {success_count} success, {skipped_count} skipped (unregistered), {failed_count} failed / {len(records)} total")
+        return success_count
+
+    def _get_batch_collected_tickers(self, report_date: str) -> set:
+        """
+        Get set of tickers that were collected in batch mode
+
+        Args:
+            report_date: Report date in YYYYMMDD format
+
+        Returns:
+            Set of ticker codes
+        """
+        # Convert YYYYMMDD to YYYY-MM-DD for database query
+        date_str = f"{report_date[:4]}-{report_date[4:6]}-{report_date[6:]}"
+
+        try:
+            # Query database for tickers with fundamentals on this date
+            query = """
+                SELECT DISTINCT ticker FROM ticker_fundamentals
+                WHERE date = %s AND region = 'CN' AND data_source = 'akshare_batch'
+            """
+            result = self.db.execute_query(query, (date_str,))
+            return {row['ticker'] for row in result} if result else set()
+        except Exception as e:
+            logger.warning(f"⚠️ Could not query batch tickers: {e}")
+            return set()
+
+    def _collect_fundamentals_individual(self,
+                                         tickers: List[str],
+                                         use_fallback: bool = True,
+                                         report_date: Optional[str] = None) -> int:
+        """
+        Collect fundamentals individually using stock_financial_analysis_indicator
+
+        Args:
+            tickers: List of ticker codes to process
+            use_fallback: Use yfinance fallback if AkShare fails
+            report_date: Target report date (for date field)
+
+        Returns:
+            Number of tickers updated
+        """
+        if not tickers:
+            return 0
+
+        logger.info(f"📊 [CN] Individual collection for {len(tickers)} stocks...")
+
+        # Calculate start year for indicator query
+        start_year = str(datetime.now().year - 2)
+
+        success_count = 0
+        fallback_count = 0
+
+        for i, ticker in enumerate(tickers, 1):
+            try:
+                if i % 100 == 0:
+                    logger.info(f"📊 [CN] Progress: {i}/{len(tickers)} ({i/len(tickers)*100:.1f}%)")
+
+                # Normalize ticker for AkShare API: "300001.SZ" → "300001"
+                akshare_ticker = self.stock_parser.normalize_ticker(ticker)
+                if not akshare_ticker:
+                    logger.debug(f"⚠️ Invalid ticker format for AkShare: {ticker}")
+                    continue
+
+                # Try AkShare financial indicators (86 metrics)
+                indicators_df = self.akshare_api.get_cn_financial_indicators(
+                    ticker=akshare_ticker,
+                    start_year=start_year
+                )
+
+                if indicators_df is not None and not indicators_df.empty:
+                    # Parse to database format
+                    record = self.stock_parser.parse_cn_financial_indicators(
+                        indicators_df,
+                        ticker,
+                        report_date=report_date
+                    )
+
+                    if record:
+                        self.db.insert_ticker_fundamentals(record)
+                        success_count += 1
+                        continue
+
+                # Fallback to yfinance if AkShare fails
+                if use_fallback and self.yfinance_api:
+                    logger.debug(f"⚠️ AkShare failed for {ticker}, trying yfinance...")
+
+                    yf_ticker = self.stock_parser.denormalize_ticker_yfinance(ticker)
+                    yf_info = self.yfinance_api.get_ticker_info(yf_ticker)
+
+                    if yf_info:
+                        stock_data = self.stock_parser.parse_yfinance_info(yf_info, ticker)
+
+                        if stock_data and stock_data.get('market_cap'):
+                            today = datetime.now().strftime("%Y-%m-%d")
+                            self.db.insert_ticker_fundamentals({
+                                'ticker': ticker,
+                                'region': 'CN',
+                                'date': today,
+                                'period_type': 'QUARTERLY',
+                                'market_cap': stock_data['market_cap'],
+                                'data_source': 'yfinance'
+                            })
+
+                            fallback_count += 1
+                            success_count += 1
+
+            except Exception as e:
+                logger.debug(f"⚠️ Individual collection failed for {ticker}: {e}")
+                continue
+
+        logger.info(f"✅ [CN] Individual collection complete: {success_count}/{len(tickers)}")
+
+        if fallback_count > 0:
+            logger.info(f"📊 [CN] yfinance fallback used for {fallback_count} stocks")
+
+        return success_count
+
+    def collect_fundamentals_legacy(self,
+                                   tickers: Optional[List[str]] = None,
+                                   use_fallback: bool = True) -> int:
+        """
+        Legacy fundamentals collection (market cap only)
+
+        Kept for backward compatibility. Use collect_fundamentals() with mode parameter
+        for comprehensive fundamental data collection.
 
         Args:
             tickers: List of ticker codes (None = all CN stocks)
@@ -281,7 +573,7 @@ class CNAdapter(BaseMarketAdapter):
         Returns:
             Number of tickers updated
         """
-        logger.info("📊 [CN] Starting fundamentals collection")
+        logger.info("📊 [CN] Starting legacy fundamentals collection (market cap only)")
 
         # Get ticker list
         if tickers is None:
@@ -312,6 +604,7 @@ class CNAdapter(BaseMarketAdapter):
                     if stock_data and stock_data.get('market_cap'):
                         self.db.insert_ticker_fundamentals({
                             'ticker': ticker,
+                            'region': 'CN',
                             'date': today,
                             'period_type': 'DAILY',
                             'market_cap': stock_data['market_cap'],
@@ -342,6 +635,7 @@ class CNAdapter(BaseMarketAdapter):
                         if stock_data and stock_data.get('market_cap'):
                             self.db.insert_ticker_fundamentals({
                                 'ticker': ticker,
+                                'region': 'CN',
                                 'date': today,
                                 'period_type': 'DAILY',
                                 'market_cap': stock_data['market_cap'],

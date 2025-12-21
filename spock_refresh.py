@@ -45,9 +45,13 @@ from typing import Optional, List, Dict, Any, Callable, Generator
 from contextlib import contextmanager
 import platform
 import json
+import logging
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Setup logger
+logger = logging.getLogger(__name__)
 
 # Week 1-3 Optimizations (spock_refresh_v2)
 # Week 1-3 Optimizations (now inline below, previously imported from spock_refresh_v2)
@@ -148,8 +152,8 @@ REGION_DATA_SOURCES = {
     'KR': {'name': 'DART', 'api': 'dart', 'rate_limit': 1.0, 'emoji': '🇰🇷'},
     'US': {'name': 'SEC EDGAR', 'api': 'sec', 'rate_limit': 0.1, 'emoji': '🇺🇸'},
     'JP': {'name': 'EDINET', 'api': 'edinet', 'rate_limit': 1.0, 'emoji': '🇯🇵'},
-    'HK': {'name': 'yfinance', 'api': 'yfinance', 'rate_limit': 0.5, 'emoji': '🇭🇰'},
-    'CN': {'name': 'yfinance', 'api': 'yfinance', 'rate_limit': 0.5, 'emoji': '🇨🇳'},
+    'HK': {'name': 'AkShare', 'api': 'akshare', 'rate_limit': 0.67, 'emoji': '🇭🇰', 'indicators': 36},
+    'CN': {'name': 'AkShare', 'api': 'akshare', 'rate_limit': 0.67, 'emoji': '🇨🇳', 'indicators': 86},
     'VN': {'name': 'yfinance', 'api': 'yfinance', 'rate_limit': 0.5, 'emoji': '🇻🇳'},
 }
 
@@ -1277,18 +1281,31 @@ def get_fundamental_backfill_status(
                 }
                 continue
 
-            # Build dynamic column check (any of the target columns is NOT NULL)
-            column_checks = ' OR '.join([f"{col} IS NOT NULL" for col in target_columns[:3]])  # Check first 3 columns
-
-            # Determine data_source filter based on region
+            # Determine data_source filter and relevant columns based on region
             if region == 'KR':
                 data_source_filter = "data_source = 'DART'"
+                # KR has equity data (capital_stock, etc.)
+                check_columns = target_columns[:3]  # Check first 3 columns
             elif region == 'US':
                 data_source_filter = "data_source = 'SEC_EDGAR'"
+                check_columns = target_columns[:3]
             elif region == 'JP':
                 data_source_filter = "data_source = 'EDINET'"
+                check_columns = target_columns[:3]
+            elif region == 'CN':
+                data_source_filter = "(data_source = 'akshare_batch' OR data_source = 'akshare' OR data_source = 'yfinance')"
+                # CN AkShare batch has income statement data (revenue, net_income)
+                check_columns = ['revenue', 'net_income', 'operating_profit']
+            elif region == 'HK':
+                data_source_filter = "(data_source = 'akshare' OR data_source = 'yfinance')"
+                # HK AkShare has income statement data
+                check_columns = ['revenue', 'net_income', 'operating_profit']
             else:
-                data_source_filter = "data_source = 'YFINANCE'"
+                data_source_filter = "data_source = 'yfinance'"
+                check_columns = target_columns[:3]
+
+            # Build dynamic column check (any of the check columns is NOT NULL)
+            column_checks = ' OR '.join([f"{col} IS NOT NULL" for col in check_columns])
 
             # With fundamental data
             with_data_query = f"""
@@ -3493,29 +3510,58 @@ def run_standard_refresh():
             )
 
         # Phase 5.5: HK/CN/VN Quarterly Fundamentals (if applicable)
+        # CN/HK: AkShare (superior data - 86/36 indicators)
+        # VN: yfinance (AkShare not available)
         hk_cn_vn_stats = {'success': 0, 'failed': 0}
-        hk_cn_vn_regions = [r for r in regions if r.upper() in ['HK', 'CN', 'VN']]
-        if hk_cn_vn_regions:
-            print(f"\n{colored('Phase 5.5: HK/CN/VN Quarterly Fundamentals (10 tickers each)', Fore.CYAN + Style.BRIGHT)}")
+
+        # CN/HK with AkShare
+        cn_hk_regions = [r for r in regions if r.upper() in ['CN', 'HK']]
+        if cn_hk_regions:
+            print(f"\n{colored('Phase 5.5a: CN/HK Fundamentals via AkShare (10 tickers each)', Fore.CYAN + Style.BRIGHT)}")
             print("=" * 60)
             try:
-                hk_cn_vn_result = run_yfinance_quarterly_backfill(
-                    regions=hk_cn_vn_regions,
+                akshare_result = run_akshare_fundamental_backfill(
+                    regions=cn_hk_regions,
+                    mode='batch',  # Standard mode: batch for speed
                     limit=10,  # Standard mode: 10 tickers per region
                     dry_run=False,
                     calculate_ttm=False  # TTM is calculated in Phase 4
                 )
-                if hk_cn_vn_result.get('success'):
-                    stats = hk_cn_vn_result.get('stats', {})
-                    hk_cn_vn_stats['success'] = stats.get('tickers_success', 0)
-                    hk_cn_vn_stats['failed'] = stats.get('tickers_failed', 0)
-                    success_count = hk_cn_vn_stats['success']
-                    print(f"  {colored(f'✅ HK/CN/VN Quarterly: {success_count} tickers', Fore.GREEN)}")
+                if akshare_result.get('success'):
+                    stats = akshare_result.get('stats', {})
+                    hk_cn_vn_stats['success'] += stats.get('total_success', 0)
+                    hk_cn_vn_stats['failed'] += stats.get('total_failed', 0)
+                    success_count = stats.get('total_success', 0)
+                    print(f"  {colored(f'✅ CN/HK AkShare: {success_count} tickers', Fore.GREEN)}")
                 else:
-                    hk_cn_vn_error = hk_cn_vn_result.get('error', 'Unknown')
-                    print(f"  {colored(f'⚠️ HK/CN/VN Quarterly warning: {hk_cn_vn_error}', Fore.YELLOW)}")
+                    akshare_error = akshare_result.get('error', 'Unknown')
+                    print(f"  {colored(f'⚠️ CN/HK AkShare warning: {akshare_error}', Fore.YELLOW)}")
             except Exception as e:
-                print(f"  {colored(f'⚠️ HK/CN/VN Quarterly warning: {e}', Fore.YELLOW)}")
+                print(f"  {colored(f'⚠️ CN/HK AkShare warning: {e}', Fore.YELLOW)}")
+
+        # VN with yfinance (AkShare not available for VN)
+        vn_regions = [r for r in regions if r.upper() == 'VN']
+        if vn_regions:
+            print(f"\n{colored('Phase 5.5b: VN Fundamentals via yfinance (10 tickers)', Fore.CYAN + Style.BRIGHT)}")
+            print("=" * 60)
+            try:
+                vn_result = run_yfinance_quarterly_backfill(
+                    regions=vn_regions,
+                    limit=10,  # Standard mode: 10 tickers per region
+                    dry_run=False,
+                    calculate_ttm=False  # TTM is calculated in Phase 4
+                )
+                if vn_result.get('success'):
+                    stats = vn_result.get('stats', {})
+                    hk_cn_vn_stats['success'] += stats.get('tickers_success', 0)
+                    hk_cn_vn_stats['failed'] += stats.get('tickers_failed', 0)
+                    success_count = stats.get('tickers_success', 0)
+                    print(f"  {colored(f'✅ VN yfinance: {success_count} tickers', Fore.GREEN)}")
+                else:
+                    vn_error = vn_result.get('error', 'Unknown')
+                    print(f"  {colored(f'⚠️ VN yfinance warning: {vn_error}', Fore.YELLOW)}")
+            except Exception as e:
+                print(f"  {colored(f'⚠️ VN yfinance warning: {e}', Fore.YELLOW)}")
 
         # Phase 6: ETF Details (incremental, limited)
         print(f"\n{colored('Phase 6: ETF Details Collection (Incremental)', Fore.CYAN + Style.BRIGHT)}")
@@ -3543,8 +3589,8 @@ def run_standard_refresh():
         print(f"Technical Indicators: {total_success}/{total_tickers} tickers")
         print(f"Financial Indicators: Dividend + Ratios")
         print(f"TTM Calculation: {ttm_stats['success']} success, {ttm_stats['skipped']} skipped")
-        if hk_cn_vn_regions:
-            print(f"HK/CN/VN Quarterly: {hk_cn_vn_stats['success']} success, {hk_cn_vn_stats['failed']} failed")
+        if cn_hk_regions or vn_regions:
+            print(f"HK/CN/VN Fundamentals: {hk_cn_vn_stats['success']} success, {hk_cn_vn_stats['failed']} failed")
         print(f"ETF Details: {etf_stats['collected']} collected, {etf_stats['skipped']} skipped")
         print(f"Total Time: {total_time:.1f} minutes")
         print("=" * 60)
@@ -3646,29 +3692,58 @@ def run_full_refresh():
             )
 
         # Phase 1.6: HK/CN/VN Quarterly Fundamentals (if applicable, full mode)
+        # CN/HK: AkShare (superior data - 86/36 indicators)
+        # VN: yfinance (AkShare not available)
         hk_cn_vn_stats = {'success': 0, 'failed': 0}
-        hk_cn_vn_regions = [r for r in regions if r.upper() in ['HK', 'CN', 'VN']]
-        if hk_cn_vn_regions:
-            print(f"\n{colored('Phase 1.6: HK/CN/VN Quarterly Fundamentals (Full Mode - 100 tickers each)', Fore.CYAN + Style.BRIGHT)}")
+
+        # CN/HK with AkShare (full mode: hybrid for completeness)
+        cn_hk_regions = [r for r in regions if r.upper() in ['CN', 'HK']]
+        if cn_hk_regions:
+            print(f"\n{colored('Phase 1.6a: CN/HK Fundamentals via AkShare (Full Mode - 100 tickers each)', Fore.CYAN + Style.BRIGHT)}")
             print("=" * 60)
             try:
-                hk_cn_vn_result = run_yfinance_quarterly_backfill(
-                    regions=hk_cn_vn_regions,
+                akshare_result = run_akshare_fundamental_backfill(
+                    regions=cn_hk_regions,
+                    mode='hybrid',  # Full mode: hybrid for comprehensive data
                     limit=100,  # Full mode: 100 tickers per region
                     dry_run=False,
                     calculate_ttm=False  # TTM is calculated in Phase 4
                 )
-                if hk_cn_vn_result.get('success'):
-                    stats = hk_cn_vn_result.get('stats', {})
-                    hk_cn_vn_stats['success'] = stats.get('tickers_success', 0)
-                    hk_cn_vn_stats['failed'] = stats.get('tickers_failed', 0)
-                    success_count = hk_cn_vn_stats['success']
-                    print(f"  {colored(f'✅ HK/CN/VN Quarterly: {success_count} tickers', Fore.GREEN)}")
+                if akshare_result.get('success'):
+                    stats = akshare_result.get('stats', {})
+                    hk_cn_vn_stats['success'] += stats.get('total_success', 0)
+                    hk_cn_vn_stats['failed'] += stats.get('total_failed', 0)
+                    success_count = stats.get('total_success', 0)
+                    print(f"  {colored(f'✅ CN/HK AkShare: {success_count} tickers', Fore.GREEN)}")
                 else:
-                    hk_cn_vn_error = hk_cn_vn_result.get('error', 'Unknown')
-                    print(f"  {colored(f'⚠️ HK/CN/VN Quarterly warning: {hk_cn_vn_error}', Fore.YELLOW)}")
+                    akshare_error = akshare_result.get('error', 'Unknown')
+                    print(f"  {colored(f'⚠️ CN/HK AkShare warning: {akshare_error}', Fore.YELLOW)}")
             except Exception as e:
-                print(f"  {colored(f'⚠️ HK/CN/VN Quarterly warning: {e}', Fore.YELLOW)}")
+                print(f"  {colored(f'⚠️ CN/HK AkShare warning: {e}', Fore.YELLOW)}")
+
+        # VN with yfinance (AkShare not available for VN)
+        vn_regions = [r for r in regions if r.upper() == 'VN']
+        if vn_regions:
+            print(f"\n{colored('Phase 1.6b: VN Fundamentals via yfinance (Full Mode - 100 tickers)', Fore.CYAN + Style.BRIGHT)}")
+            print("=" * 60)
+            try:
+                vn_result = run_yfinance_quarterly_backfill(
+                    regions=vn_regions,
+                    limit=100,  # Full mode: 100 tickers per region
+                    dry_run=False,
+                    calculate_ttm=False  # TTM is calculated in Phase 4
+                )
+                if vn_result.get('success'):
+                    stats = vn_result.get('stats', {})
+                    hk_cn_vn_stats['success'] += stats.get('tickers_success', 0)
+                    hk_cn_vn_stats['failed'] += stats.get('tickers_failed', 0)
+                    success_count = stats.get('tickers_success', 0)
+                    print(f"  {colored(f'✅ VN yfinance: {success_count} tickers', Fore.GREEN)}")
+                else:
+                    vn_error = vn_result.get('error', 'Unknown')
+                    print(f"  {colored(f'⚠️ VN yfinance warning: {vn_error}', Fore.YELLOW)}")
+            except Exception as e:
+                print(f"  {colored(f'⚠️ VN yfinance warning: {e}', Fore.YELLOW)}")
 
         # Phase 2: Technical Indicators (direct calculation, full recalculation)
         print(f"\n{colored('Phase 2: Technical Indicators Calculation (Full Recalculation)', Fore.CYAN + Style.BRIGHT)}")
@@ -3771,8 +3846,8 @@ def run_full_refresh():
         print(f"Technical Indicators: {total_success}/{total_tickers} tickers")
         print(f"Financial Indicators: Dividend + Cash + Ratios")
         print(f"TTM Calculation: {ttm_stats['success']} success, {ttm_stats['skipped']} skipped")
-        if hk_cn_vn_regions:
-            print(f"HK/CN/VN Quarterly: {hk_cn_vn_stats['success']} success, {hk_cn_vn_stats['failed']} failed")
+        if cn_hk_regions or vn_regions:
+            print(f"HK/CN/VN Fundamentals: {hk_cn_vn_stats['success']} success, {hk_cn_vn_stats['failed']} failed")
         print(f"ETF Data: {etf_stats['details_collected']} details, {etf_stats['holdings_collected']} holdings")
         print(f"Total Time: {total_time:.1f} minutes")
         print("=" * 60)
@@ -3821,29 +3896,58 @@ def run_incremental_refresh():
             )
 
         # Phase 1.6: HK/CN/VN Quarterly Fundamentals (if applicable, incremental mode)
+        # CN/HK: AkShare (superior data - 86/36 indicators)
+        # VN: yfinance (AkShare not available)
         hk_cn_vn_stats = {'success': 0, 'failed': 0}
-        hk_cn_vn_regions = [r for r in regions if r.upper() in ['HK', 'CN', 'VN']]
-        if hk_cn_vn_regions:
-            print(f"\n{colored('Phase 1.6: HK/CN/VN Quarterly Fundamentals (Incremental - 30 tickers each)', Fore.CYAN + Style.BRIGHT)}")
+
+        # CN/HK with AkShare (incremental mode: batch for speed)
+        cn_hk_regions = [r for r in regions if r.upper() in ['CN', 'HK']]
+        if cn_hk_regions:
+            print(f"\n{colored('Phase 1.6a: CN/HK Fundamentals via AkShare (Incremental - 30 tickers each)', Fore.CYAN + Style.BRIGHT)}")
             print("=" * 60)
             try:
-                hk_cn_vn_result = run_yfinance_quarterly_backfill(
-                    regions=hk_cn_vn_regions,
+                akshare_result = run_akshare_fundamental_backfill(
+                    regions=cn_hk_regions,
+                    mode='batch',  # Incremental mode: batch for speed
                     limit=30,  # Incremental mode: 30 tickers per region
                     dry_run=False,
                     calculate_ttm=False  # TTM is calculated in Phase 4
                 )
-                if hk_cn_vn_result.get('success'):
-                    stats = hk_cn_vn_result.get('stats', {})
-                    hk_cn_vn_stats['success'] = stats.get('tickers_success', 0)
-                    hk_cn_vn_stats['failed'] = stats.get('tickers_failed', 0)
-                    success_count = hk_cn_vn_stats['success']
-                    print(f"  {colored(f'✅ HK/CN/VN Quarterly: {success_count} tickers', Fore.GREEN)}")
+                if akshare_result.get('success'):
+                    stats = akshare_result.get('stats', {})
+                    hk_cn_vn_stats['success'] += stats.get('total_success', 0)
+                    hk_cn_vn_stats['failed'] += stats.get('total_failed', 0)
+                    success_count = stats.get('total_success', 0)
+                    print(f"  {colored(f'✅ CN/HK AkShare: {success_count} tickers', Fore.GREEN)}")
                 else:
-                    hk_cn_vn_error = hk_cn_vn_result.get('error', 'Unknown')
-                    print(f"  {colored(f'⚠️ HK/CN/VN Quarterly warning: {hk_cn_vn_error}', Fore.YELLOW)}")
+                    akshare_error = akshare_result.get('error', 'Unknown')
+                    print(f"  {colored(f'⚠️ CN/HK AkShare warning: {akshare_error}', Fore.YELLOW)}")
             except Exception as e:
-                print(f"  {colored(f'⚠️ HK/CN/VN Quarterly warning: {e}', Fore.YELLOW)}")
+                print(f"  {colored(f'⚠️ CN/HK AkShare warning: {e}', Fore.YELLOW)}")
+
+        # VN with yfinance (AkShare not available for VN)
+        vn_regions = [r for r in regions if r.upper() == 'VN']
+        if vn_regions:
+            print(f"\n{colored('Phase 1.6b: VN Fundamentals via yfinance (Incremental - 30 tickers)', Fore.CYAN + Style.BRIGHT)}")
+            print("=" * 60)
+            try:
+                vn_result = run_yfinance_quarterly_backfill(
+                    regions=vn_regions,
+                    limit=30,  # Incremental mode: 30 tickers per region
+                    dry_run=False,
+                    calculate_ttm=False  # TTM is calculated in Phase 4
+                )
+                if vn_result.get('success'):
+                    stats = vn_result.get('stats', {})
+                    hk_cn_vn_stats['success'] += stats.get('tickers_success', 0)
+                    hk_cn_vn_stats['failed'] += stats.get('tickers_failed', 0)
+                    success_count = stats.get('tickers_success', 0)
+                    print(f"  {colored(f'✅ VN yfinance: {success_count} tickers', Fore.GREEN)}")
+                else:
+                    vn_error = vn_result.get('error', 'Unknown')
+                    print(f"  {colored(f'⚠️ VN yfinance warning: {vn_error}', Fore.YELLOW)}")
+            except Exception as e:
+                print(f"  {colored(f'⚠️ VN yfinance warning: {e}', Fore.YELLOW)}")
 
         # Phase 2: Technical Indicators (direct calculation, incremental mode)
         print(f"\n{colored('Phase 2: Technical Indicators Calculation (Incremental)', Fore.CYAN + Style.BRIGHT)}")
@@ -3930,8 +4034,8 @@ def run_incremental_refresh():
         print(f"Technical Indicators: {total_success}/{total_tickers} tickers")
         print(f"Financial Indicators: Dividend + Ratios")
         print(f"TTM Calculation: {ttm_stats['success']} success, {ttm_stats['skipped']} skipped")
-        if hk_cn_vn_regions:
-            print(f"HK/CN/VN Quarterly: {hk_cn_vn_stats['success']} success, {hk_cn_vn_stats['failed']} failed")
+        if cn_hk_regions or vn_regions:
+            print(f"HK/CN/VN Fundamentals: {hk_cn_vn_stats['success']} success, {hk_cn_vn_stats['failed']} failed")
         print(f"ETF Details: {etf_stats['collected']} collected, {etf_stats['skipped']} skipped")
         print(f"Total Time: {total_time:.1f} minutes")
         print("=" * 60)
@@ -5795,6 +5899,146 @@ def run_yfinance_quarterly_backfill(
         }
 
 
+def run_akshare_fundamental_backfill(
+    regions: List[str] = None,
+    mode: str = 'hybrid',
+    report_date: str = None,
+    limit: int = None,
+    dry_run: bool = False,
+    calculate_ttm: bool = True
+) -> Dict[str, Any]:
+    """
+    Run AkShare fundamental backfill for CN/HK regions
+
+    Uses AkShare library (no API key required) for:
+    - CN: 86 financial indicators via stock_financial_analysis_indicator()
+    - HK: 36 financial indicators via stock_financial_hk_analysis_indicator_em()
+
+    Args:
+        regions: Target regions (default: ['CN', 'HK'])
+        mode: CN collection mode ('batch', 'individual', 'hybrid')
+        report_date: Report date for CN batch mode (YYYYMMDD)
+        limit: Maximum tickers per region
+        dry_run: If True, preview operations without database writes
+        calculate_ttm: If True, auto-calculate TTM after backfill
+
+    Returns:
+        Result dictionary with success status and stats
+    """
+    from modules.market_adapters.cn_adapter import CNAdapter
+    from modules.market_adapters.hk_adapter import HKAdapter
+
+    target_regions = regions or ['CN', 'HK']
+    results = {
+        'success': True,
+        'cn_stats': {},
+        'hk_stats': {},
+        'total_success': 0,
+        'total_failed': 0
+    }
+
+    try:
+        db = PostgresDatabaseManager()
+
+        # CN Region
+        if 'CN' in target_regions:
+            print(f"\n{colored('🇨🇳 CN Fundamentals (AkShare)', Fore.CYAN + Style.BRIGHT)}")
+            print("=" * 60)
+
+            if dry_run:
+                print(f"  {colored('DRY RUN MODE', Fore.YELLOW)} - Preview only")
+                db_tickers = db.get_tickers(region='CN', asset_type='STOCK', is_active=True)
+                ticker_count = len(db_tickers)
+                if limit:
+                    ticker_count = min(ticker_count, limit)
+                print(f"  Total tickers: {ticker_count}")
+                print(f"  Mode: {mode}")
+                print(f"  Report date: {report_date or 'auto-detect'}")
+                results['cn_stats'] = {'tickers_processed': ticker_count, 'dry_run': True}
+            else:
+                cn_adapter = CNAdapter(db, enable_fallback=True)
+                tickers = None
+                if limit:
+                    db_tickers = db.get_tickers(region='CN', asset_type='STOCK', is_active=True)
+                    tickers = [t['ticker'] for t in db_tickers][:limit]
+
+                cn_success = cn_adapter.collect_fundamentals(
+                    tickers=tickers,
+                    mode=mode,
+                    report_date=report_date,
+                    use_fallback=True
+                )
+                results['cn_stats'] = {'tickers_success': cn_success}
+                results['total_success'] += cn_success
+                print(f"  {colored(f'✅ CN: {cn_success} tickers', Fore.GREEN)}")
+
+        # HK Region
+        if 'HK' in target_regions:
+            print(f"\n{colored('🇭🇰 HK Fundamentals (AkShare)', Fore.CYAN + Style.BRIGHT)}")
+            print("=" * 60)
+
+            if dry_run:
+                print(f"  {colored('DRY RUN MODE', Fore.YELLOW)} - Preview only")
+                db_tickers = db.get_tickers(region='HK', asset_type='STOCK', is_active=True)
+                ticker_count = len(db_tickers)
+                if limit:
+                    ticker_count = min(ticker_count, limit)
+                print(f"  Total tickers: {ticker_count}")
+                print(f"  AkShare can expand to: ~4,600 stocks")
+                results['hk_stats'] = {'tickers_processed': ticker_count, 'dry_run': True}
+            else:
+                hk_adapter = HKAdapter(db, enable_fallback=True)
+
+                # Optionally scan for new tickers first
+                if not limit:
+                    print(f"  {colored('Scanning for HK tickers via AkShare...', Fore.WHITE)}")
+                    scanned = hk_adapter.scan_stocks(force_refresh=True, max_count=limit)
+                    print(f"  {colored(f'Found {len(scanned)} HK tickers', Fore.GREEN)}")
+
+                tickers = None
+                if limit:
+                    db_tickers = db.get_tickers(region='HK', asset_type='STOCK', is_active=True)
+                    tickers = [t['ticker'] for t in db_tickers][:limit]
+
+                hk_success = hk_adapter.collect_fundamentals(
+                    tickers=tickers,
+                    use_fallback=True
+                )
+                results['hk_stats'] = {'tickers_success': hk_success}
+                results['total_success'] += hk_success
+                print(f"  {colored(f'✅ HK: {hk_success} tickers', Fore.GREEN)}")
+
+        # TTM Calculation (if requested and not dry_run)
+        if calculate_ttm and results['total_success'] > 0 and not dry_run:
+            try:
+                print(f"\n{colored('📊 TTM Calculation', Fore.CYAN + Style.BRIGHT)}")
+                print("=" * 60)
+                from modules.fundamentals.ttm_service import TTMService
+                ttm_service = TTMService(db)
+                ttm_result = ttm_service.run_ttm_calculation(
+                    regions=target_regions,
+                    skip_calculated=False
+                )
+                results['ttm_stats'] = {
+                    'tickers_success': ttm_result.get('tickers_success', 0),
+                    'tickers_failed': ttm_result.get('tickers_failed', 0),
+                }
+                ttm_count = ttm_result.get('tickers_success', 0)
+                print(f"  {colored(f'✅ TTM: {ttm_count} tickers', Fore.GREEN)}")
+            except Exception as e:
+                logger.warning(f"TTM calculation skipped: {e}")
+                print(f"  {colored(f'⚠️ TTM skipped: {e}', Fore.YELLOW)}")
+
+        return results
+
+    except Exception as e:
+        logger.error(f"AkShare fundamental backfill failed: {e}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
+
 def run_yfinance_daily_backfill(
     regions: List[str] = None,
     limit: int = None,
@@ -5846,6 +6090,97 @@ def run_yfinance_daily_backfill(
 
     except Exception as e:
         logger.error(f"yfinance DAILY backfill failed: {e}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
+
+def run_yfinance_quarterly_backfill(
+    regions: List[str] = None,
+    limit: int = None,
+    dry_run: bool = False
+) -> Dict[str, Any]:
+    """
+    Run yfinance QUARTERLY balance sheet backfill for HK/CN/VN regions
+
+    Collects quarterly financial statements to provide:
+    - Balance Sheet: total_assets, total_liabilities, current_assets, current_liabilities
+    - Income Statement: revenue, net_income, operating_profit, gross_profit
+    - Cash Flow: operating_cash_flow, capex, fcf
+
+    This complements AkShare fundamental data which provides ratios/margins but
+    not absolute balance sheet values.
+
+    Args:
+        regions: Target regions (default: ['HK', 'CN', 'VN'])
+        limit: Maximum tickers per region
+        dry_run: If True, preview operations without database writes
+
+    Returns:
+        Result dictionary with success status and stats
+    """
+    from scripts.backfill_fundamentals_yfinance import YFinanceFundamentalBackfiller
+
+    target_regions = regions or ['HK', 'CN', 'VN']
+    total_success = 0
+    total_failed = 0
+    total_inserted = 0
+    total_updated = 0
+
+    try:
+        db = PostgresDatabaseManager()
+
+        print(f"\n{colored('📊 QUARTERLY Balance Sheet Backfill (yfinance)', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 80)
+        print(f"  Target Regions: {', '.join(target_regions)}")
+        print(f"  Period Type: QUARTERLY")
+        print(f"  Data Source: yfinance")
+        print(f"  Limit per region: {limit if limit else 'ALL'}")
+        print()
+
+        for region in target_regions:
+            print(f"\n{colored(f'🌏 {region} Region - Quarterly Data Collection', Fore.BLUE + Style.BRIGHT)}")
+            print("=" * 80)
+
+            backfiller = YFinanceFundamentalBackfiller(
+                db=db,
+                dry_run=dry_run,
+                rate_limit_delay=0.5
+            )
+
+            stats = backfiller.run_quarterly_backfill(
+                region=region,
+                limit=limit
+            )
+
+            total_success += stats.get('success', 0)
+            total_failed += stats.get('failed', 0)
+            total_inserted += stats.get('records_inserted', 0)
+            total_updated += stats.get('records_updated', 0)
+
+            success_count = stats.get('success', 0)
+            print(f"\n{colored(f'✅ {region}: {success_count} tickers', Fore.GREEN)}")
+
+        # Overall summary
+        print(f"\n{colored('📊 Overall Summary', Fore.CYAN + Style.BRIGHT)}")
+        print("=" * 80)
+        print(f"  Total Success: {colored(str(total_success), Fore.GREEN)}")
+        print(f"  Total Failed: {colored(str(total_failed), Fore.RED if total_failed > 0 else Fore.GREEN)}")
+        print(f"  Records Inserted: {colored(str(total_inserted), Fore.CYAN)}")
+        print(f"  Records Updated: {colored(str(total_updated), Fore.CYAN)}")
+        print()
+
+        return {
+            'success': True,
+            'success_count': total_success,
+            'failed_count': total_failed,
+            'records_inserted': total_inserted,
+            'records_updated': total_updated,
+        }
+
+    except Exception as e:
+        logger.error(f"yfinance QUARTERLY backfill failed: {e}")
         return {
             'success': False,
             'error': str(e)
@@ -6180,132 +6515,172 @@ def setup_fundamental_backfill_submenu():
             input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
 
         elif choice == '6':
-            # Other Markets (yfinance)
-            print(f"\n{colored('🌐 Other Markets Fundamentals (yfinance)', Fore.CYAN + Style.BRIGHT)}")
+            # Other Markets (AkShare + yfinance)
+            print(f"\n{colored('🌐 Other Markets Fundamentals (CN/HK/VN)', Fore.CYAN + Style.BRIGHT)}")
             print("=" * 70)
-            print(f"{colored('💡 yfinance:', Fore.YELLOW)} HK, CN, VN 시장 지원")
+            print(f"{colored('💡 Data Sources:', Fore.YELLOW)}")
+            print(f"   🇨🇳 CN: AkShare (86 indicators, API키 불필요) ⭐ 권장")
+            print(f"   🇭🇰 HK: AkShare (36 indicators, ~4,600 stocks) ⭐ 권장")
+            print(f"   🇻🇳 VN: yfinance (기본 지표)")
             print()
 
+            # Data type selection
+            print(f"{colored('📋 Data Type Selection:', Fore.WHITE + Style.BRIGHT)}")
+            print(f"  1. {colored('AkShare (Ratios/Margins)', Fore.GREEN)} - 비율/마진 지표 (기본)")
+            print(f"  2. {colored('yfinance QUARTERLY (Balance Sheet)', Fore.CYAN)} - 재무상태표 절대값 ⭐ 신규")
+            print(f"  3. {colored('Both (Hybrid)', Fore.MAGENTA)} - AkShare + yfinance 모두")
+            data_type_choice = input(f"{colored('Select data type [1]:', Fore.CYAN)} ").strip() or '1'
+
             # Region selection
-            print(f"{colored('📍 Region Selection:', Fore.WHITE + Style.BRIGHT)}")
-            print(f"  1. 🇭🇰 HK (Hong Kong)")
-            print(f"  2. 🇨🇳 CN (China)")
-            print(f"  3. 🇻🇳 VN (Vietnam)")
-            print(f"  4. All (HK + CN + VN)")
-            region_choice = input(f"{colored('Select region [4]:', Fore.CYAN)} ").strip() or '4'
+            print(f"\n{colored('📍 Region Selection:', Fore.WHITE + Style.BRIGHT)}")
+            print(f"  1. 🇨🇳 CN (China)")
+            print(f"  2. 🇭🇰 HK (Hong Kong)")
+            print(f"  3. 🇨🇳🇭🇰 CN + HK ⭐ 권장")
+            print(f"  4. 🇻🇳 VN (Vietnam)")
+            print(f"  5. All (CN + HK + VN)")
+            region_choice = input(f"{colored('Select region [3]:', Fore.CYAN)} ").strip() or '3'
 
-            region_map = {'1': ['HK'], '2': ['CN'], '3': ['VN'], '4': ['HK', 'CN', 'VN']}
-            selected_regions = region_map.get(region_choice, ['HK', 'CN', 'VN'])
+            region_map = {
+                '1': ['CN'],
+                '2': ['HK'],
+                '3': ['CN', 'HK'],
+                '4': ['VN'],
+                '5': ['CN', 'HK', 'VN']
+            }
+            selected_regions = region_map.get(region_choice, ['CN', 'HK'])
 
-            # Period type selection
-            print(f"\n{colored('📋 Period Type:', Fore.WHITE + Style.BRIGHT)}")
-            print(f"  D. {colored('DAILY', Fore.CYAN)} - 일일 시가총액/PER/PBR (기존)")
-            print(f"  Q. {colored('QUARTERLY', Fore.YELLOW)} - 분기별 재무제표 (TTM 계산용)")
-            period_choice = input(f"{colored('Select period type [Q]:', Fore.CYAN)} ").strip().upper() or 'Q'
-
-            limit_input = input(f"{colored('Ticker limit per region [10]:', Fore.CYAN)} ").strip()
+            # Limit selection
+            limit_input = input(f"{colored('\n📊 Ticker limit per region [10]:', Fore.CYAN)} ").strip()
             limit_val = int(limit_input) if limit_input else 10
 
-            dry_run_input = input(f"{colored('Dry run? [y/N]:', Fore.CYAN)} ").strip().lower()
+            dry_run_input = input(f"{colored('🧪 Dry run? [y/N]:', Fore.CYAN)} ").strip().lower()
             dry_run = dry_run_input == 'y'
 
-            if period_choice == 'Q':
-                # QUARTERLY backfill + auto TTM calculation
-                print(f"\n{colored('--- QUARTERLY Backfill (yfinance) ---', Fore.BLUE)}")
-                print(f"Regions: {', '.join(selected_regions)}")
-                print(f"Limit: {limit_val} per region")
-                print(f"Mode: {'DRY RUN' if dry_run else 'PRODUCTION'}")
-                print()
+            # Execute based on data type selection
+            if data_type_choice == '1':
+                # AkShare only (Ratios/Margins)
+                cn_mode = 'hybrid'
+                report_date = None
+                if 'CN' in selected_regions:
+                    print(f"\n{colored('🇨🇳 CN Collection Mode:', Fore.WHITE + Style.BRIGHT)}")
+                    print(f"  B. {colored('Batch', Fore.CYAN)} - 빠름 (~5,900개, 기본 지표)")
+                    print(f"  I. {colored('Individual', Fore.YELLOW)} - 상세 (86개 지표)")
+                    print(f"  H. {colored('Hybrid', Fore.GREEN)} - Batch + Individual ⭐ 권장")
+                    mode_choice = input(f"{colored('Select mode [H]:', Fore.CYAN)} ").strip().upper() or 'H'
+                    cn_mode_map = {'B': 'batch', 'I': 'individual', 'H': 'hybrid'}
+                    cn_mode = cn_mode_map.get(mode_choice, 'hybrid')
 
+                    if cn_mode in ['batch', 'hybrid']:
+                        report_input = input(f"{colored('Report date (YYYYMMDD, empty=auto):', Fore.CYAN)} ").strip()
+                        report_date = report_input if report_input else None
+
+                akshare_regions = [r for r in selected_regions if r in ['CN', 'HK']]
+                if akshare_regions:
+                    print(f"\n{colored('--- AkShare Backfill (Ratios/Margins) ---', Fore.BLUE)}")
+                    result = run_akshare_fundamental_backfill(
+                        regions=akshare_regions,
+                        mode=cn_mode,
+                        report_date=report_date,
+                        limit=limit_val,
+                        dry_run=dry_run,
+                        calculate_ttm=True
+                    )
+                    if result.get('success'):
+                        print(f"\n{colored('✅ AkShare Backfill Complete!', Fore.GREEN + Style.BRIGHT)}")
+                        print(f"   Total Success: {colored(str(result.get('total_success', 0)), Fore.GREEN)}")
+
+            elif data_type_choice == '2':
+                # yfinance QUARTERLY only (Balance Sheet)
+                print(f"\n{colored('--- yfinance QUARTERLY Backfill (Balance Sheet) ---', Fore.BLUE)}")
                 result = run_yfinance_quarterly_backfill(
-                    regions=selected_regions,
-                    limit=limit_val,
-                    dry_run=dry_run,
-                    calculate_ttm=True
-                )
-
-                if result.get('success'):
-                    stats = result.get('stats', {})
-                    print(f"\n{colored('✅ QUARTERLY Backfill Complete!', Fore.GREEN + Style.BRIGHT)}")
-                    print(f"   Processed: {stats.get('tickers_processed', 0)}")
-                    print(f"   Success: {colored(str(stats.get('tickers_success', 0)), Fore.GREEN)}")
-                    print(f"   Failed: {colored(str(stats.get('tickers_failed', 0)), Fore.RED)}")
-
-                    # TTM results
-                    ttm_stats = result.get('ttm_stats')
-                    if ttm_stats:
-                        print(f"\n{colored('📊 TTM Calculation Results:', Fore.CYAN)}")
-                        print(f"   TTM Success: {colored(str(ttm_stats.get('tickers_success', 0)), Fore.GREEN)}")
-                else:
-                    print(f"\n{colored('❌ Backfill failed:', Fore.RED)} {result.get('error', 'Unknown error')}")
-            else:
-                # DAILY backfill (existing)
-                print(f"\n{colored('--- DAILY Backfill (yfinance) ---', Fore.BLUE)}")
-                print(f"Regions: {', '.join(selected_regions)}")
-                print(f"Limit: {limit_val} per region")
-                print(f"Mode: {'DRY RUN' if dry_run else 'PRODUCTION'}")
-                print()
-
-                result = run_yfinance_daily_backfill(
                     regions=selected_regions,
                     limit=limit_val,
                     dry_run=dry_run
                 )
-
                 if result.get('success'):
-                    print(f"\n{colored('✅ DAILY Backfill Complete!', Fore.GREEN + Style.BRIGHT)}")
-                    print(f"   Success: {result.get('success_count', 0)}")
+                    print(f"\n{colored('✅ yfinance QUARTERLY Backfill Complete!', Fore.GREEN + Style.BRIGHT)}")
+                    print(f"   Total Success: {colored(str(result.get('success_count', 0)), Fore.GREEN)}")
+                    print(f"   Records Inserted: {colored(str(result.get('records_inserted', 0)), Fore.CYAN)}")
                 else:
-                    print(f"\n{colored('❌ Backfill failed:', Fore.RED)} {result.get('error', 'Unknown error')}")
+                    print(f"\n{colored('❌ yfinance QUARTERLY Backfill failed:', Fore.RED)} {result.get('error', 'Unknown error')}")
+
+            elif data_type_choice == '3':
+                # Both (Hybrid): AkShare + yfinance QUARTERLY
+                print(f"\n{colored('--- Hybrid Backfill (AkShare + yfinance QUARTERLY) ---', Fore.BLUE)}")
+
+                # Step 1: AkShare backfill
+                cn_mode = 'hybrid'
+                report_date = None
+                if 'CN' in selected_regions:
+                    print(f"\n{colored('🇨🇳 CN Collection Mode:', Fore.WHITE + Style.BRIGHT)}")
+                    print(f"  B. {colored('Batch', Fore.CYAN)} - 빠름 (~5,900개, 기본 지표)")
+                    print(f"  I. {colored('Individual', Fore.YELLOW)} - 상세 (86개 지표)")
+                    print(f"  H. {colored('Hybrid', Fore.GREEN)} - Batch + Individual ⭐ 권장")
+                    mode_choice = input(f"{colored('Select mode [H]:', Fore.CYAN)} ").strip().upper() or 'H'
+                    cn_mode_map = {'B': 'batch', 'I': 'individual', 'H': 'hybrid'}
+                    cn_mode = cn_mode_map.get(mode_choice, 'hybrid')
+
+                    if cn_mode in ['batch', 'hybrid']:
+                        report_input = input(f"{colored('Report date (YYYYMMDD, empty=auto):', Fore.CYAN)} ").strip()
+                        report_date = report_input if report_input else None
+
+                akshare_regions = [r for r in selected_regions if r in ['CN', 'HK']]
+                if akshare_regions:
+                    print(f"\n{colored('Step 1/2: AkShare Backfill (Ratios/Margins)', Fore.BLUE)}")
+                    result1 = run_akshare_fundamental_backfill(
+                        regions=akshare_regions,
+                        mode=cn_mode,
+                        report_date=report_date,
+                        limit=limit_val,
+                        dry_run=dry_run,
+                        calculate_ttm=True
+                    )
+                    if result1.get('success'):
+                        print(f"\n{colored('✅ Step 1 Complete - AkShare', Fore.GREEN)}")
+
+                # Step 2: yfinance QUARTERLY backfill
+                print(f"\n{colored('Step 2/2: yfinance QUARTERLY Backfill (Balance Sheet)', Fore.BLUE)}")
+                result2 = run_yfinance_quarterly_backfill(
+                    regions=selected_regions,
+                    limit=limit_val,
+                    dry_run=dry_run
+                )
+                if result2.get('success'):
+                    print(f"\n{colored('✅ Step 2 Complete - yfinance QUARTERLY', Fore.GREEN)}")
+
+                print(f"\n{colored('🎉 Hybrid Backfill Complete!', Fore.GREEN + Style.BRIGHT)}")
+                print(f"   AkShare Success: {colored(str(result1.get('total_success', 0) if akshare_regions else 0), Fore.GREEN)}")
+                print(f"   yfinance Success: {colored(str(result2.get('success_count', 0)), Fore.GREEN)}")
+
+            else:
+                # Invalid choice (should not happen)
+                print(f"\n{colored('❌ Invalid data type choice', Fore.RED)}")
 
             input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
 
         elif choice == '7':
             # Quick All Regions
-            print(f"\n{colored('🚀 Quick All Regions Backfill', Fore.YELLOW + Style.BRIGHT)}")
+            print(f"\n{colored('🚀 Quick All Regions Backfill (10 tickers each)', Fore.CYAN + Style.BRIGHT)}")
             print("=" * 70)
-            print(f"Will process 10 tickers per region (KR, US, JP)")
-            print()
 
-            confirm = input(f"{colored('Proceed? [Y/n]:', Fore.CYAN)} ").strip().lower()
-            if confirm != 'n':
-                # KR (DART)
-                print(f"\n{colored('--- KR Market (DART) ---', Fore.BLUE)}")
-                run_equity_backfill(limit=10, dry_run=False, rate_limit=1.0, use_gap_analysis=True)
-
-                # US (SEC EDGAR)
-                run_us_fundamentals_backfill(limit=10, dry_run=False, start_year=2022, end_year=2024)
-
-                # JP (EDINET)
-                run_jp_fundamentals_backfill(limit=10, dry_run=False, start_year=2022, end_year=2024)
-
-                print(f"\n{colored('✅ Quick All Regions completed!', Fore.GREEN + Style.BRIGHT)}")
+            # Run all backfills with limit=10
+            run_yfinance_quarterly_backfill(regions=['HK', 'CN', 'VN'], limit=10)
 
             input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
 
         elif choice == '8':
             # Full All Regions
-            print(f"\n{colored('📈 Full All Regions Backfill', Fore.MAGENTA + Style.BRIGHT)}")
+            print(f"\n{colored('📈 Full All Regions Backfill', Fore.CYAN + Style.BRIGHT)}")
             print("=" * 70)
-            print(f"{colored('⚠️  Warning:', Fore.YELLOW)} This will process ALL tickers in KR, US, JP")
-            print(f"   This may take several hours!")
+            print(f"{colored('⚠️ WARNING:', Fore.YELLOW)} This will process ALL tickers in all regions")
+            print(f"   Estimated time: 1-2 hours")
             print()
 
-            confirm = input(f"{colored('Are you sure? [y/N]:', Fore.YELLOW)} ").strip().lower()
+            confirm = input(f"{colored('Continue? [y/N]:', Fore.CYAN)} ").strip().lower()
             if confirm == 'y':
-                # KR (DART)
-                print(f"\n{colored('--- KR Market (DART) ---', Fore.BLUE)}")
-                run_equity_backfill(limit=None, dry_run=False, rate_limit=1.0, use_gap_analysis=True)
-
-                # US (SEC EDGAR)
-                run_us_fundamentals_backfill(limit=None, dry_run=False, start_year=2020, end_year=2024)
-
-                # JP (EDINET)
-                run_jp_fundamentals_backfill(limit=None, dry_run=False, start_year=2020, end_year=2024)
-
-                print(f"\n{colored('✅ Full All Regions completed!', Fore.GREEN + Style.BRIGHT)}")
+                run_yfinance_quarterly_backfill(regions=['HK', 'CN', 'VN'])
             else:
-                print(f"{colored('⏭️  Cancelled', Fore.YELLOW)}")
+                print(f"{colored('❌ Cancelled', Fore.YELLOW)}")
 
             input(f"\n{colored('Press Enter to continue...', Fore.CYAN)}")
 

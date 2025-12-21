@@ -128,8 +128,18 @@ class YFinanceFundamentalBackfiller:
         """
         suffix = self.TICKER_SUFFIXES.get(region, '')
 
-        # CN and HK already have suffixes in database
-        if region in ['CN', 'HK']:
+        # HK: Database stores without .HK suffix (e.g., '00700')
+        # yfinance needs EXACTLY 4-digit format with .HK suffix (e.g., '0700.HK')
+        if region == 'HK':
+            if not ticker.endswith('.HK'):
+                # Strip all leading zeros, then pad to 4 digits
+                ticker_num = ticker.lstrip('0') or '0'
+                ticker_padded = ticker_num.zfill(4)  # Pad to 4 digits (e.g., '700' → '0700')
+                return f"{ticker_padded}.HK"
+            return ticker
+
+        # CN: Already has suffix in database (e.g., '300001.SZ')
+        if region == 'CN':
             return ticker
 
         # US: convert '/' to '.' for preferred stocks/classes
@@ -342,12 +352,133 @@ class YFinanceFundamentalBackfiller:
             logger.error(f"❌ [{region}:{ticker}] yfinance API call failed: {e}")
             return None
 
+    def fetch_yfinance_quarterly_data(self, ticker: str, region: str) -> Optional[Dict]:
+        """
+        Fetch QUARTERLY balance sheet and income statement data from yfinance
+
+        Collects comprehensive quarterly financial data including:
+        - Balance Sheet: total_assets, total_liabilities, current_assets, current_liabilities
+        - Income Statement: revenue, net_income, operating_profit, gross_profit
+        - Cash Flow: operating_cash_flow, capex, fcf
+
+        Args:
+            ticker: Stock ticker (database format)
+            region: Market region (US/JP/CN/HK/VN)
+
+        Returns:
+            Dict with quarterly fundamental metrics or None on failure
+        """
+        try:
+            # Map to yfinance symbol
+            yf_symbol = self.map_ticker_symbol(ticker, region)
+
+            # Rate limiting
+            self._rate_limit()
+            start_time = time.time()
+            self.stats['api_calls'] += 1
+
+            # Fetch quarterly financial statements
+            yf_ticker = self.yf.Ticker(yf_symbol)
+            bs_q = yf_ticker.quarterly_balance_sheet
+            inc_q = yf_ticker.quarterly_income_stmt
+            cf_q = yf_ticker.quarterly_cashflow
+
+            # Record API call time
+            call_time = time.time() - start_time
+            self.stats['api_call_times'].append(call_time)
+
+            # Check if balance sheet data is available
+            if bs_q is None or bs_q.empty:
+                logger.warning(f"⚠️ [{region}:{ticker}] No quarterly balance sheet data from yfinance")
+                return None
+
+            # Extract most recent quarter (column 0)
+            latest_date = bs_q.columns[0]
+            latest_date_str = latest_date.strftime('%Y-%m-%d')
+
+            # Helper function to safely extract values
+            def get_value(df, key, col_idx=0):
+                if df is None or df.empty:
+                    return None
+                if key in df.index:
+                    try:
+                        val = df.loc[key, df.columns[col_idx]]
+                        return self._safe_int(val) if val is not None else None
+                    except:
+                        return None
+                return None
+
+            # Extract balance sheet data
+            metrics = {
+                'ticker': ticker,
+                'region': region,
+                'date': latest_date_str,
+                'period_type': 'QUARTERLY',
+                'data_source': 'yfinance',
+
+                # Balance Sheet - Assets
+                'total_assets': get_value(bs_q, 'Total Assets'),
+                'current_assets': get_value(bs_q, 'Current Assets'),
+                'cash_and_equivalents': get_value(bs_q, 'Cash And Cash Equivalents'),
+                'accounts_receivable': get_value(bs_q, 'Receivables'),
+                'inventory': get_value(bs_q, 'Inventory'),
+                'pp_e': get_value(bs_q, 'Net PPE'),
+
+                # Balance Sheet - Liabilities
+                'total_liabilities': get_value(bs_q, 'Total Liabilities Net Minority Interest'),
+                'current_liabilities': get_value(bs_q, 'Current Liabilities'),
+
+                # Balance Sheet - Equity
+                'total_equity': get_value(bs_q, 'Stockholders Equity'),
+                'retained_earnings': get_value(bs_q, 'Retained Earnings'),
+
+                # Income Statement
+                'revenue': get_value(inc_q, 'Total Revenue') if inc_q is not None and not inc_q.empty else None,
+                'net_income': get_value(inc_q, 'Net Income') if inc_q is not None and not inc_q.empty else None,
+                'operating_profit': get_value(inc_q, 'Operating Income') if inc_q is not None and not inc_q.empty else None,
+                'gross_profit': get_value(inc_q, 'Gross Profit') if inc_q is not None and not inc_q.empty else None,
+                'ebitda': get_value(inc_q, 'EBITDA') if inc_q is not None and not inc_q.empty else None,
+
+                # Cash Flow Statement
+                'operating_cash_flow': get_value(cf_q, 'Operating Cash Flow') if cf_q is not None and not cf_q.empty else None,
+                'capex': get_value(cf_q, 'Capital Expenditure') if cf_q is not None and not cf_q.empty else None,
+            }
+
+            # Calculate FCF if both OCF and CAPEX available
+            if metrics.get('operating_cash_flow') and metrics.get('capex'):
+                # CAPEX is typically negative in yfinance, so we add it (subtract the negative)
+                metrics['fcf'] = metrics['operating_cash_flow'] + metrics['capex']
+            else:
+                metrics['fcf'] = None
+
+            # Validate that we have minimum required data
+            if not metrics['total_assets'] or not metrics['total_liabilities']:
+                logger.warning(f"⚠️ [{region}:{ticker}] Missing critical balance sheet data (total_assets or total_liabilities)")
+                return None
+
+            logger.debug(f"✅ [{region}:{ticker}] Quarterly data: Assets={metrics['total_assets']:,}, "
+                        f"Liabilities={metrics['total_liabilities']:,}, Revenue={metrics.get('revenue', 'N/A')}")
+            return metrics
+
+        except Exception as e:
+            logger.error(f"❌ [{region}:{ticker}] yfinance quarterly data fetch failed: {e}")
+            return None
+
     def _safe_decimal(self, value, scale: float = 1.0) -> Optional[Decimal]:
         """Convert value to Decimal with optional scaling"""
-        if value is None or value == 'N/A' or (isinstance(value, float) and (value != value or value == float('inf'))):
+        # Handle None, 'N/A', NaN, Infinity
+        if value is None or value == 'N/A':
+            return None
+        if isinstance(value, str) and value.lower() in ('infinity', '-infinity', 'inf', '-inf', 'nan'):
+            return None
+        if isinstance(value, float) and (value != value or value == float('inf') or value == float('-inf')):
             return None
         try:
-            return Decimal(str(float(value) * scale))
+            result = float(value) * scale
+            # Check for infinity after calculation
+            if result == float('inf') or result == float('-inf') or result != result:
+                return None
+            return Decimal(str(result))
         except (ValueError, TypeError, OverflowError):
             return None
 
@@ -366,9 +497,9 @@ class YFinanceFundamentalBackfiller:
 
         Sanity checks:
         - Market cap > 0
-        - P/E ratio reasonable (-100 < P/E < 1000)
-        - P/B ratio reasonable (0 < P/B < 100)
-        - Dividend yield reasonable (0 <= Div < 50%)
+        - P/E ratio reasonable (-500 < P/E < 5000) - relaxed for growth/turnaround stocks
+        - P/B ratio reasonable (-100 < P/B < 200)
+        - Dividend yield reasonable (0 <= Div < 200%)
 
         Returns:
             True if data passes validation, False otherwise
@@ -378,10 +509,10 @@ class YFinanceFundamentalBackfiller:
             logger.debug(f"Validation failed: Invalid market_cap={data.get('market_cap')}")
             return False
 
-        # P/E ratio sanity check (if available)
+        # P/E ratio sanity check (if available) - Relaxed for growth/turnaround stocks
         if data.get('per'):
             per = float(data['per'])
-            if per < -100 or per > 1000:
+            if per < -500 or per > 5000:
                 logger.debug(f"Validation failed: P/E out of range={per}")
                 return False
 
@@ -405,6 +536,8 @@ class YFinanceFundamentalBackfiller:
         """
         Insert or update ticker_fundamentals record
 
+        Supports both DAILY (valuation ratios) and QUARTERLY (balance sheet) data
+
         Args:
             data: Fundamental metrics (yfinance data)
 
@@ -414,44 +547,101 @@ class YFinanceFundamentalBackfiller:
         if self.dry_run:
             logger.info(f"[DRY RUN] Would insert/update fundamental data for {data['region']}:{data['ticker']}")
             logger.info(f"   → Date: {data['date']}")
+            logger.info(f"   → Period Type: {data.get('period_type', 'DAILY')}")
             logger.info(f"   → Data Source: {data['data_source']}")
-            logger.info(f"   → P/E: {data['per']}, P/B: {data['pbr']}, Div Yield: {data['dividend_yield']}%")
-            logger.info(f"   → Market Cap: {data['market_cap']:,} ({data['region']} currency)")
+            if data.get('period_type') == 'QUARTERLY':
+                logger.info(f"   → Total Assets: {data.get('total_assets', 'N/A')}")
+                logger.info(f"   → Total Liabilities: {data.get('total_liabilities', 'N/A')}")
+                logger.info(f"   → Revenue: {data.get('revenue', 'N/A')}")
+            else:
+                logger.info(f"   → P/E: {data.get('per')}, P/B: {data.get('pbr')}, Div Yield: {data.get('dividend_yield')}%")
+                logger.info(f"   → Market Cap: {data.get('market_cap'):,} ({data['region']} currency)")
             self.stats['success'] += 1
             return True
 
         try:
-            # UPSERT query
-            query = """
-            INSERT INTO ticker_fundamentals (
-                ticker, region, date, period_type,
-                shares_outstanding, market_cap, close_price,
-                per, pbr, psr, pcr, ev, ev_ebitda,
-                dividend_yield, dividend_per_share,
-                data_source, created_at
-            )
-            VALUES (
-                %(ticker)s, %(region)s, %(date)s, %(period_type)s,
-                %(shares_outstanding)s, %(market_cap)s, %(close_price)s,
-                %(per)s, %(pbr)s, %(psr)s, %(pcr)s, %(ev)s, %(ev_ebitda)s,
-                %(dividend_yield)s, %(dividend_per_share)s,
-                %(data_source)s, NOW()
-            )
-            ON CONFLICT (ticker, region, date, period_type)
-            DO UPDATE SET
-                shares_outstanding = EXCLUDED.shares_outstanding,
-                market_cap = EXCLUDED.market_cap,
-                close_price = EXCLUDED.close_price,
-                per = EXCLUDED.per,
-                pbr = EXCLUDED.pbr,
-                psr = EXCLUDED.psr,
-                pcr = EXCLUDED.pcr,
-                ev = EXCLUDED.ev,
-                ev_ebitda = EXCLUDED.ev_ebitda,
-                dividend_yield = EXCLUDED.dividend_yield,
-                dividend_per_share = EXCLUDED.dividend_per_share,
-                data_source = EXCLUDED.data_source
-            """
+            # Determine which fields to update based on period_type
+            is_quarterly = data.get('period_type') == 'QUARTERLY'
+
+            if is_quarterly:
+                # QUARTERLY: Balance sheet and income statement data
+                query = """
+                INSERT INTO ticker_fundamentals (
+                    ticker, region, date, period_type,
+                    total_assets, total_liabilities, total_equity,
+                    current_assets, current_liabilities,
+                    cash_and_equivalents, accounts_receivable, inventory, pp_e,
+                    retained_earnings,
+                    revenue, net_income, operating_profit, gross_profit, ebitda,
+                    operating_cash_flow, capex, fcf,
+                    data_source, created_at
+                )
+                VALUES (
+                    %(ticker)s, %(region)s, %(date)s, %(period_type)s,
+                    %(total_assets)s, %(total_liabilities)s, %(total_equity)s,
+                    %(current_assets)s, %(current_liabilities)s,
+                    %(cash_and_equivalents)s, %(accounts_receivable)s, %(inventory)s, %(pp_e)s,
+                    %(retained_earnings)s,
+                    %(revenue)s, %(net_income)s, %(operating_profit)s, %(gross_profit)s, %(ebitda)s,
+                    %(operating_cash_flow)s, %(capex)s, %(fcf)s,
+                    %(data_source)s, NOW()
+                )
+                ON CONFLICT (ticker, region, date, period_type)
+                DO UPDATE SET
+                    total_assets = EXCLUDED.total_assets,
+                    total_liabilities = EXCLUDED.total_liabilities,
+                    total_equity = EXCLUDED.total_equity,
+                    current_assets = EXCLUDED.current_assets,
+                    current_liabilities = EXCLUDED.current_liabilities,
+                    cash_and_equivalents = EXCLUDED.cash_and_equivalents,
+                    accounts_receivable = EXCLUDED.accounts_receivable,
+                    inventory = EXCLUDED.inventory,
+                    pp_e = EXCLUDED.pp_e,
+                    retained_earnings = EXCLUDED.retained_earnings,
+                    revenue = EXCLUDED.revenue,
+                    net_income = EXCLUDED.net_income,
+                    operating_profit = EXCLUDED.operating_profit,
+                    gross_profit = EXCLUDED.gross_profit,
+                    ebitda = EXCLUDED.ebitda,
+                    operating_cash_flow = EXCLUDED.operating_cash_flow,
+                    capex = EXCLUDED.capex,
+                    fcf = EXCLUDED.fcf,
+                    data_source = EXCLUDED.data_source,
+                    last_updated = NOW()
+                """
+            else:
+                # DAILY: Valuation ratios and market data
+                query = """
+                INSERT INTO ticker_fundamentals (
+                    ticker, region, date, period_type,
+                    shares_outstanding, market_cap, close_price,
+                    per, pbr, psr, pcr, ev, ev_ebitda,
+                    dividend_yield, dividend_per_share,
+                    data_source, created_at
+                )
+                VALUES (
+                    %(ticker)s, %(region)s, %(date)s, %(period_type)s,
+                    %(shares_outstanding)s, %(market_cap)s, %(close_price)s,
+                    %(per)s, %(pbr)s, %(psr)s, %(pcr)s, %(ev)s, %(ev_ebitda)s,
+                    %(dividend_yield)s, %(dividend_per_share)s,
+                    %(data_source)s, NOW()
+                )
+                ON CONFLICT (ticker, region, date, period_type)
+                DO UPDATE SET
+                    shares_outstanding = EXCLUDED.shares_outstanding,
+                    market_cap = EXCLUDED.market_cap,
+                    close_price = EXCLUDED.close_price,
+                    per = EXCLUDED.per,
+                    pbr = EXCLUDED.pbr,
+                    psr = EXCLUDED.psr,
+                    pcr = EXCLUDED.pcr,
+                    ev = EXCLUDED.ev,
+                    ev_ebitda = EXCLUDED.ev_ebitda,
+                    dividend_yield = EXCLUDED.dividend_yield,
+                    dividend_per_share = EXCLUDED.dividend_per_share,
+                    data_source = EXCLUDED.data_source,
+                    last_updated = NOW()
+                """
 
             success = self.db.execute_update(query, data)
 
@@ -571,6 +761,87 @@ class YFinanceFundamentalBackfiller:
 
             # Insert/update database
             self.insert_or_update_fundamental_data(yf_data)
+
+        return self.stats
+
+    def run_quarterly_backfill(self, region: str = None, limit: int = None) -> Dict:
+        """
+        Run yfinance QUARTERLY balance sheet data backfill
+
+        Collects quarterly financial statements (balance sheet, income statement, cash flow)
+        to provide comprehensive fundamental data including total_assets and total_liabilities.
+
+        Args:
+            region: Filter by specific region (HK/CN/VN recommended)
+            limit: Maximum number of tickers to process
+
+        Returns:
+            Statistics dictionary
+        """
+        logger.info("📊 Starting QUARTERLY fundamental data backfill (yfinance)")
+        logger.info("=" * 70)
+
+        # Get tickers for backfill
+        tickers = self.get_global_tickers_for_backfill(region=region, incremental=False, limit=limit)
+
+        if not tickers:
+            logger.warning("⚠️ No tickers found for quarterly backfill")
+            return self.stats
+
+        logger.info(f"\n📈 Processing {len(tickers)} tickers for QUARTERLY data...")
+        logger.info(f"   Target: Balance sheet + Income statement + Cash flow")
+        logger.info(f"   Period Type: QUARTERLY")
+        logger.info("")
+
+        # Process each ticker
+        for idx, ticker_info in enumerate(tickers, 1):
+            ticker = ticker_info['ticker']
+            name = ticker_info['name']
+            region_code = ticker_info['region']
+
+            logger.info(f"\n[{idx}/{len(tickers)}] {region_code}:{ticker} ({name})")
+            logger.info("=" * 60)
+
+            self.stats['tickers_processed'] += 1
+
+            # Skip CN legacy tickers
+            if region_code == 'CN' and not self.is_valid_cn_ticker(ticker):
+                logger.info(f"⏭️ Skipping legacy CN ticker (yfinance requires 6-digit codes)")
+                self.stats['skipped_legacy_cn'] += 1
+                continue
+
+            # Skip US slash-based tickers
+            if region_code == 'US' and not self.is_valid_us_ticker(ticker):
+                logger.info(f"⏭️ Skipping US slash-based ticker")
+                self.stats['skipped_us_special'] += 1
+                continue
+
+            # Fetch quarterly data
+            quarterly_data = self.fetch_yfinance_quarterly_data(ticker, region_code)
+
+            if not quarterly_data:
+                logger.warning(f"⚠️ No quarterly data available")
+                self.stats['skipped_no_data'] += 1
+                continue
+
+            # Insert/update database
+            success = self.insert_or_update_fundamental_data(quarterly_data)
+            if success:
+                logger.info(f"✅ Quarterly data saved: {quarterly_data['date']}")
+
+        # Summary
+        logger.info("\n" + "=" * 70)
+        logger.info("📊 QUARTERLY Backfill Summary")
+        logger.info("=" * 70)
+        logger.info(f"  Tickers Processed: {self.stats['tickers_processed']}")
+        logger.info(f"  ✅ Success: {self.stats['success']}")
+        logger.info(f"  ⏭️  Skipped (no data): {self.stats['skipped_no_data']}")
+        logger.info(f"  ⏭️  Skipped (legacy CN): {self.stats['skipped_legacy_cn']}")
+        logger.info(f"  ⏭️  Skipped (US special): {self.stats['skipped_us_special']}")
+        logger.info(f"  ❌ Failed: {self.stats['failed']}")
+        logger.info(f"  📝 Records Inserted: {self.stats['records_inserted']}")
+        logger.info(f"  🔄 Records Updated: {self.stats['records_updated']}")
+        logger.info("")
 
         return self.stats
 
