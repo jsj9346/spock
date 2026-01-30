@@ -53,7 +53,7 @@
 | 0.2 Tier 2 | 12/18 | 67% ⚠️ | 핵심 로직 검증됨 |
 | **총계** | **71/77** | **92%** | **6.81%** |
 
-**자세한 Phase 0.2 분석은 [PHASE0_2_COMPLETION_REPORT.md](docs/PHASE0_2_COMPLETION_REPORT.md) 참조**
+**자세한 Phase 0.2 분석은 [PHASE0_2_COMPLETION_REPORT.md](docs/archive/phase_details/PHASE0_2_COMPLETION_REPORT.md) 참조**
 
 ---
 
@@ -102,7 +102,7 @@
 - **검증 보고서**: validation_report_20251112.md, IC 분석 차트, 상관관계 히트맵 생성
 - **미해결 이슈**: BetaFactor (market_returns 계산 오류), 12M_Momentum (데이터 부족), RSI_Momentum (지표 인프라 부재)
 
-**자세한 팩터 검증 분석은 [PHASE1_4_COMPLETION_REPORT.md](docs/PHASE1_4_COMPLETION_REPORT.md) 참조**
+**자세한 팩터 검증 분석은 [PHASE1_4_COMPLETION_REPORT.md](docs/archive/phases/PHASE1_4_COMPLETION_REPORT.md) 참조**
 
 ### 다음 단계 (Phase 2 - Week 5+)
 1. **백테스팅으로 실제 수익성 검증**: 검증된 3개 팩터로 전략 구성 및 백테스팅
@@ -114,7 +114,7 @@
 4. **프로덕션 배포 전 Out-of-Sample 테스트**
 5. **추가 팩터 개발**: Value, Quality 팩터 라이브러리 확장
 
-**자세한 Week 4 요약은 [WEEK4_COMPLETION_REPORT.md](docs/WEEK4_COMPLETION_REPORT.md) 참조**
+**자세한 Week 4 요약은 [WEEK4_COMPLETION_REPORT.md](docs/archive/weekly_reports/WEEK4_COMPLETION_REPORT.md) 참조**
 
 ---
 
@@ -410,30 +410,30 @@
 더 나은 구성과 성능을 위해 자세한 문서가 전문 파일로 분리되었습니다:
 
 ### 핵심 문서
-- **[QUANT_DATABASE_SCHEMA.md](docs/QUANT_DATABASE_SCHEMA.md)** - PostgreSQL + TimescaleDB 스키마 설계
+- **[QUANT_DATABASE_SCHEMA.md](docs/architecture/QUANT_DATABASE_SCHEMA.md)** - PostgreSQL + TimescaleDB 스키마 설계
   - 테이블 구조, 하이퍼테이블, 연속 집계
   - 압축 정책, 쿼리 최적화 패턴
   - 백업 전략, 성능 벤치마크
 
-- **[QUANT_DEVELOPMENT_WORKFLOWS.md](docs/QUANT_DEVELOPMENT_WORKFLOWS.md)** - 명령 예제가 포함된 개발 워크플로우
+- **[QUANT_DEVELOPMENT_WORKFLOWS.md](docs/guides/QUANT_DEVELOPMENT_WORKFLOWS.md)** - 명령 예제가 포함된 개발 워크플로우
   - 백테스팅 엔진 설정 (우선순위 1)
   - 데이터베이스 설정 및 마이그레이션
   - 팩터 연구, 전략 개발
   - 포트폴리오 최적화, 리스크 분석
   - 대시보드 및 API 사용 예제
 
-- **[QUANT_ROADMAP.md](docs/QUANT_ROADMAP.md)** - 15주 개발 로드맵
+- **[QUANT_ROADMAP.md](docs/reports/QUANT_ROADMAP.md)** - 15주 개발 로드맵
   - Phase 1: 백테스팅 엔진 (Week 1-2) 🎯 **최우선 순위**
   - Phase 2-11: 데이터베이스부터 프로덕션까지 (Week 3-15)
   - 성공 기준 및 품질 게이트
 
-- **[QUANT_BACKTESTING_ENGINES.md](docs/QUANT_BACKTESTING_ENGINES.md)** - 백테스팅 엔진 비교
+- **[QUANT_BACKTESTING_ENGINES.md](docs/architecture/QUANT_BACKTESTING_ENGINES.md)** - 백테스팅 엔진 비교
   - Custom Event-Driven Engine (프로덕션 ✅)
   - vectorbt (연구, 100배 빠름 🎯)
   - backtrader 및 zipline (선택사항 📋)
   - 성능 벤치마크, 코드 예제
 
-- **[QUANT_OPERATIONS.md](docs/QUANT_OPERATIONS.md)** - 운영 및 모니터링
+- **[QUANT_OPERATIONS.md](docs/guides/QUANT_OPERATIONS.md)** - 운영 및 모니터링
   - 로깅 설정 및 모범 사례
   - Prometheus 메트릭, Grafana 대시보드
   - 알림 규칙, 문제 해결 가이드
@@ -471,7 +471,7 @@ psql -d quant_platform -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
 python3 scripts/init_postgres_schema.py
 ```
 
-**자세한 설정 지침은 [QUANT_DEVELOPMENT_WORKFLOWS.md](docs/QUANT_DEVELOPMENT_WORKFLOWS.md#2-database-setup) 참조**
+**자세한 설정 지침은 [QUANT_DEVELOPMENT_WORKFLOWS.md](docs/guides/QUANT_DEVELOPMENT_WORKFLOWS.md#2-database-setup) 참조**
 
 ### 3. 백테스팅 엔진 검증 (우선순위 1)
 ```bash
@@ -488,7 +488,7 @@ python3 modules/backtest/vectorbt_adapter.py --test-integration
 python3 tests/test_backtest_engine.py --comprehensive
 ```
 
-**완전한 엔진 설정 가이드는 [QUANT_DEVELOPMENT_WORKFLOWS.md](docs/QUANT_DEVELOPMENT_WORKFLOWS.md#1-backtesting-engine-setup) 참조**
+**완전한 엔진 설정 가이드는 [QUANT_DEVELOPMENT_WORKFLOWS.md](docs/guides/QUANT_DEVELOPMENT_WORKFLOWS.md#1-backtesting-engine-setup) 참조**
 
 ### 4. 예제 백테스트 실행
 ```bash
@@ -518,7 +518,7 @@ python3 quant_platform.py backtest \
 - ✅ >95% 정확도 검증
 - ✅ 모든 성능 메트릭 자동 계산
 
-**전체 로드맵은 [QUANT_ROADMAP.md](docs/QUANT_ROADMAP.md) 참조**
+**전체 로드맵은 [QUANT_ROADMAP.md](docs/reports/QUANT_ROADMAP.md) 참조**
 
 ### 워크플로우 단계
 1. **백테스팅 엔진 설정** (Week 1-2) → 현재 단계
@@ -528,7 +528,7 @@ python3 quant_platform.py backtest \
 5. **포트폴리오 최적화** (Week 8+)
 6. **프로덕션 배포** (Week 15)
 
-**자세한 워크플로우 및 명령 예제는 [QUANT_DEVELOPMENT_WORKFLOWS.md](docs/QUANT_DEVELOPMENT_WORKFLOWS.md) 참조**
+**자세한 워크플로우 및 명령 예제는 [QUANT_DEVELOPMENT_WORKFLOWS.md](docs/guides/QUANT_DEVELOPMENT_WORKFLOWS.md) 참조**
 
 ---
 
@@ -553,7 +553,7 @@ python3 quant_platform.py backtest \
 **연구**: vectorbt (100배 빠른 파라미터 최적화 🎯 **우선순위 1**)
 **선택사항**: backtrader (실시간 트레이딩), zipline (기관용) 📋
 
-**자세한 엔진 비교 및 예제는 [QUANT_BACKTESTING_ENGINES.md](docs/QUANT_BACKTESTING_ENGINES.md) 참조**
+**자세한 엔진 비교 및 예제는 [QUANT_BACKTESTING_ENGINES.md](docs/architecture/QUANT_BACKTESTING_ENGINES.md) 참조**
 
 ### 3. 포트폴리오 최적화
 **목적**: 리스크 제약 하의 최적 자산 배분
@@ -573,7 +573,7 @@ python3 quant_platform.py backtest \
 
 **리스크 한도**: 포트폴리오 VaR <5%, 단일 포지션 VaR <1%, 섹터 <40%
 
-**자세한 리스크 관리 워크플로우는 [QUANT_OPERATIONS.md](docs/QUANT_OPERATIONS.md#risk-analysis) 참조**
+**자세한 리스크 관리 워크플로우는 [QUANT_OPERATIONS.md](docs/guides/QUANT_OPERATIONS.md#risk-analysis) 참조**
 
 ---
 
@@ -594,7 +594,7 @@ python3 quant_platform.py backtest \
 - 압축 (1년 후 10배 공간 절약)
 - 쿼리 성능: 10년 데이터 <1초
 
-**완전한 스키마 및 SQL 예제는 [QUANT_DATABASE_SCHEMA.md](docs/QUANT_DATABASE_SCHEMA.md) 참조**
+**완전한 스키마 및 SQL 예제는 [QUANT_DATABASE_SCHEMA.md](docs/architecture/QUANT_DATABASE_SCHEMA.md) 참조**
 
 ---
 
@@ -623,7 +623,7 @@ python3 quant_platform.py backtest \
 - API 지연시간: <200ms (p95)
 - 대시보드 로드: <3초
 
-**완전한 메트릭 및 목표는 [QUANT_ROADMAP.md](docs/QUANT_ROADMAP.md#success-metrics-summary) 참조**
+**완전한 메트릭 및 목표는 [QUANT_ROADMAP.md](docs/reports/QUANT_ROADMAP.md#success-metrics-summary) 참조**
 
 ---
 
@@ -646,7 +646,7 @@ python3 quant_platform.py backtest \
 - **경고**: 느린 백테스트 (>60초), 팩터 실패, 높은 메모리
 - **정보**: 일일 업데이트, 주간 보고서, 월간 리밸런싱
 
-**완전한 운영 가이드는 [QUANT_OPERATIONS.md](docs/QUANT_OPERATIONS.md) 참조**
+**완전한 운영 가이드는 [QUANT_OPERATIONS.md](docs/guides/QUANT_OPERATIONS.md) 참조**
 
 ---
 
@@ -682,7 +682,7 @@ python3 quant_platform.py backtest \
 - **Phase 7 게이트**: 전략이 >100 거래 및 >1.0 샤프 비율 표시
 - **Phase 11 게이트**: 프로덕션 전 완전한 통합 테스트
 
-**완전한 품질 게이트 및 검증 사이클은 [QUANT_ROADMAP.md](docs/QUANT_ROADMAP.md#key-development-principles) 참조**
+**완전한 품질 게이트 및 검증 사이클은 [QUANT_ROADMAP.md](docs/reports/QUANT_ROADMAP.md#key-development-principles) 참조**
 
 ---
 
@@ -690,11 +690,11 @@ python3 quant_platform.py backtest \
 
 ### 문서
 모든 자세한 문서는 `docs/` 디렉토리에서 확인 가능:
-- [QUANT_DATABASE_SCHEMA.md](docs/QUANT_DATABASE_SCHEMA.md) - 데이터베이스 설계
-- [QUANT_DEVELOPMENT_WORKFLOWS.md](docs/QUANT_DEVELOPMENT_WORKFLOWS.md) - 개발 가이드
-- [QUANT_ROADMAP.md](docs/QUANT_ROADMAP.md) - 프로젝트 로드맵
-- [QUANT_BACKTESTING_ENGINES.md](docs/QUANT_BACKTESTING_ENGINES.md) - 엔진 비교
-- [QUANT_OPERATIONS.md](docs/QUANT_OPERATIONS.md) - 운영 가이드
+- [QUANT_DATABASE_SCHEMA.md](docs/architecture/QUANT_DATABASE_SCHEMA.md) - 데이터베이스 설계
+- [QUANT_DEVELOPMENT_WORKFLOWS.md](docs/guides/QUANT_DEVELOPMENT_WORKFLOWS.md) - 개발 가이드
+- [QUANT_ROADMAP.md](docs/reports/QUANT_ROADMAP.md) - 프로젝트 로드맵
+- [QUANT_BACKTESTING_ENGINES.md](docs/architecture/QUANT_BACKTESTING_ENGINES.md) - 엔진 비교
+- [QUANT_OPERATIONS.md](docs/guides/QUANT_OPERATIONS.md) - 운영 가이드
 
 ### 코드 예제
 - **전략 개발**: `examples/example_momentum_value_strategy.py`

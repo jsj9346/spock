@@ -47,44 +47,45 @@ class HKAdapter(BaseMarketAdapter):
 
     # Fallback ticker list when AkShare fails
     # Hang Seng Index constituents + major H-shares
+    # Format: XXXX.HK (unified database format)
     FALLBACK_HK_TICKERS = [
         # Hang Seng Index Top 10
-        '00700',  # Tencent Holdings
-        '09988',  # Alibaba Group
-        '00941',  # China Mobile
-        '01299',  # AIA Group
-        '00388',  # Hong Kong Exchanges
-        '00005',  # HSBC Holdings
-        '03690',  # Meituan
-        '02318',  # Ping An Insurance
-        '01398',  # ICBC
-        '00011',  # Hang Seng Bank
+        '0700.HK',  # Tencent Holdings
+        '9988.HK',  # Alibaba Group
+        '0941.HK',  # China Mobile
+        '1299.HK',  # AIA Group
+        '0388.HK',  # Hong Kong Exchanges
+        '0005.HK',  # HSBC Holdings
+        '3690.HK',  # Meituan
+        '2318.HK',  # Ping An Insurance
+        '1398.HK',  # ICBC
+        '0011.HK',  # Hang Seng Bank
 
         # Major H-Shares
-        '00939',  # China Construction Bank
-        '02628',  # China Life Insurance
-        '00883',  # CNOOC
-        '00386',  # China Petroleum & Chemical
-        '01288',  # Agricultural Bank of China
-        '00857',  # PetroChina
-        '03988',  # Bank of China
-        '02382',  # Sunny Optical Technology
-        '01109',  # China Resources Land
-        '00175',  # Geely Automobile
+        '0939.HK',  # China Construction Bank
+        '2628.HK',  # China Life Insurance
+        '0883.HK',  # CNOOC
+        '0386.HK',  # China Petroleum & Chemical
+        '1288.HK',  # Agricultural Bank of China
+        '0857.HK',  # PetroChina
+        '3988.HK',  # Bank of China
+        '2382.HK',  # Sunny Optical Technology
+        '1109.HK',  # China Resources Land
+        '0175.HK',  # Geely Automobile
 
         # Technology
-        '00772',  # China Literature
-        '01810',  # Xiaomi Corporation
-        '09961',  # Trip.com Group
-        '09618',  # JD.com
-        '09999',  # NetEase
+        '0772.HK',  # China Literature
+        '1810.HK',  # Xiaomi Corporation
+        '9961.HK',  # Trip.com Group
+        '9618.HK',  # JD.com
+        '9999.HK',  # NetEase
 
         # Consumer
-        '01211',  # BYD Company
-        '02269',  # Wuxi Biologics
-        '06618',  # JD Health International
-        '00968',  # Xinyi Solar Holdings
-        '02688',  # ENN Energy Holdings
+        '1211.HK',  # BYD Company
+        '2269.HK',  # Wuxi Biologics
+        '6618.HK',  # JD Health International
+        '0968.HK',  # Xinyi Solar Holdings
+        '2688.HK',  # ENN Energy Holdings
     ]
 
     def __init__(self, db_manager, enable_fallback: bool = True):
@@ -427,9 +428,15 @@ class HKAdapter(BaseMarketAdapter):
                         market_cap = info.get('market_cap')
 
                         if market_cap:
+                            # Normalize ticker to database format (XXXX.HK)
+                            db_ticker = self.stock_parser.normalize_ticker_db(ticker)
+                            if not db_ticker:
+                                logger.debug(f"⚠️ Invalid ticker for yfinance fallback: {ticker}")
+                                continue
+
                             # Check insertion result
                             if self.db.insert_ticker_fundamentals({
-                                'ticker': ticker,
+                                'ticker': db_ticker,
                                 'region': 'HK',
                                 'date': today,
                                 'period_type': 'QUARTERLY',
@@ -439,7 +446,7 @@ class HKAdapter(BaseMarketAdapter):
                                 fallback_count += 1
                                 success_count += 1
                             else:
-                                logger.debug(f"⚠️ [HK] Failed to insert {ticker} (yfinance fallback)")
+                                logger.debug(f"⚠️ [HK] Failed to insert {db_ticker} (yfinance fallback)")
 
             except Exception as e:
                 logger.debug(f"⚠️ Fundamentals collection failed for {ticker}: {e}")

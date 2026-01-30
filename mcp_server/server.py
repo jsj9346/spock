@@ -80,6 +80,8 @@ class SpockMCPServer:
         from .adapters.screening_adapter import ScreeningAdapter
         from .adapters.macro_adapter import MacroAdapter
         from .adapters.tech_screening_adapter import TechScreeningAdapter
+        from .adapters.chart_adapter import ChartAdapter
+        from .adapters.return_comparison_adapter import ReturnComparisonAdapter
         from modules.screening.etf_screening_adapter import ETFScreeningAdapter
 
         self.data_adapter = DataAdapter()
@@ -89,6 +91,8 @@ class SpockMCPServer:
         self.screening_adapter = ScreeningAdapter()
         self.macro_adapter = MacroAdapter()
         self.tech_screening_adapter = TechScreeningAdapter()
+        self.chart_adapter = ChartAdapter(self.data_adapter)
+        self.return_comparison_adapter = ReturnComparisonAdapter(self.data_adapter)
         self.etf_screening_adapter = ETFScreeningAdapter()
 
         # Register unified list_tools handler
@@ -111,6 +115,8 @@ class SpockMCPServer:
             from .tools.ratios_tool import get_ratios_tool_def
             from .tools.dividend_tool import get_dividend_tool_def
             from .tools.ttm_tool import get_ttm_tool_def
+            from .tools.chart_tool import get_chart_tool_def
+            from .tools.return_comparison_tool import get_return_comparison_tool_def
 
             tools = []
             tools.append(get_data_query_tool_def())
@@ -127,6 +133,8 @@ class SpockMCPServer:
             tools.append(get_ratios_tool_def())
             tools.append(get_dividend_tool_def())
             tools.append(get_ttm_tool_def())
+            tools.append(get_chart_tool_def())
+            tools.append(get_return_comparison_tool_def())
 
             logger.info("tools_listed", tool_count=len(tools))
             return tools
@@ -182,10 +190,16 @@ class SpockMCPServer:
             elif name == "query_ttm":
                 from .tools.ttm_tool import handle_query_ttm
                 return await handle_query_ttm(self.data_adapter, arguments)
+            elif name == "generate_stock_chart":
+                from .tools.chart_tool import handle_generate_stock_chart
+                return await handle_generate_stock_chart(self.chart_adapter, arguments)
+            elif name == "compare_stock_returns":
+                from .tools.return_comparison_tool import handle_compare_stock_returns
+                return await handle_compare_stock_returns(self.return_comparison_adapter, arguments)
             else:
                 raise ValueError(f"Unknown tool: {name}")
 
-        logger.debug("mcp_unified_handlers_registered", tool_count=15)
+        logger.debug("mcp_unified_handlers_registered", tool_count=17)
 
     async def run(self) -> None:
         """Run MCP server (async main loop)"""

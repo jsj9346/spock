@@ -56,9 +56,10 @@ def validate_tickers(tickers: List[str], region: str = "KR") -> None:
         )
 
     # Validate format based on region
+    # HK supports both 4-digit (0001.HK) and 5-digit (82318.HK for RMB traded)
     region_patterns = {
         "CN": (r'^\d+\.(SZ|SS)$', "Numeric.SZ or Numeric.SS (e.g., 100.SZ, 600710.SS)"),
-        "HK": (r'^\d{4}\.HK$', "4-digit.HK (e.g., 0001.HK)"),
+        "HK": (r'^\d{4,5}\.HK$', "4-5 digit.HK (e.g., 0001.HK, 82318.HK)"),
         "JP": (r'^[0-9A-Z]{4}$', "4-digit alphanumeric (e.g., 1301, 130A)"),
         "KR": (r'^\d{6}$', "6-digit numeric (e.g., 005930)"),
         "US": (r'^[A-Z]{1,5}$', "1-5 uppercase letters (e.g., AAPL)"),

@@ -123,7 +123,7 @@ class HKStockParser:
 
         Example output:
             {
-                'ticker': '0700',
+                'ticker': '0700.HK',
                 'name': 'Tencent Holdings Limited',
                 'name_eng': 'Tencent Holdings Limited',
                 'exchange': 'HKEX',
@@ -134,15 +134,18 @@ class HKStockParser:
                 'market_cap': 3500000000000,
                 'data_source': 'yfinance'
             }
+
+        Note:
+            Ticker is normalized to database format (XXXX.HK) using normalize_ticker_db()
         """
         try:
             if not yfinance_info or 'symbol' not in yfinance_info:
                 logger.warning("⚠️ Invalid yfinance info (missing symbol)")
                 return None
 
-            # Normalize ticker: "0700.HK" → "0700"
+            # Normalize ticker to database format: "0700.HK" → "0700.HK"
             raw_ticker = yfinance_info.get('symbol', '')
-            ticker = self.normalize_ticker(raw_ticker)
+            ticker = self.normalize_ticker_db(raw_ticker)
 
             if not ticker:
                 logger.warning(f"⚠️ Invalid HK ticker format: {raw_ticker}")
@@ -248,6 +251,10 @@ class HKStockParser:
 
         Returns:
             Normalized ticker (e.g., "0700") or None if invalid
+
+        Note:
+            This returns ticker WITHOUT .HK suffix for internal processing.
+            Use normalize_ticker_db() for database storage format.
         """
         if not raw_ticker:
             return None
@@ -258,12 +265,80 @@ class HKStockParser:
         else:
             ticker = raw_ticker
 
-        # Validate format: 4 digits
+        # Validate format: 4-5 digits
         if not re.match(r'^\d{4,5}$', ticker):
             logger.warning(f"⚠️ Invalid HK ticker format: {raw_ticker}")
             return None
 
         return ticker
+
+    def normalize_ticker_db(self, raw_ticker: str) -> Optional[str]:
+        """
+        Normalize HK ticker to database storage format: XXXX.HK or XXXXX.HK
+
+        This is the STANDARD format for all HK tickers in the database.
+        Ensures consistency across all tables (ohlcv_data, ticker_fundamentals, etc.)
+
+        Conversion rules:
+            - "1", "32", "663" → "0001.HK", "0032.HK", "0663.HK" (pad to 4 digits)
+            - "02318" (5-digit, starts with 0) → "2318.HK" (4-digit, remove leading 0)
+            - "82318" (5-digit, starts with 8/9) → "82318.HK" (5-digit, RMB traded)
+            - "2318.HK" → "2318.HK" (already correct, but pad if short)
+            - "0700" (4-digit) → "0700.HK"
+
+        Args:
+            raw_ticker: Raw ticker in any format
+
+        Returns:
+            Database format ticker (e.g., "0001.HK", "2318.HK", "82318.HK") or None if invalid
+
+        Examples:
+            >>> parser.normalize_ticker_db("1")
+            "0001.HK"
+            >>> parser.normalize_ticker_db("02318")
+            "2318.HK"
+            >>> parser.normalize_ticker_db("82318")
+            "82318.HK"
+            >>> parser.normalize_ticker_db("0700.HK")
+            "0700.HK"
+        """
+        if not raw_ticker:
+            return None
+
+        # Already has .HK suffix - extract code and normalize
+        if raw_ticker.endswith('.HK'):
+            code = raw_ticker[:-3]
+            # Remove leading zeros and re-normalize
+            ticker = ''.join(c for c in code if c.isdigit())
+        else:
+            # Remove any non-digit characters
+            ticker = ''.join(c for c in raw_ticker if c.isdigit())
+
+        if not ticker:
+            logger.warning(f"⚠️ Invalid HK ticker (no digits): {raw_ticker}")
+            return None
+
+        # 5-digit code starting with 8 or 9 (RMB traded products)
+        # Keep all 5 digits: 82318 -> 82318.HK
+        if len(ticker) == 5 and ticker[0] in ('8', '9'):
+            return f"{ticker}.HK"
+
+        # 5-digit code starting with 0 (standard HK stocks)
+        # Remove leading zero: 02318 -> 2318.HK
+        if len(ticker) == 5 and ticker[0] == '0':
+            ticker = ticker[1:]  # Now 4 digits
+
+        # Pad to minimum 4 digits for yfinance compatibility
+        # 1 -> 0001, 32 -> 0032, 663 -> 0663
+        if len(ticker) < 4:
+            ticker = ticker.zfill(4)
+
+        # Final validation: should be 4 digits now (or 5 for RMB)
+        if len(ticker) not in (4, 5):
+            logger.warning(f"⚠️ Invalid HK ticker length after normalization: {raw_ticker}")
+            return None
+
+        return f"{ticker}.HK"
 
     def normalize_ticker_akshare(self, raw_ticker: str) -> Optional[str]:
         """
@@ -517,7 +592,7 @@ class HKStockParser:
         Example output:
             [
                 {
-                    'ticker': '00700',
+                    'ticker': '0700.HK',
                     'name': '腾讯控股',
                     'exchange': 'HKEX',
                     'region': 'HK',
@@ -527,6 +602,9 @@ class HKStockParser:
                 },
                 ...
             ]
+
+        Note:
+            Tickers are normalized to database format (XXXX.HK) using normalize_ticker_db()
         """
         if akshare_df is None or akshare_df.empty:
             logger.warning("⚠️ Empty AkShare HK stock list")
@@ -537,10 +615,16 @@ class HKStockParser:
         for _, row in akshare_df.iterrows():
             try:
                 # Extract code (already English from akshare_api.py)
-                ticker = str(row.get('code', row.get('代码', ''))).zfill(5)
+                raw_ticker = str(row.get('code', row.get('代码', ''))).zfill(5)
                 name = row.get('name', row.get('名称', ''))
 
-                if not ticker or not name:
+                if not raw_ticker or not name:
+                    continue
+
+                # Normalize to database format (XXXX.HK or XXXXX.HK)
+                ticker = self.normalize_ticker_db(raw_ticker)
+                if not ticker:
+                    logger.debug(f"⚠️ Skipping invalid HK ticker: {raw_ticker}")
                     continue
 
                 # Extract price
@@ -570,7 +654,7 @@ class HKStockParser:
                 logger.debug(f"⚠️ Parse error for HK row: {e}")
                 continue
 
-        logger.info(f"✅ Parsed {len(stocks)} HK stocks from AkShare")
+        logger.info(f"✅ Parsed {len(stocks)} HK stocks from AkShare (DB format: XXXX.HK)")
         return stocks
 
     def parse_hk_financial_indicators(self,
@@ -582,7 +666,7 @@ class HKStockParser:
 
         Args:
             df: DataFrame from ak.stock_financial_hk_analysis_indicator_em()
-            ticker: HK stock ticker code (e.g., '00700')
+            ticker: HK stock ticker code (e.g., '00700' or '0700.HK')
             report_date: Specific report date to extract (e.g., '2024-12-31')
                         If None, uses the most recent date
 
@@ -591,7 +675,7 @@ class HKStockParser:
 
         Example output:
             {
-                'ticker': '00700',
+                'ticker': '0700.HK',
                 'region': 'HK',
                 'date': '2024-12-31',
                 'period_type': 'QUARTERLY',
@@ -607,9 +691,18 @@ class HKStockParser:
                 'net_income': 194073000000,
                 'data_source': 'akshare'
             }
+
+        Note:
+            Ticker is normalized to database format (XXXX.HK) using normalize_ticker_db()
         """
         if df is None or df.empty:
             logger.warning(f"⚠️ Empty financial indicators for HK:{ticker}")
+            return None
+
+        # Normalize ticker to database format
+        db_ticker = self.normalize_ticker_db(ticker)
+        if not db_ticker:
+            logger.warning(f"⚠️ Invalid HK ticker for fundamentals: {ticker}")
             return None
 
         try:
@@ -645,9 +738,9 @@ class HKStockParser:
             else:
                 formatted_date = datetime.now().strftime('%Y-%m-%d')
 
-            # Build fundamentals dict
+            # Build fundamentals dict with normalized ticker
             fundamentals = {
-                'ticker': ticker,
+                'ticker': db_ticker,
                 'region': 'HK',
                 'date': formatted_date,
                 'period_type': 'QUARTERLY',
