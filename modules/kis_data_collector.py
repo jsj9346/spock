@@ -29,7 +29,6 @@ from datetime import datetime, timedelta, date
 from typing import Optional, Dict, List, Any
 import logging
 import pytz
-from dotenv import load_dotenv
 
 # Add parent directory to path for module imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -49,9 +48,6 @@ try:
 except ImportError:
     HAS_PANDAS_TA = False
     print("⚠️ pandas_ta not available, using basic indicators")
-
-# Load environment variables
-load_dotenv()
 
 # Logging setup
 logging.basicConfig(
@@ -80,6 +76,8 @@ class KISDataCollector:
             db_path: Path to SQLite database
             region: Market region ('KR', 'US', 'HK', 'CN', 'JP', 'VN')
         """
+        from dotenv import load_dotenv
+        load_dotenv()
         self.db_path = db_path
         self.region = region
         self.kst = pytz.timezone('Asia/Seoul')

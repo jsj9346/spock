@@ -38,10 +38,6 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 import logging
 import openai
-from dotenv import load_dotenv
-
-# .env 파일 로드
-load_dotenv()
 
 # 로깅 설정
 logging.basicConfig(
@@ -334,6 +330,8 @@ class StockGPTAnalyzer:
                  enable_gpt: bool = True,
                  daily_cost_limit: float = 0.50):
 
+        from dotenv import load_dotenv
+        load_dotenv()
         self.db_path = db_path
         self.enable_gpt = enable_gpt
         self.cost_manager = CostManager(daily_cost_limit, db_path)

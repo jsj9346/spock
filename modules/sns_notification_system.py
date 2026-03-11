@@ -22,11 +22,6 @@ from typing import Dict, List, Optional, Union
 from enum import Enum
 from dataclasses import dataclass
 import os
-from dotenv import load_dotenv
-
-# 환경변수 로드
-load_dotenv()
-
 # 로깅 설정
 logger = logging.getLogger(__name__)
 
@@ -152,6 +147,8 @@ class MakenaideSNSNotifier:
     """Makenaide SNS 통합 알림 시스템"""
 
     def __init__(self):
+        from dotenv import load_dotenv
+        load_dotenv()
         self.sns_client = boto3.client('sns', region_name='ap-northeast-2')
 
         # SNS Topic ARNs

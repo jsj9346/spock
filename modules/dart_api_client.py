@@ -19,11 +19,6 @@ import requests
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
-
 logger = logging.getLogger(__name__)
 
 
@@ -47,6 +42,8 @@ class DARTApiClient:
             api_key: DART Open API key (if None, loads from environment variable DART_API_KEY)
             rate_limit_delay: Delay between requests in seconds (default: 36s = 100 req/hour)
         """
+        from dotenv import load_dotenv
+        load_dotenv()
         self.api_key = api_key or os.getenv('DART_API_KEY')
         if not self.api_key:
             raise ValueError(
