@@ -365,7 +365,7 @@ class FactorValidator:
                     merged['raw_value'],
                     merged['forward_return']
                 )
-            except:
+            except (ValueError, RuntimeError):
                 pearson_corr, pearson_p = np.nan, np.nan
 
             # Spearman 상관계수 (순위 기반)
@@ -374,7 +374,7 @@ class FactorValidator:
                     merged['raw_value'],
                     merged['forward_return']
                 )
-            except:
+            except (ValueError, RuntimeError):
                 spearman_corr, spearman_p = np.nan, np.nan
 
             # t-통계량 계산 (IC의 통계적 유의성)

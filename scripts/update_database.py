@@ -300,7 +300,7 @@ def main():
         try:
             db.close_pool()
             logger.info("Database connection pool closed")
-        except:
+        except Exception:
             pass
 
 

@@ -153,7 +153,7 @@ class SpockMetricsExporter:
                     try:
                         last_update = datetime.fromisoformat(result[0])
                         last_data_update.labels(region=region).set(last_update.timestamp())
-                    except:
+                    except (ValueError, OSError):
                         pass
 
             conn.close()

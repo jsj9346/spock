@@ -74,7 +74,7 @@ for item in items:
                         'value': value,
                         'keyword': keyword
                     })
-            except:
+            except (ValueError, KeyError):
                 pass
             break
 

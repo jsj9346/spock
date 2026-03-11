@@ -51,7 +51,7 @@ def clean_test_data(db_manager):
                 (ticker, 'KR'),
                 commit=True
             )
-        except:
+        except Exception:
             pass
         try:
             # Then delete ticker (CASCADE will handle other tables)
@@ -60,7 +60,7 @@ def clean_test_data(db_manager):
                 (ticker, 'KR'),
                 commit=True
             )
-        except:
+        except Exception:
             pass
 
     yield
@@ -73,7 +73,7 @@ def clean_test_data(db_manager):
                 (ticker, 'KR'),
                 commit=True
             )
-        except:
+        except Exception:
             pass
         try:
             db_manager._execute_query(
@@ -81,7 +81,7 @@ def clean_test_data(db_manager):
                 (ticker, 'KR'),
                 commit=True
             )
-        except:
+        except Exception:
             pass
 
 

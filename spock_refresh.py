@@ -198,7 +198,7 @@ def load_configurations():
         # Fallback to defaults
         try:
             return RefreshConfig(), UIConfig()
-        except:
+        except Exception:
             return None, None
 
 
@@ -2168,7 +2168,7 @@ def print_recent_executions(max_entries: int = 5) -> None:
                 time_ago_str = "just now"
 
             display_time = f"{timestamp_obj.strftime('%m-%d %H:%M')} ({time_ago_str})"
-        except:
+        except (ValueError, AttributeError):
             display_time = timestamp_str
 
         operation = record.get('operation', 'unknown')

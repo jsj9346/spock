@@ -440,7 +440,7 @@ class YFinanceFundamentalBackfiller:
                     try:
                         val = df.loc[key, df.columns[col_idx]]
                         return self._safe_int(val) if val is not None else None
-                    except:
+                    except (KeyError, IndexError, TypeError):
                         return None
                 return None
 

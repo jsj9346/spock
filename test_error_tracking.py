@@ -126,7 +126,7 @@ def test_error_tracking():
         try:
             db.close_pool()
             logger.info("Database connection closed")
-        except:
+        except Exception:
             pass
 
 

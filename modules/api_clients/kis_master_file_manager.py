@@ -313,7 +313,7 @@ class KISMasterFileManager:
         try:
             df = self.parse_market(market_code)
             return len(df)
-        except:
+        except Exception:
             return 0
 
     def _needs_update(self, market_code: str) -> bool:

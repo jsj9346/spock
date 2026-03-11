@@ -293,7 +293,7 @@ class ETFDataCollector:
             return None
         try:
             return int(value.replace(',', ''))
-        except:
+        except (ValueError, TypeError):
             return None
 
     def _parse_krx_percentage(self, value: str) -> Optional[float]:
@@ -302,7 +302,7 @@ class ETFDataCollector:
             return None
         try:
             return float(value.replace('%', '').replace(',', ''))
-        except:
+        except (ValueError, TypeError):
             return None
 
     # ============================================================================

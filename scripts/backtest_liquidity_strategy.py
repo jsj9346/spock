@@ -395,7 +395,7 @@ def print_performance_report(metrics: dict):
             continue
         try:
             scalar_metrics[key] = _extract_scalar(value)
-        except:
+        except (AttributeError, ValueError, TypeError):
             scalar_metrics[key] = value
 
     logger.info("=" * 80)

@@ -128,7 +128,7 @@ class KRTickerUpdater:
                     # KONEX may not be supported in all pykrx versions
                     try:
                         ticker_list = stock.get_market_ticker_list(today, market=market)
-                    except:
+                    except Exception:
                         logger.warning(f"  ⚠️ {market} not supported in this pykrx version, skipping")
                         continue
                 else:

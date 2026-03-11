@@ -69,7 +69,7 @@ def safe_strftime(date_obj, format_str='%Y-%m-%d'):
             try:
                 # pandas datetime-like 객체 처리
                 return pd.Timestamp(date_obj).strftime(format_str)
-            except:
+            except (TypeError, ValueError):
                 pass
             
         # 이미 datetime 객체이거나 strftime 메서드가 있는 경우
@@ -113,7 +113,7 @@ def safe_strftime(date_obj, format_str='%Y-%m-%d'):
             if result == "":
                 return "N/A"
             return result[:10] if len(result) >= 10 else result
-        except:
+        except (ValueError, TypeError, OverflowError):
             return "Invalid Date"
 
 def retry(max_attempts=3, initial_delay=0.5, backoff=2):
@@ -604,7 +604,7 @@ def load_blacklist():
         try:
             import traceback
             logger.debug(f"🔍 상세 오류 정보:\n{traceback.format_exc()}")
-        except:
+        except (IOError, json.JSONDecodeError):
             pass
         
         return {}

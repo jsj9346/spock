@@ -125,7 +125,7 @@ class TestTechnicalFilterBlacklist(unittest.TestCase):
             del self.filter
             del self.blacklist_manager
             del self.db_manager
-        except:
+        except Exception:
             pass
 
         # Force garbage collection

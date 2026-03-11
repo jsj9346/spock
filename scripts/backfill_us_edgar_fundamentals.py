@@ -99,7 +99,7 @@ class USEdgarFundamentalsCollector:
             return None
         try:
             return Decimal(str(value))
-        except:
+        except (ValueError, TypeError):
             return None
 
     def _safe_int(self, value) -> Optional[int]:
@@ -108,7 +108,7 @@ class USEdgarFundamentalsCollector:
             return None
         try:
             return int(float(value))
-        except:
+        except (ValueError, TypeError):
             return None
 
     def get_target_tickers(self) -> List[Dict]:

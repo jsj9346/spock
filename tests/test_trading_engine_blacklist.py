@@ -119,7 +119,7 @@ class TestTradingEngineBlacklist(unittest.TestCase):
             del self.trading_engine
             del self.blacklist_manager
             del self.db_manager
-        except:
+        except Exception:
             pass
 
         # Force garbage collection to release connections
