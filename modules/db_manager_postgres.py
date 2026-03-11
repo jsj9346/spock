@@ -37,10 +37,20 @@ class PostgresConnection:
         return self.conn
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Return connection to pool on exit"""
-        if exc_type is not None:
-            self.conn.rollback()
-        self.pool.putconn(self.conn)
+        """Return connection to pool on exit.
+
+        putconn() is guaranteed to run even if rollback() raises,
+        preventing connection pool exhaustion under broken connections.
+        """
+        try:
+            if exc_type is not None:
+                try:
+                    self.conn.rollback()
+                except Exception as rollback_err:
+                    # Broken connection: log and continue — putconn must still run
+                    logger.warning("Connection rollback failed (will still return to pool): %s", rollback_err)
+        finally:
+            self.pool.putconn(self.conn)
         return False  # Propagate exception
 
     def cursor(self, **kwargs):
@@ -165,26 +175,39 @@ class PostgresDatabaseManager:
                     return cursor.rowcount
 
             except psycopg2.IntegrityError as e:
-                conn.rollback()
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass  # __exit__ will handle pool return safely
                 logger.error(f"❌ Integrity constraint violation: {e}")
                 logger.error(f"   Query: {query}")
                 logger.error(f"   Params: {params}")
                 raise
 
             except psycopg2.DataError as e:
-                conn.rollback()
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
                 logger.error(f"❌ Data type error: {e}")
                 logger.error(f"   Query: {query}")
                 logger.error(f"   Params: {params}")
                 raise
 
             except psycopg2.OperationalError as e:
-                conn.rollback()
+                # Broken connection: rollback itself may fail — do not let it replace original error
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
                 logger.error(f"❌ Operational error (connection/pool): {e}")
                 raise
 
             except Exception as e:
-                conn.rollback()
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
                 logger.error(f"❌ Unexpected error: {e}")
                 logger.error(f"   Query: {query}")
                 logger.error(f"   Params: {params}")
@@ -240,7 +263,10 @@ class PostgresDatabaseManager:
 
                     return True
                 except Exception as e:
-                    conn.rollback()
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass  # __exit__ will return conn to pool safely
                     logger.error(f"❌ Execute update failed: {e}")
                     logger.error(f"   Query placeholders: {query.count('%s') if query else 'N/A'}")
                     logger.error(f"   Params count: {len(params) if params else 0}")
@@ -293,7 +319,10 @@ class PostgresDatabaseManager:
                     return cursor.rowcount
 
                 except Exception as e:
-                    conn.rollback()
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass  # __exit__ will return conn to pool safely
                     logger.error(f"❌ Batch operation failed: {e}")
                     logger.error(f"   Query template: {query[:200]}")
                     logger.error(f"   Record count: {len(records)}")
@@ -707,7 +736,10 @@ class PostgresDatabaseManager:
                 logger.info(f"✅ Bulk inserted {len(insert_df)} OHLCV rows for {ticker}")
                 return len(insert_df)
             except Exception as e:
-                conn.rollback()
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass  # __exit__ will return conn to pool safely
                 logger.error(f"❌ Bulk insert failed for {ticker}: {e}")
                 raise
             finally:
@@ -2585,7 +2617,10 @@ class PostgresDatabaseManager:
                 logger.info(f"✅ Bulk inserted {len(insert_df)} rows into {table_name}")
                 return len(insert_df)
             except Exception as e:
-                conn.rollback()
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass  # __exit__ will return conn to pool safely
                 logger.error(f"❌ Bulk insert failed for {table_name}: {e}")
                 raise
             finally:
