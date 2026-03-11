@@ -250,10 +250,7 @@ class PostgresDatabaseManager:
                 # Use regular cursor for INSERT/UPDATE/DELETE
                 # RealDictCursor has issues with ON CONFLICT/UPSERT queries
                 cursor = conn.cursor()
-                logger.debug(f"Created cursor type: {type(cursor)}")
                 try:
-                    logger.info(f"DEBUG: Query first 200 chars: {query[:200]}")
-                    logger.info(f"DEBUG: Params: {params}")
                     cursor.execute(query, params)
                     conn.commit()
 
