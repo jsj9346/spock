@@ -287,8 +287,10 @@ class DatabaseSchemaValidator:
 
         # Check 4.1: OHLCV data completeness (no NULLs in critical columns)
         critical_columns = ['open', 'high', 'low', 'close', 'volume']
+        _allowed_critical = set(critical_columns)
 
         for col in critical_columns:
+            assert col in _allowed_critical, f"Column '{col}' not in allowed list"
             cursor.execute(f"SELECT COUNT(*) FROM ohlcv_data WHERE {col} IS NULL")
             null_count = cursor.fetchone()[0]
 
@@ -299,8 +301,10 @@ class DatabaseSchemaValidator:
 
         # Check 4.2: Technical indicators completeness (expected NULLs for recent data)
         indicator_columns = ['ma200', 'rsi_14', 'macd']
+        _allowed_indicators = set(indicator_columns)
 
         for col in indicator_columns:
+            assert col in _allowed_indicators, f"Column '{col}' not in allowed list"
             cursor.execute(f"SELECT COUNT(*) FROM ohlcv_data WHERE {col} IS NULL")
             null_count = cursor.fetchone()[0]
 

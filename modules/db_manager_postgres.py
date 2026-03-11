@@ -1174,9 +1174,10 @@ class PostgresDatabaseManager:
             query += " AND t.region = %s"
             params.append(region)
 
-        query += f" ORDER BY ed.aum DESC LIMIT {limit}"
+        query += " ORDER BY ed.aum DESC LIMIT %s"
+        params.append(int(limit))
 
-        return self._execute_query(query, tuple(params) if params else None, fetch_all=True)
+        return self._execute_query(query, tuple(params), fetch_all=True)
 
     def update_etf_aum(self, ticker: str, region: str, aum: int, listed_shares: int = None) -> bool:
         """
@@ -2078,9 +2079,10 @@ class PostgresDatabaseManager:
             query += " AND trade_status = %s"
             params.append(trade_status)
 
-        query += f" ORDER BY order_time DESC LIMIT {limit}"
+        query += " ORDER BY order_time DESC LIMIT %s"
+        params.append(int(limit))
 
-        return self._execute_query(query, tuple(params) if params else None, fetch_all=True)
+        return self._execute_query(query, tuple(params), fetch_all=True)
 
     def get_trade_by_id(self, trade_id: int) -> Optional[Dict]:
         """

@@ -88,8 +88,10 @@ def get_null_statistics(conn: sqlite3.Connection) -> Dict:
     cursor.execute('SELECT COUNT(*) FROM ohlcv_data WHERE region = ?', (REGION,))
     total_rows = cursor.fetchone()[0]
 
+    _allowed_indicator_cols = set(INDICATOR_COLUMNS)
     null_stats = {}
     for col in INDICATOR_COLUMNS:
+        assert col in _allowed_indicator_cols, f"Column '{col}' not in allowed list"
         cursor.execute(f'SELECT COUNT(*) FROM ohlcv_data WHERE region = ? AND {col} IS NULL', (REGION,))
         null_count = cursor.fetchone()[0]
         null_stats[col] = {

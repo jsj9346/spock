@@ -287,7 +287,7 @@ class AuthSchemaInitializer:
         # Check tables exist
         tables = ['users', 'sessions', 'audit_log']
         for table in tables:
-            self.cursor.execute(f"SELECT COUNT(*) FROM pg_tables WHERE tablename = '{table}';")
+            self.cursor.execute("SELECT COUNT(*) FROM pg_tables WHERE tablename = %s", (table,))
             count = self.cursor.fetchone()[0]
             if count > 0:
                 logger.info(f"  ✅ Table '{table}' exists")
@@ -298,7 +298,7 @@ class AuthSchemaInitializer:
         # Check functions exist
         functions = ['update_updated_at_column', 'cleanup_expired_sessions']
         for func in functions:
-            self.cursor.execute(f"SELECT COUNT(*) FROM pg_proc WHERE proname = '{func}';")
+            self.cursor.execute("SELECT COUNT(*) FROM pg_proc WHERE proname = %s", (func,))
             count = self.cursor.fetchone()[0]
             if count > 0:
                 logger.info(f"  ✅ Function '{func}' exists")

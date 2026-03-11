@@ -73,6 +73,9 @@ class DataQualityValidator:
                           'macd', 'macd_signal', 'volume_ma20', 'atr', 'atr_14',
                           'bb_upper', 'bb_middle', 'bb_lower']
 
+        # Whitelist for safe SQL identifier use (column names only from the lists above)
+        _allowed_ohlcv_columns = set(critical_columns) | set(optional_columns)
+
         results = {
             'critical_nulls': {},
             'optional_nulls': {},
@@ -85,6 +88,7 @@ class DataQualityValidator:
 
         # Check critical columns
         for column in critical_columns:
+            assert column in _allowed_ohlcv_columns, f"Column '{column}' not in allowed list"
             cursor.execute(f"SELECT COUNT(*) FROM ohlcv_data WHERE {column} IS NULL")
             null_count = cursor.fetchone()[0]
             results['critical_nulls'][column] = null_count
@@ -96,6 +100,7 @@ class DataQualityValidator:
 
         # Check optional columns (informational only)
         for column in optional_columns:
+            assert column in _allowed_ohlcv_columns, f"Column '{column}' not in allowed list"
             cursor.execute(f"SELECT COUNT(*) FROM ohlcv_data WHERE {column} IS NULL")
             null_count = cursor.fetchone()[0]
             results['optional_nulls'][column] = null_count
@@ -255,7 +260,9 @@ class DataQualityValidator:
             print(f"   ⚠️  Minor RSI precision deviations: {minor_rsi_violations:,} rows (floating-point precision)")
 
         # Moving averages should be positive
+        _allowed_ma_columns = {'ma5', 'ma20', 'ma60', 'ma120', 'ma200'}
         for ma in ['ma5', 'ma20', 'ma60', 'ma120', 'ma200']:
+            assert ma in _allowed_ma_columns, f"Column '{ma}' not in allowed list"
             cursor.execute(f"SELECT COUNT(*) FROM ohlcv_data WHERE {ma} IS NOT NULL AND {ma} <= 0")
             ma_violations = cursor.fetchone()[0]
             results['violations'][f'{ma}_non_positive'] = ma_violations
@@ -403,7 +410,7 @@ class DataQualityValidator:
 
         # Check for future dates (should not exist)
         today = datetime.now().strftime('%Y-%m-%d')
-        cursor.execute(f"SELECT COUNT(*) FROM ohlcv_data WHERE date > '{today}'")
+        cursor.execute("SELECT COUNT(*) FROM ohlcv_data WHERE date > %s", (today,))
         future_dates = cursor.fetchone()[0]
 
         if future_dates > 0:

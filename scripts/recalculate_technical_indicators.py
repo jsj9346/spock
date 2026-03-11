@@ -78,8 +78,10 @@ def get_database_statistics(conn: sqlite3.Connection) -> Dict:
     total_tickers = cursor.fetchone()[0]
 
     # NULL rates for each indicator
+    _allowed_indicator_cols = set(INDICATOR_COLUMNS)
     null_rates = {}
     for col in INDICATOR_COLUMNS:
+        assert col in _allowed_indicator_cols, f"Column '{col}' not in allowed list"
         cursor.execute(f'SELECT COUNT(*) FROM ohlcv_data WHERE region = ? AND {col} IS NULL', (REGION,))
         null_count = cursor.fetchone()[0]
         null_rates[col] = (null_count / total_rows * 100) if total_rows > 0 else 0

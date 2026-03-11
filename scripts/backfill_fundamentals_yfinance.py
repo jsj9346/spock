@@ -59,7 +59,15 @@ class YFinanceFundamentalBackfiller:
         'JP': '.T',         # Tokyo Stock Exchange
         'CN': '',           # Already in database (.SS/.SZ)
         'HK': '',           # Already in database (.HK)
+        'KR': '',           # Mapped dynamically based on exchange (KOSPI→.KS, KOSDAQ→.KQ)
         'VN': '.VN'         # Vietnam Stock Exchange (best guess, will validate)
+    }
+
+    # KR exchange to yfinance suffix mapping
+    KR_EXCHANGE_SUFFIXES = {
+        'KOSPI': '.KS',
+        'KOSDAQ': '.KQ',
+        'KONEX': '.KQ'      # KONEX uses same suffix as KOSDAQ
     }
 
     # Target coverage percentages
@@ -68,6 +76,7 @@ class YFinanceFundamentalBackfiller:
         'JP': 0.50,  # 50% of JP stocks
         'CN': 0.50,  # 50% of CN stocks
         'HK': 0.50,  # 50% of HK stocks
+        'KR': 0.50,  # 50% of KR stocks
         'VN': 0.30   # 30% of VN stocks (lower due to data availability)
     }
 
@@ -99,6 +108,9 @@ class YFinanceFundamentalBackfiller:
             'api_call_times': []
         }
 
+        # KR exchange cache (ticker → exchange)
+        self._kr_exchange_cache = {}
+
         # Check yfinance availability
         try:
             import yfinance as yf
@@ -107,6 +119,19 @@ class YFinanceFundamentalBackfiller:
         except ImportError:
             logger.error("❌ yfinance library not installed: pip install yfinance")
             raise
+
+    def _get_kr_exchange(self, ticker: str) -> str:
+        """Get exchange for KR ticker from cache or database"""
+        if ticker not in self._kr_exchange_cache:
+            try:
+                rows = self.db.execute_query(
+                    "SELECT exchange FROM tickers WHERE ticker = %s AND region = 'KR'",
+                    (ticker,)
+                )
+                self._kr_exchange_cache[ticker] = rows[0]['exchange'] if rows else 'KOSPI'
+            except Exception:
+                self._kr_exchange_cache[ticker] = 'KOSPI'
+        return self._kr_exchange_cache[ticker]
 
     def _rate_limit(self):
         """Enforce rate limiting between API calls"""
@@ -146,6 +171,12 @@ class YFinanceFundamentalBackfiller:
         # e.g., BRK/B → BRK.B, MS/A → MS.A
         if region == 'US':
             return ticker.replace('/', '-') if '/' in ticker else ticker
+
+        # KR: Map based on exchange (KOSPI→.KS, KOSDAQ→.KQ)
+        if region == 'KR':
+            exchange = self._get_kr_exchange(ticker)
+            kr_suffix = self.KR_EXCHANGE_SUFFIXES.get(exchange, '.KS')
+            return f"{ticker}{kr_suffix}"
 
         # JP and VN need suffix appended
         return f"{ticker}{suffix}"
@@ -224,6 +255,8 @@ class YFinanceFundamentalBackfiller:
         Returns:
             List of ticker dicts with ticker, name, region
         """
+        params = []
+
         if incremental:
             # Incremental mode: Only tickers without recent yfinance data (last 30 days)
             query = """
@@ -233,14 +266,15 @@ class YFinanceFundamentalBackfiller:
                 AND t.region = tf.region
                 AND tf.date >= NOW() - INTERVAL '30 days'
                 AND (tf.data_source = 'yfinance' OR tf.data_source LIKE '%yfinance%')
-            WHERE t.region IN ('US', 'JP', 'CN', 'HK', 'VN')
+            WHERE t.region IN ('US', 'JP', 'CN', 'HK', 'KR', 'VN')
               AND t.asset_type = 'STOCK'
               AND t.is_active = TRUE
               AND tf.id IS NULL  -- No recent yfinance data
             """
 
             if region:
-                query += f" AND t.region = '{region}'"
+                query += " AND t.region = %s"
+                params.append(region)
 
             query += " ORDER BY t.region, t.ticker"
         else:
@@ -248,20 +282,22 @@ class YFinanceFundamentalBackfiller:
             query = """
             SELECT DISTINCT t.ticker, t.name, t.region
             FROM tickers t
-            WHERE t.region IN ('US', 'JP', 'CN', 'HK', 'VN')
+            WHERE t.region IN ('US', 'JP', 'CN', 'HK', 'KR', 'VN')
               AND t.asset_type = 'STOCK'
               AND t.is_active = TRUE
             """
 
             if region:
-                query += f" AND t.region = '{region}'"
+                query += " AND t.region = %s"
+                params.append(region)
 
             query += " ORDER BY t.region, t.ticker"
 
         if limit:
-            query += f" LIMIT {limit}"
+            query += " LIMIT %s"
+            params.append(int(limit))
 
-        results = self.db.execute_query(query)
+        results = self.db.execute_query(query, tuple(params) if params else None)
         tickers = [dict(row) for row in results]
 
         logger.info(f"📊 Found {len(tickers)} global stocks for backfill")
@@ -857,7 +893,7 @@ class YFinanceFundamentalBackfiller:
                       (SELECT COUNT(*) FROM tickers WHERE region = tf.region AND asset_type = 'STOCK' AND is_active = TRUE) * 100, 2) as coverage_pct,
                 COUNT(CASE WHEN tf.data_source LIKE '%yfinance%' THEN 1 END) as yfinance_records
             FROM ticker_fundamentals tf
-            WHERE tf.region IN ('US', 'JP', 'CN', 'HK', 'VN')
+            WHERE tf.region IN ('US', 'JP', 'CN', 'HK', 'KR', 'VN')
               AND tf.date >= NOW() - INTERVAL '30 days'
             GROUP BY tf.region
             ORDER BY tf.region
@@ -888,9 +924,10 @@ def main():
     parser = argparse.ArgumentParser(description="yfinance Fundamental Data Backfill (Phase 1.5 - Day 3)")
     parser.add_argument('--dry-run', action='store_true', help='Preview operations without database writes')
     parser.add_argument('--incremental', action='store_true', help='Only fetch missing/stale data (last 30 days)')
-    parser.add_argument('--region', choices=['US', 'JP', 'CN', 'HK', 'VN'], help='Filter by specific region')
+    parser.add_argument('--region', choices=['US', 'JP', 'CN', 'HK', 'KR', 'VN'], help='Filter by specific region')
     parser.add_argument('--limit', type=int, help='Limit number of tickers (for testing)')
     parser.add_argument('--rate-limit', type=float, default=0.5, help='Delay between API calls in seconds (default: 0.5)')
+    parser.add_argument('--quarterly', action='store_true', help='Run QUARTERLY balance sheet backfill instead of DAILY valuation ratios')
 
     args = parser.parse_args()
 
@@ -926,11 +963,18 @@ def main():
     start_time = datetime.now()
 
     try:
-        stats = backfiller.run_backfill(
-            region=args.region,
-            incremental=args.incremental,
-            limit=args.limit
-        )
+        if args.quarterly:
+            logger.info("📊 Mode: QUARTERLY balance sheet backfill")
+            stats = backfiller.run_quarterly_backfill(
+                region=args.region,
+                limit=args.limit
+            )
+        else:
+            stats = backfiller.run_backfill(
+                region=args.region,
+                incremental=args.incremental,
+                limit=args.limit
+            )
 
         end_time = datetime.now()
         duration = end_time - start_time
