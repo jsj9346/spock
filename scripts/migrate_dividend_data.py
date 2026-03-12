@@ -19,16 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from loguru import logger
 from modules.db_manager_postgres import PostgresDatabaseManager
-
-# Currency mapping by region
-CURRENCY_MAP = {
-    "KR": "KRW",
-    "US": "USD",
-    "JP": "JPY",
-    "HK": "HKD",
-    "CN": "CNY",
-    "VN": "VND",
-}
+from modules.constants.regions import CURRENCY_MAP
 
 
 class DividendDataMigrator:

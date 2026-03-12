@@ -19,6 +19,8 @@ from contextlib import contextmanager
 
 from loguru import logger
 
+from modules.constants.regions import CURRENCY_MAP
+
 
 @contextmanager
 def suppress_pykrx_logging():
@@ -73,17 +75,6 @@ class DividendRecord:
     total_dividend_amount: Optional[float] = None
     payout_ratio: Optional[float] = None
     data_source: str = "unknown"
-
-
-# Currency mapping by region
-CURRENCY_MAP = {
-    "KR": "KRW",
-    "US": "USD",
-    "JP": "JPY",
-    "HK": "HKD",
-    "CN": "CNY",
-    "VN": "VND",
-}
 
 
 class DividendCollector:

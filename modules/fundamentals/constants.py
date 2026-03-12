@@ -7,6 +7,8 @@ the fundamentals module for data processing, analysis, and database operations.
 
 from typing import List, Dict, Tuple
 
+from modules.constants.regions import CURRENCY_MAP  # noqa: F401  (re-exported)
+
 
 # =============================================================================
 # Metric Categories
@@ -61,14 +63,8 @@ TREND_THRESHOLDS: Dict[str, float | Tuple[float, float]] = {
 # =============================================================================
 # Currency Mapping by Region
 # =============================================================================
-
-CURRENCY_MAP: Dict[str, str] = {
-    'KR': 'KRW',    # South Korea - Won
-    'US': 'USD',    # United States - Dollar
-    'JP': 'JPY',    # Japan - Yen
-    'HK': 'HKD',    # Hong Kong - Dollar
-    'CN': 'CNY'     # China - Yuan
-}
+# CURRENCY_MAP은 modules.constants.regions에서 import됨 (위 import 참조)
+# 이전 로컬 정의 제거 — VN 누락 버그 수정 포함
 
 
 # =============================================================================

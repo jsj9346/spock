@@ -36,6 +36,8 @@ from dataclasses import dataclass, field
 
 from loguru import logger
 
+from modules.constants.regions import CURRENCY_MAP
+
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -90,20 +92,6 @@ class ETFHolding:
     rank_in_etf: Optional[int] = None
     weight_change_from_prev: Optional[float] = None
     data_source: str = "unknown"
-
-
-# =============================================================================
-# Currency Mapping
-# =============================================================================
-
-CURRENCY_MAP = {
-    "KR": "KRW",
-    "US": "USD",
-    "JP": "JPY",
-    "HK": "HKD",
-    "CN": "CNY",
-    "VN": "VND",
-}
 
 
 # =============================================================================
