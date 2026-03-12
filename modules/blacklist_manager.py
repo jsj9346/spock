@@ -15,6 +15,8 @@ from typing import Dict, List, Optional, Set
 import logging
 from pathlib import Path
 
+from modules.constants.regions import VALID_REGIONS as _VALID_REGIONS
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,8 +35,8 @@ class BlacklistManager:
         - Audit trail and compliance
     """
 
-    # Valid regions (Phase 1-6)
-    VALID_REGIONS = ['KR', 'US', 'CN', 'HK', 'JP', 'VN']
+    # Valid regions
+    VALID_REGIONS = _VALID_REGIONS
 
     # Ticker format validation patterns per region
     TICKER_PATTERNS = {

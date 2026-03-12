@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from modules.db_manager_postgres import PostgresDatabaseManager
+from modules.constants.regions import VALID_REGIONS
 
 
 @dataclass
@@ -32,7 +33,7 @@ class TickerRefresher:
     """Multi-region ticker refresh system"""
 
     # Supported regions
-    SUPPORTED_REGIONS = ['KR', 'US', 'HK', 'JP', 'CN', 'VN']
+    SUPPORTED_REGIONS = VALID_REGIONS
 
     # Asset types to include
     VALID_ASSET_TYPES = ['STOCK', 'ETF']

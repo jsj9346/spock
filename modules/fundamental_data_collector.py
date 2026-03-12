@@ -24,6 +24,7 @@ from datetime import datetime, timedelta
 from .db_manager_sqlite import SQLiteDatabaseManager
 from .dart_api_client import DARTApiClient
 from .api_clients.yfinance_api import YFinanceAPI
+from modules.constants.regions import VALID_REGIONS
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ class FundamentalDataCollector:
     """
 
     # Supported regions
-    SUPPORTED_REGIONS = ['KR', 'US', 'HK', 'CN', 'JP', 'VN']
+    SUPPORTED_REGIONS = VALID_REGIONS
 
     # Cache TTL by data type (hours)
     CACHE_TTL = {
