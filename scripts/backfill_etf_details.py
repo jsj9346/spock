@@ -44,6 +44,7 @@ from loguru import logger
 
 from modules.db_manager_postgres import PostgresDatabaseManager
 from modules.collection.etf_collector import ETFCollector
+from modules.constants.regions import VALID_REGIONS
 
 
 # =============================================================================
@@ -283,7 +284,7 @@ def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(description="ETF Details Backfill Script")
     parser.add_argument('--region', type=str, default='KR',
-                        choices=['KR', 'US', 'JP', 'HK', 'CN', 'VN', 'ALL'],
+                        choices=VALID_REGIONS + ['ALL'],
                         help='Region to backfill')
     parser.add_argument('--ticker', type=str, help='Specific ETF ticker')
     parser.add_argument('--force', action='store_true', help='Force re-collection')

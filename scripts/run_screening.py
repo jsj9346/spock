@@ -36,6 +36,7 @@ sys.path.insert(0, str(project_root))
 
 from modules.screening import StockScreener
 from modules.db_manager_postgres import PostgresDatabaseManager
+from modules.constants.regions import VALID_REGIONS
 
 
 def colored(text: str, color: str = '') -> str:
@@ -117,7 +118,7 @@ Examples:
         'technical',
         help='Screen stocks based on technical indicators'
     )
-    technical.add_argument('--region', type=str, default='HK', choices=['KR', 'HK', 'US', 'JP', 'CN', 'VN'])
+    technical.add_argument('--region', type=str, default='HK', choices=VALID_REGIONS)
     technical.add_argument('--rsi-min', type=float, default=0.0, help='Minimum RSI (default: 0.0)')
     technical.add_argument('--rsi-max', type=float, default=35.0, help='Maximum RSI (default: 35.0)')
     technical.add_argument('--ma-trend', type=str, choices=['uptrend', 'downtrend'], help='MA trend filter')
@@ -129,7 +130,7 @@ Examples:
         'value',
         help='Screen stocks based on value factors'
     )
-    value.add_argument('--region', type=str, default='US', choices=['KR', 'HK', 'US', 'JP', 'CN', 'VN'])
+    value.add_argument('--region', type=str, default='US', choices=VALID_REGIONS)
     value.add_argument('--per-max', type=float, default=15.0, help='Max P/E ratio (default: 15.0)')
     value.add_argument('--pbr-max', type=float, default=3.0, help='Max P/B ratio (default: 3.0)')
     value.add_argument('--market-cap-min', type=float, default=1e9, help='Min market cap (default: $1B)')

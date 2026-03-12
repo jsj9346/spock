@@ -44,6 +44,7 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from modules.db_manager_sqlite import SQLiteDatabaseManager
+from modules.constants.regions import VALID_REGIONS
 
 # Setup logging
 logging.basicConfig(
@@ -253,7 +254,7 @@ def main():
     )
     parser.add_argument(
         '--region',
-        choices=['KR', 'US', 'HK', 'CN', 'JP', 'VN'],
+        choices=VALID_REGIONS,
         help='Calculate for all tickers in region'
     )
     parser.add_argument(

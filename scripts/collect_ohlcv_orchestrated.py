@@ -42,6 +42,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from modules.db_manager_postgres import PostgresDatabaseManager
 from modules.kis_data_collector import KISDataCollector
+from modules.constants.regions import VALID_REGIONS
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -236,7 +237,7 @@ def main():
     parser.add_argument(
         '--region',
         default='KR',
-        choices=['KR', 'US', 'HK', 'CN', 'JP', 'VN'],
+        choices=VALID_REGIONS,
         help='Market region (default: KR)'
     )
     parser.add_argument(

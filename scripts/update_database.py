@@ -52,6 +52,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from modules.db_manager_postgres import PostgresDatabaseManager
 from modules.orchestration.orchestrator import DatabaseUpdateOrchestrator
+from modules.constants.regions import VALID_REGIONS
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -148,7 +149,7 @@ For more information, see docs/DB_UPDATE_UNIFIED_SCRIPT_GUIDE.md
     parser.add_argument(
         '--regions',
         nargs='+',
-        choices=['KR', 'US', 'HK', 'JP', 'CN', 'VN'],
+        choices=VALID_REGIONS,
         help='Regions to update (default: all)'
     )
 

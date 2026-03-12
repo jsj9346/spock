@@ -29,6 +29,7 @@ import time
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from modules.db_manager_postgres import PostgresDatabaseManager
+from modules.constants.regions import VALID_REGIONS
 from loguru import logger
 
 # Configure loguru logger
@@ -924,7 +925,7 @@ def main():
     parser = argparse.ArgumentParser(description="yfinance Fundamental Data Backfill (Phase 1.5 - Day 3)")
     parser.add_argument('--dry-run', action='store_true', help='Preview operations without database writes')
     parser.add_argument('--incremental', action='store_true', help='Only fetch missing/stale data (last 30 days)')
-    parser.add_argument('--region', choices=['US', 'JP', 'CN', 'HK', 'KR', 'VN'], help='Filter by specific region')
+    parser.add_argument('--region', choices=VALID_REGIONS, help='Filter by specific region')
     parser.add_argument('--limit', type=int, help='Limit number of tickers (for testing)')
     parser.add_argument('--rate-limit', type=float, default=0.5, help='Delay between API calls in seconds (default: 0.5)')
     parser.add_argument('--quarterly', action='store_true', help='Run QUARTERLY balance sheet backfill instead of DAILY valuation ratios')

@@ -32,6 +32,7 @@ sys.path.insert(0, str(project_root))
 
 from modules.backtesting.backtest_runner import BacktestRunner
 from modules.db_manager_postgres import PostgresDatabaseManager
+from modules.constants.regions import VALID_REGIONS
 
 
 def colored(text: str, color: str = '') -> str:
@@ -57,7 +58,7 @@ def main():
         '--region',
         type=str,
         default='KR',
-        choices=['KR', 'HK', 'US', 'JP', 'CN', 'VN'],
+        choices=VALID_REGIONS,
         help='Market region to validate (default: KR)'
     )
     parser.add_argument(

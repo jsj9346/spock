@@ -42,6 +42,7 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from modules.blacklist_manager import BlacklistManager
+from modules.constants.regions import VALID_REGIONS
 from modules.db_manager_sqlite import SQLiteDatabaseManager
 from modules.stock_utils import setup_logger
 
@@ -257,7 +258,7 @@ Examples:
     # Add command
     parser_add = subparsers.add_parser('add', help='Add ticker to file blacklist')
     parser_add.add_argument('--ticker', required=True, help='Ticker code')
-    parser_add.add_argument('--region', required=True, choices=['KR', 'US', 'CN', 'HK', 'JP', 'VN'],
+    parser_add.add_argument('--region', required=True, choices=VALID_REGIONS,
                            help='Region code')
     parser_add.add_argument('--reason', required=True, help='Exclusion reason')
     parser_add.add_argument('--added-by', default='user', help='Who added it (default: user)')
@@ -267,25 +268,25 @@ Examples:
     # Remove command
     parser_remove = subparsers.add_parser('remove', help='Remove ticker from file blacklist')
     parser_remove.add_argument('--ticker', required=True, help='Ticker code')
-    parser_remove.add_argument('--region', required=True, choices=['KR', 'US', 'CN', 'HK', 'JP', 'VN'],
+    parser_remove.add_argument('--region', required=True, choices=VALID_REGIONS,
                               help='Region code')
 
     # Deactivate command
     parser_deactivate = subparsers.add_parser('deactivate', help='Deactivate ticker in DB (permanent)')
     parser_deactivate.add_argument('--ticker', required=True, help='Ticker code')
-    parser_deactivate.add_argument('--region', required=True, choices=['KR', 'US', 'CN', 'HK', 'JP', 'VN'],
+    parser_deactivate.add_argument('--region', required=True, choices=VALID_REGIONS,
                                   help='Region code')
     parser_deactivate.add_argument('--reason', help='Deactivation reason')
 
     # Reactivate command
     parser_reactivate = subparsers.add_parser('reactivate', help='Reactivate ticker in DB')
     parser_reactivate.add_argument('--ticker', required=True, help='Ticker code')
-    parser_reactivate.add_argument('--region', required=True, choices=['KR', 'US', 'CN', 'HK', 'JP', 'VN'],
+    parser_reactivate.add_argument('--region', required=True, choices=VALID_REGIONS,
                                   help='Region code')
 
     # List command
     parser_list = subparsers.add_parser('list', help='List blacklisted tickers')
-    parser_list.add_argument('--region', choices=['KR', 'US', 'CN', 'HK', 'JP', 'VN'],
+    parser_list.add_argument('--region', choices=VALID_REGIONS,
                             help='Filter by region (default: all)')
 
     # Summary command
@@ -297,7 +298,7 @@ Examples:
     # Check command
     parser_check = subparsers.add_parser('check', help='Check if ticker is blacklisted')
     parser_check.add_argument('--ticker', required=True, help='Ticker code')
-    parser_check.add_argument('--region', required=True, choices=['KR', 'US', 'CN', 'HK', 'JP', 'VN'],
+    parser_check.add_argument('--region', required=True, choices=VALID_REGIONS,
                              help='Region code')
 
     args = parser.parse_args()
