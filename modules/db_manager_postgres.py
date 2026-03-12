@@ -12,6 +12,7 @@ Author: Quant Platform Development Team
 Date: 2025-10-20
 """
 
+import threading
 import psycopg2
 from psycopg2 import pool, extras, sql
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
@@ -122,8 +123,11 @@ class PostgresDatabaseManager:
             raise
 
         # Track last cursor state (for backward compatibility with DART script)
+        # Protected by a lock because PostgresDatabaseManager may be shared across
+        # threads (e.g. orchestrator parallel OHLCV updates via ThreadPoolExecutor).
         self._last_rowcount = 0
         self._last_statusmessage = ""
+        self._cursor_state_lock = threading.Lock()
 
     def _get_connection(self):
         """Get connection from pool (context manager support)"""
@@ -255,8 +259,10 @@ class PostgresDatabaseManager:
                     conn.commit()
 
                     # Capture cursor state for backward compatibility
-                    self._last_rowcount = cursor.rowcount
-                    self._last_statusmessage = cursor.statusmessage or ""
+                    # Lock guards against concurrent threads overwriting each other's state
+                    with self._cursor_state_lock:
+                        self._last_rowcount = cursor.rowcount
+                        self._last_statusmessage = cursor.statusmessage or ""
 
                     return True
                 except Exception as e:
@@ -309,8 +315,9 @@ class PostgresDatabaseManager:
                     conn.commit()
 
                     # Capture cursor state for backward compatibility
-                    self._last_rowcount = cursor.rowcount
-                    self._last_statusmessage = cursor.statusmessage or ""
+                    with self._cursor_state_lock:
+                        self._last_rowcount = cursor.rowcount
+                        self._last_statusmessage = cursor.statusmessage or ""
 
                     logger.info(f"✅ Batch operation completed: {cursor.rowcount} rows affected")
                     return cursor.rowcount
@@ -345,7 +352,8 @@ class PostgresDatabaseManager:
                 self.rowcount = rowcount
                 self.statusmessage = statusmessage
 
-        return CursorProxy(self._last_rowcount, self._last_statusmessage)
+        with self._cursor_state_lock:
+            return CursorProxy(self._last_rowcount, self._last_statusmessage)
 
     def _convert_boolean(self, value: Any) -> Optional[bool]:
         """Convert SQLite 0/1 to PostgreSQL TRUE/FALSE"""
