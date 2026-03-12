@@ -44,6 +44,7 @@ import sys
 import os
 import argparse
 import logging
+from logging.handlers import RotatingFileHandler
 from datetime import datetime
 from typing import Optional
 
@@ -77,10 +78,12 @@ def setup_logging(verbose: bool = False, log_file: Optional[str] = None) -> None
     # Handlers
     handlers = [logging.StreamHandler(sys.stdout)]
 
-    # Add file handler if specified
+    # Add rotating file handler if specified (100 MB per file, keep 5 backups)
     if log_file:
         os.makedirs(os.path.dirname(log_file), exist_ok=True)
-        handlers.append(logging.FileHandler(log_file))
+        handlers.append(
+            RotatingFileHandler(log_file, maxBytes=100 * 1024 * 1024, backupCount=5, encoding="utf-8")
+        )
 
     # Configure logging
     logging.basicConfig(

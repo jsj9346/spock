@@ -11,6 +11,7 @@ import sys
 import os
 import argparse
 import logging
+from logging.handlers import RotatingFileHandler
 from datetime import datetime
 from typing import List, Optional
 import pandas as pd
@@ -21,15 +22,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from modules.db_manager_postgres import PostgresDatabaseManager
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(f'log/technical_indicators_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'),
-        logging.StreamHandler()
-    ]
-)
+# 모듈 레벨에서는 최소 설정만 — 파일 핸들러는 __main__ 실행 시에만 추가
 logger = logging.getLogger(__name__)
 
 
@@ -350,4 +343,15 @@ def main():
 
 
 if __name__ == "__main__":
+    # 직접 실행 시에만 파일 핸들러 추가 (import 시 파일 생성 방지)
+    os.makedirs("log", exist_ok=True)
+    log_file = f'log/technical_indicators_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            RotatingFileHandler(log_file, maxBytes=100 * 1024 * 1024, backupCount=5, encoding="utf-8"),
+            logging.StreamHandler()
+        ]
+    )
     main()
