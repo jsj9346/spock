@@ -336,12 +336,17 @@ def save_ic_results(
     """
 
     saved_count = 0
-    for record in records:
-        try:
-            db.execute_update(insert_query, record)
-            saved_count += 1
-        except Exception as e:
-            logger.error(f"  Error saving IC for {record[0]}: {e}")
+    try:
+        db.execute_many(insert_query, records)
+        saved_count = len(records)
+    except Exception as e:
+        logger.warning(f"  Batch IC insert failed ({e}), falling back to individual inserts")
+        for record in records:
+            try:
+                db.execute_update(insert_query, record)
+                saved_count += 1
+            except Exception as rec_e:
+                logger.error(f"  Error saving IC for {record[0]}: {rec_e}")
 
     return saved_count
 

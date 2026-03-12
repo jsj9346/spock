@@ -186,9 +186,8 @@ class TechnicalIndicatorCalculator:
                   AND timeframe = %(timeframe)s
             """
 
-            # Batch update using loop (execute_batch_update not available)
-            for record in update_records:
-                self.db.execute_update(update_query, record)
+            # execute_many uses execute_batch internally (single round-trip per 1000 records)
+            self.db.execute_many(update_query, update_records)
 
             skip_msg = f" (skipped {skipped_count} existing)" if skipped_count > 0 else ""
             logger.info(f"✅ {ticker}: {len(update_records)} records updated{skip_msg}")
