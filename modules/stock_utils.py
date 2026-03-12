@@ -1,7 +1,6 @@
 import time
 from functools import wraps
 import re
-# import psycopg2  # PostgreSQL 의존성 제거 - SQLite 사용
 import os
 from dotenv import load_dotenv
 import functools
@@ -14,9 +13,6 @@ import json
 import pytz
 import pandas as pd
 import psutil
-
-# Import optimized monitor (commented out - module deleted)
-# from optimized_data_monitor import get_optimized_monitor
 
 # === 전역 변수 초기화 ===
 _conversion_stats = {
@@ -196,16 +192,6 @@ def load_env():
     load_dotenv()
 
 # === DB 연결 함수 ===
-# PostgreSQL 함수는 SQLite 마이그레이션으로 인해 사용 중단
-# def get_db_connection():
-#     return psycopg2.connect(
-#         host=os.getenv("PG_HOST"),
-#         port=os.getenv("PG_PORT"),
-#         dbname=os.getenv("PG_DATABASE"),
-#         user=os.getenv("PG_USER"),
-#         password=os.getenv("PG_PASSWORD")
-#     )
-
 # SQLite용 DB 연결 - db_manager_sqlite.py 사용 권장
 def get_db_connection():
     """
@@ -608,74 +594,6 @@ def load_blacklist():
             pass
         
         return {}
-
-# === UNUSED: 블랙리스트 관리 함수들 ===
-# def add_to_blacklist(ticker: str, reason: str) -> bool:
-#     """
-#     블랙리스트에 티커를 추가합니다.
-#     
-#     Args:
-#         ticker (str): 추가할 티커
-#         reason (str): 추가 사유
-#         
-#     Returns:
-#         bool: 성공 여부
-#     """
-#     try:
-#         blacklist_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "blacklist.json")
-#         blacklist = load_blacklist()
-#         
-#         # 현재 UTC 시간
-#         now = datetime.now(pytz.UTC)
-#         
-#         # 티커 추가
-#         blacklist[ticker] = {
-#             "reason": reason,
-#             "added": now.isoformat()
-#         }
-#         
-#         # JSON 파일 저장
-#         with open(blacklist_path, 'w', encoding='utf-8') as f:
-#             json.dump(blacklist, f, ensure_ascii=False, indent=2)
-#             
-#         logger.info(f"✅ {ticker} 블랙리스트 추가 완료 (사유: {reason})")
-#         return True
-#         
-#     except Exception as e:
-#         logger.error(f"❌ {ticker} 블랙리스트 추가 중 오류 발생: {e}")
-#         return False
-
-# def remove_from_blacklist(ticker: str) -> bool:
-#     """
-#     블랙리스트에서 티커를 제거합니다.
-#     
-#     Args:
-#         ticker (str): 제거할 티커
-#         
-#     Returns:
-#         bool: 성공 여부
-#     """
-#     try:
-#         blacklist_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "blacklist.json")
-#         blacklist = load_blacklist()
-#         
-#         if ticker not in blacklist:
-#             logger.warning(f"⚠️ {ticker}는 블랙리스트에 없습니다.")
-#             return False
-#             
-#         # 티커 제거
-#         del blacklist[ticker]
-#         
-#         # JSON 파일 저장
-#         with open(blacklist_path, 'w', encoding='utf-8') as f:
-#             json.dump(blacklist, f, ensure_ascii=False, indent=2)
-#             
-#         logger.info(f"✅ {ticker} 블랙리스트 제거 완료")
-#         return True
-#         
-#     except Exception as e:
-#         logger.error(f"❌ {ticker} 블랙리스트 제거 중 오류 발생: {e}")
-#         return False
 
 # === 테이블 스키마 매핑 정규화 ===
 COLUMN_MAPPING = {
