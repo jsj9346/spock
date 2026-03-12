@@ -458,6 +458,7 @@ class QueryCache:
         self._cache: Dict[str, Any] = {}
         self._timestamps: Dict[str, datetime] = {}
         self._lock = threading.Lock()
+        self._pending: Dict[str, threading.Event] = {}  # in-flight fetch tracker
         self._hits = 0
         self._misses = 0
 
@@ -469,6 +470,11 @@ class QueryCache:
     ) -> Any:
         """
         캐시에서 가져오거나 새로 조회
+
+        동일 키에 대한 중복 fetch(Thundering Herd)를 방지하기 위해
+        _pending dict에 threading.Event를 등록한다. 첫 번째 스레드만
+        fetch_func()를 실행하고, 대기 중인 스레드는 Event.wait()로
+        블로킹 후 완료된 캐시 결과를 반환한다.
 
         Args:
             key: 캐시 키
@@ -487,17 +493,35 @@ class QueryCache:
                     self._hits += 1
                     return self._cache[key]
 
-            # 캐시 미스 - 새로 조회
-            self._misses += 1
+            # 이미 다른 스레드가 동일 키를 fetch 중이면 해당 Event 대기
+            if key in self._pending:
+                wait_event = self._pending[key]
+                is_fetcher = False
+            else:
+                # 이 스레드가 fetch 담당
+                self._misses += 1
+                wait_event = threading.Event()
+                self._pending[key] = wait_event
+                is_fetcher = True
 
-        # Lock 외부에서 fetch 실행 (긴 작업일 수 있음)
-        result = fetch_func()
+        if not is_fetcher:
+            # fetch 완료까지 대기 (최대 30초) 후 캐시에서 반환
+            wait_event.wait(timeout=30)
+            with self._lock:
+                return self._cache.get(key)
 
-        with self._lock:
-            self._cache[key] = result
-            self._timestamps[key] = datetime.now()
-
-        return result
+        # fetch 담당 스레드: Lock 외부에서 실행 (긴 작업)
+        try:
+            result = fetch_func()
+            with self._lock:
+                self._cache[key] = result
+                self._timestamps[key] = datetime.now()
+            return result
+        finally:
+            # 성공/실패 무관하게 대기 스레드 해제
+            with self._lock:
+                self._pending.pop(key, None)
+            wait_event.set()
 
     def invalidate(self, pattern: str = None):
         """
