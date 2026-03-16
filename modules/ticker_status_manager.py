@@ -221,7 +221,8 @@ class TickerStatusManager:
             WHERE ticker = %s AND region = %s
         """
 
-        self.db.execute_update(query, (self.STATUS_ACTIVE, ticker, region))
+        if not self.db.execute_update(query, (self.STATUS_ACTIVE, ticker, region)):
+            logger.warning(f"mark_success DB update failed for {ticker} ({region})")
         logger.debug(f"Marked {ticker} ({region}) as active")
 
     def mark_failure(self, ticker: str, region: str, error_msg: str):
@@ -267,7 +268,7 @@ class TickerStatusManager:
             WHERE ticker = %s AND region = %s
         """
 
-        self.db.execute_update(query, (
+        if not self.db.execute_update(query, (
             fail_reason,
             self.FAIL_COUNT_THRESHOLD - 1,  # Change on 3rd failure (count starts at 0)
             new_status,
@@ -275,7 +276,8 @@ class TickerStatusManager:
             new_status,
             ticker,
             region
-        ))
+        )):
+            logger.warning(f"mark_failure DB update failed for {ticker} ({region})")
 
         logger.debug(f"Marked {ticker} ({region}) failure: {fail_reason}")
 
@@ -296,7 +298,8 @@ class TickerStatusManager:
             WHERE ticker = %s AND region = %s
         """
 
-        self.db.execute_update(query, (self.STATUS_BLACKLIST, reason, ticker, region))
+        if not self.db.execute_update(query, (self.STATUS_BLACKLIST, reason, ticker, region)):
+            logger.warning(f"set_blacklist DB update failed for {ticker} ({region})")
         logger.info(f"Blacklisted {ticker} ({region}): {reason}")
 
     def clear_blacklist(self, ticker: str, region: str):
@@ -316,7 +319,8 @@ class TickerStatusManager:
             WHERE ticker = %s AND region = %s
         """
 
-        self.db.execute_update(query, (self.STATUS_UNKNOWN, ticker, region))
+        if not self.db.execute_update(query, (self.STATUS_UNKNOWN, ticker, region)):
+            logger.warning(f"clear_blacklist DB update failed for {ticker} ({region})")
         logger.info(f"Cleared blacklist for {ticker} ({region})")
 
     def reset_status(self, ticker: str, region: str):
@@ -350,7 +354,8 @@ class TickerStatusManager:
         """
 
         for ticker, region in tickers:
-            self.db.execute_update(query, (self.STATUS_ACTIVE, ticker, region))
+            if not self.db.execute_update(query, (self.STATUS_ACTIVE, ticker, region)):
+                logger.warning(f"bulk_mark_success DB update failed for {ticker} ({region})")
 
     def auto_detect_unsupported(self, region: str) -> int:
         """
@@ -388,7 +393,8 @@ class TickerStatusManager:
         count = result[0]['cnt'] if result else 0
 
         if count > 0:
-            self.db.execute_update(query, (self.STATUS_UNSUPPORTED, self.STATUS_UNSUPPORTED))
+            if not self.db.execute_update(query, (self.STATUS_UNSUPPORTED, self.STATUS_UNSUPPORTED)):
+                logger.warning("auto_detect_unsupported DB update failed")
             logger.info(f"Auto-detected {count} US preferred stocks as unsupported")
 
         return count
@@ -437,7 +443,8 @@ class TickerStatusManager:
         results['active'] = result[0]['cnt'] if result else 0
 
         if results['active'] > 0:
-            self.db.execute_update(active_query, (region,))
+            if not self.db.execute_update(active_query, (region,)):
+                logger.warning(f"[{region}] init_status_from_ohlcv DB update failed")
 
         logger.info(f"[{region}] Initialized status: {results['active']} active from OHLCV data")
         return results

@@ -444,15 +444,15 @@ class CollectionTracker:
             WHERE ticker = %s AND region = %s
               AND data_type = %s AND last_collected = %s
             """
-            self.db.execute_update(
-                query, (ticker, region, data_type.value, today)
-            )
+            if not self.db.execute_update(query, (ticker, region, data_type.value, today)):
+                logger.debug(f"invalidate_ticker: no DB row to delete for {ticker}/{region}/{data_type.value}")
         else:
             query = """
             DELETE FROM collection_tracker
             WHERE ticker = %s AND region = %s AND last_collected = %s
             """
-            self.db.execute_update(query, (ticker, region, today))
+            if not self.db.execute_update(query, (ticker, region, today)):
+                logger.debug(f"invalidate_ticker: no DB row to delete for {ticker}/{region}")
 
 
 # =============================================================================

@@ -52,6 +52,7 @@ def create_production_container() -> DIContainer:
     """
     from infrastructure.config import RefreshConfig, UIConfig
     from infrastructure.database import ConnectionPoolManager, TransactionManager
+    from modules.db_manager_postgres import PostgresDatabaseManager
 
     container = DIContainer()
 
@@ -85,6 +86,15 @@ def create_production_container() -> DIContainer:
     container.register(
         'tx_manager',
         lambda: TransactionManager(container.get('pool_manager')),
+        singleton=True
+    )
+
+    # ========================================
+    # Production Database Manager (modules layer)
+    # ========================================
+    container.register(
+        'db',
+        lambda: PostgresDatabaseManager(),
         singleton=True
     )
 

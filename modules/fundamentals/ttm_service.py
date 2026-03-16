@@ -276,7 +276,9 @@ class TTMService:
                 result.calculated_at
             )
 
-            self.db.execute_update(query, params)
+            if not self.db.execute_update(query, params):
+                logger.warning(f"[{result.ticker}] TTM 저장: DB update가 0행에 영향 (ticker가 tickers 테이블에 없을 수 있음)")
+                return False
             return True
 
         except Exception as e:

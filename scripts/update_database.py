@@ -51,9 +51,9 @@ from typing import Optional
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from modules.db_manager_postgres import PostgresDatabaseManager
 from modules.orchestration.orchestrator import DatabaseUpdateOrchestrator
 from modules.constants.regions import VALID_REGIONS
+from infrastructure.di import create_production_container
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -248,9 +248,10 @@ def main():
         # Log arguments
         logger.info(f"Arguments: {vars(args)}")
 
-        # Initialize database connection
+        # Initialize DI container and database connection
         logger.info("Connecting to PostgreSQL database...")
-        db = PostgresDatabaseManager()
+        container = create_production_container()
+        db = container.get('db')
         logger.info("✅ Database connection established")
 
         # Initialize orchestrator
